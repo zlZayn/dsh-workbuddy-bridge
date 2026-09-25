@@ -181,6 +181,55 @@ describe('菜单材质成对', () => {
   })
 })
 
+/**
+ * 浏览器半体的产物守卫：**绝不把宿主提供的运行时打进包里**。
+ *
+ * 2026-09-25 真机事故：`probe-control.tsx` 用了 `react-dom` 的 `createPortal`，
+ * 而 `tsdown.config.ts` 的 `CLIENT_EXTERNALS` 里没有它 —— rolldown 于是把整份
+ * react-dom 内联进来（80 KB → 1 MB），它模块顶层的 `process.env.NODE_ENV` 判断
+ * 在浏览器里直接抛 `process is not defined`，插件装载失败、整页报 import error。
+ *
+ * 判据放在**产物**上而不是源码上：源码里写 import 是正常的，错的是它没被外部化。
+ */
+describe('浏览器半体产物不内联宿主运行时', () => {
+  const clientPath = new URL('../lib/client.js', import.meta.url)
+  const bundle = existsSync(clientPath) ? readFileSync(clientPath, 'utf8') : undefined
+
+  /** 宿主在工厂里 `require` 得到的模块：产物的 require 只允许出现这些。 */
+  const HOST_PROVIDED = [
+    'react',
+    'react-dom',
+    'react/jsx-runtime',
+    'react-dom/client',
+    // staticLinked 平台模块，由宿主装载器提供。
+    '@deepseek-ai/dsh-client-ui-primitives',
+  ]
+
+  it('产物只 require 宿主提供的模块', () => {
+    if (bundle === undefined) return
+    const required = [...bundle.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)].map(match => match[1] as string)
+    // 自检：真的扫到了 require，否则这条断言永不触发。
+    expect(required.length, '产物里一个 require 都没有 —— 扫描失效了？').toBeGreaterThan(0)
+    const inlined = [...new Set(required)].filter(name => !HOST_PROVIDED.includes(name))
+    expect(
+      inlined,
+      '这些模块被打进了产物；应加进 tsdown.config.ts 的 CLIENT_EXTERNALS',
+    ).toEqual([])
+  })
+
+  it('产物里没有 process 引用（内联 React 运行时的signature）', () => {
+    if (bundle === undefined) return
+    expect(bundle).not.toMatch(/\bprocess\b/)
+    expect(bundle).not.toMatch(/NODE_ENV/)
+  })
+
+  it('产物体积在量级上正常（内联运行时会让它涨十倍）', () => {
+    if (bundle === undefined) return
+    // 实际约 84 KB；阈值给到 256 KB，只为拦住「整份运行时被内联」这一种情况。
+    expect(bundle.length, '客户端产物异常膨胀，检查是不是有依赖被内联了').toBeLessThan(262144)
+  })
+})
+
 describe('客户端接缝', () => {
   it('推理等级控件注在 list 槽上，绝不注 single 槽', () => {
     const source = read('src/client/index.tsx')

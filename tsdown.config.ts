@@ -15,14 +15,24 @@ const PACKAGE_VERSION = JSON.parse(
 const VERSION_DEFINE = { __DSH_WORKBUDDY_VERSION__: JSON.stringify(PACKAGE_VERSION) }
 
 /**
- * Modules the host loader provides, kept out of the browser bundle. The
- * client's DSH imports are type-only today — they erase at build time, so the
- * emitted bundle only requires React. The list is the guardrail that keeps a
- * future value import `require`d from the host instead of inlined.
+ * Modules the host loader provides, kept out of the browser bundle.
+ *
+ * The list is a guardrail, not documentation: anything imported by value and
+ * *not* named here gets **inlined**, and inlining a React runtime is fatal
+ * rather than merely fat. `react-dom` was missing here once, and because its
+ * module scope reads `process.env.NODE_ENV`, the bundle grew from ~80 KB to
+ * 1 MB and then threw `process is not defined` the moment the browser loaded it
+ * — the plugin failed to activate and the host reported it as an import error.
+ *
+ * `dsh-ds-balance`'s `scripts/build-client.mjs` names the same set
+ * (`HOST_PROVIDED = ['react', 'react-dom', 'react/jsx-runtime',
+ * 'react-dom/client', '@deepseek-ai/*']`), which is where these come from.
  */
 const CLIENT_EXTERNALS = [
   'react',
+  'react-dom',
   'react/jsx-runtime',
+  'react-dom/client',
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-locale/client',
