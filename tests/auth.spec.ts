@@ -320,23 +320,30 @@ describe('Windows default desktop path probing', () => {
 describe('WSL default desktop path probing', () => {
   const AUTH_TAIL = join('CodeBuddyExtension', 'Data', 'Public', 'auth', 'workbuddy-desktop.info')
 
+  /**
+   * The env this suite manages. XDG bases belong here even though a WSL host
+   * does not normally set them: the *test runner* may (CI exports
+   * `XDG_CONFIG_HOME=/home/runner/.config`), and leaving that in place makes
+   * the Linux half of the candidate list depend on the machine running the
+   * tests — which is exactly what happened on CI.
+   */
+  const WSL_MANAGED_ENV = [
+    'APPDATA', 'LOCALAPPDATA', 'USERPROFILE', 'WSL_DISTRO_NAME', 'WSL_INTEROP',
+    'XDG_CONFIG_HOME', 'XDG_DATA_HOME',
+  ] as const
+
   async function asWsl<T>(options: {
     home: string
-    env?: Partial<Record<'APPDATA' | 'LOCALAPPDATA' | 'USERPROFILE', string>>
+    env?: Partial<Record<typeof WSL_MANAGED_ENV[number], string>>
   }, run: () => Promise<T>): Promise<T> {
     const savedPlatform = process.platform
     const savedEnv = Object.fromEntries(
-      ['APPDATA', 'LOCALAPPDATA', 'USERPROFILE', 'WSL_DISTRO_NAME', 'WSL_INTEROP']
-        .map(name => [name, process.env[name]]),
+      WSL_MANAGED_ENV.map(name => [name, process.env[name]]),
     )
     Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
     fakeOs.home = options.home
     fakeOs.release = '6.6.87.2-microsoft-standard-WSL2'
-    delete process.env['APPDATA']
-    delete process.env['LOCALAPPDATA']
-    delete process.env['USERPROFILE']
-    delete process.env['WSL_DISTRO_NAME']
-    delete process.env['WSL_INTEROP']
+    for (const name of WSL_MANAGED_ENV) delete process.env[name]
     Object.assign(process.env, options.env)
     try {
       return await run()
