@@ -112,11 +112,10 @@ dsh --profile dsh-tui
 
 ## Version compatibility
 
-- This repository (`0.1.0` onward) supports the **DSH `0.1.7` line** only, verified on `0.1.7-rc.2`; the floor
-  lives in [package.json](package.json) (`engines.dsh`) and is not copied here.
-- This repository is a rebuild of [`dsh-workbuddy-connect`](https://github.com/corrinehu/dsh-workbuddy-connect):
-  **a different package name on a different version line** — the old `0.2.x`–`0.7.x` releases live under the old name
-  and are not published here. Users on older DSH cores should stay on that old line.
+- This repository supports the **DSH `0.1.7` line** only, verified on `0.1.7-rc.2`; the floor lives in
+  [package.json](package.json) (`engines.dsh`) and is not copied here.
+- **No cross-generation compatibility**: when the host moves lines, this repository moves its floor with it rather
+  than serving two lines from one codebase.
 - The plugin **never probes the host version**: it registers against the contracts the host declares (slots, services,
   the configuration seam) with no defensive wrappers. Where a seam is absent the corresponding feature quietly does not
   appear, and nothing else is dragged down with it.

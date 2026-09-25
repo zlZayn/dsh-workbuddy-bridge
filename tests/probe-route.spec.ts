@@ -164,12 +164,11 @@ describe('probe control route', () => {
     expect(calls).toEqual(['clear'])
   })
 
-  it('rejects the retired maximum-context action uniformly', async () => {
-    // v0.6.x carried a dedicated `set-maximum-context-window` route action for
-    // the old card's toggle. Under the 0.1.7 contract that preference is owned
-    // by the settings form (Config schema + mutate), the card only reports
-    // status, and no caller remains — so the action is gone, not 404-able:
-    // unknown actions are indistinguishable from each other by design.
+  it('rejects an unknown action uniformly', async () => {
+    // The maximum-context preference is owned by the settings form (Config
+    // schema + mutate) and the card only reports status, so no route action
+    // carries it. Unknown actions are indistinguishable from each other by
+    // design — hence 400, not a dedicated 404.
     const { origin, key } = await mount()
     const result = await post(origin, { action: 'set-maximum-context-window', enabled: true }, { 'X-WorkBuddy-Probe-Key': key })
     expect(result).toMatchObject({ status: 400, body: { error: 'invalid action' } })

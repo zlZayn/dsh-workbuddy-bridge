@@ -1257,7 +1257,7 @@ interface WorkBuddyAdapter {
  * public export surface (root entry, `lib/` deep imports blocked by the
  * exports map, `src/` not shipped), so hand-assembly is the only supported
  * path and every newly required field must be adopted here explicitly —
- * `modelErrors` since 0.1.5-alpha.2 (#12).
+ * `modelErrors` is one such field.
  */
 declare function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBuddyAdapter;
 //#endregion

@@ -45,12 +45,11 @@ gh release create v<新> --title v<新> --notes-from-tag
 
 ## 与 DSH 核心的版本对应
 
-**每个插件版本只支持一段 DSH 核心**，不匹配的组合会让 DSH 启动失败 —— 对应表写在 [README.md](../README.md) 的「安装」一节，那是唯一真源（本页不复制表格）。
+**每个插件版本只支持一段 DSH 核心**，不匹配的组合会让 DSH 启动失败。
 
-维护规则：
-
-- 抬插件支持的核心版本时 → 同一次改动内更新 README 的对应表（中英两份）+ [package.json](../package.json) 的 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 声明的下限，形状保持一致。
-- 跨代支持（同时支持两代核心）的成本很高，历史上靠一层兼容层扛过（见 [docs/archive/dual-dsh-ui-compat-2026-09-22.md](archive/dual-dsh-ui-compat-2026-09-22.md)）；**默认不做**，要做就单独一轮并写决策记录。
+- **下限的唯一真源是 [package.json](../package.json)**：`engines.dsh` 与全部 `@deepseek-ai/dsh-*` 声明写同一个下限（本仓统一 `>=<下限>`，不设上限）。本文与门面都不重抄那个号。
+- **本仓只支持一条线**，不提供跨代兼容层：宿主换线时，同一次改动内抬 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 的下限，并同步 [README.md](../README.md) 的「版本兼容」一节（中英两份）。
+- 判断「声明还罩不罩得住被跟的那条线」用 `pnpm run check:release`（它比 peer 与 `engines.dsh` 的下限）。
 
 ## 平台契约的取真源方式
 

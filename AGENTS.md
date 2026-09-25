@@ -46,20 +46,20 @@
 
 ## 待办
 
-- [ ] **声明面同形**：peer 现在写 `^0.1.7-alpha.1 || ^0.1.7-rc.1`（并集，第二段被第一段包含），
-  `engines.dsh` 写 `>=0.1.7-alpha.1` —— 下限一致但**形状不同**。收不收成另两仓那种 `>=<下限>` 由维护者拍
-  （`check:release` 只判下限，不判形状）
-- [ ] 移植红线用例（含「活文档不抄实测值」守卫）
-- [ ] 补仓内基建：`.github/workflows/ci.yml`、`.gitattributes`、`icon.svg` + `locale/*.json`
-- [ ] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态
+- [ ] **CI 首次跑通**：`.github/workflows/ci.yml` 已入库，但第一次运行失败在 install ——
+  pnpm 11 的供应链门禁（`minimumReleaseAge`）拒收发布不足 24 小时的宿主 rc 包。
+  处置写进 [pnpm-workspace.yaml](pnpm-workspace.yaml)；推送后确认 CI 真的绿，**绿了再把 CI 徽章加进门面**
+- [ ] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态（键名与插值形态已核，剩余为文案语义）
 - [ ] 首次发布 `0.1.0` 并回填发布态（含 README 的 npm 徽章）
-- [ ] `assets/7.png` 是 0.1.5 时代的历史件，确认后删除（判据见 [assets/README.md](assets/README.md)）
 
 ## 活跃坑
 
 - **槽的 `kind` 决定能不能注册**：`kind: 'single'` 的槽一格只能有一个占用者 —— 同 priority 再注册会抛错，
   而**抛出方是后注册的那一个**（宿主自带 UI 会因此消失）；要并排只能选 `kind: 'list'` 的槽。
   判据与先例见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「平台契约的取真源方式」
+- **pnpm 11 的供应链门禁会拒收刚发布的宿主 rc**：默认拒收发布不足 24 小时的版本，
+  而本插件跟的就是宿主的 rc 线 —— 报 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`，install 直接失败
+  （本机与 CI 同样）。处置见 [pnpm-workspace.yaml](pnpm-workspace.yaml)
 - **pnpm 11 的 symlink 链接器在本机会卡死**（343 个包已就位却搭不出 `node_modules`）→ 一律加 `--config.node-linker=hoisted`
 - `node_modules/.bin` 可能为空 → 按上面的直接路径调用工具
 - `Rename-Item` 对正在被 install/build 占用的目录会失败 → 改名前先确认无相关进程

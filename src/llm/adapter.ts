@@ -63,47 +63,6 @@ const INERT_AUTH: { credentials: CredentialStore; authContext: AuthContext } = {
 const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } as const
 
 /**
- * Translate the request-image contract across the two attachment-service
- * generations a link-installed plugin can straddle.
- *
- * A `link:` install resolves its platform imports from the *repository's*
- * node_modules (Node follows the symlink's real path), so this adapter always
- * runs against the pi-ai it was built with — while the attachment service
- * comes from the host. Those two generations disagree on what
- * `readImageRequest(ref, policyOrTarget)` receives:
- *
- * - dsh-attachment-local ≤0.1.5: a route policy `{ maxPixels, maxBytes }`,
- *   and `validatePolicy` throws `Image request maxPixels must be a positive
- *   integer.` when `maxPixels` is missing.
- * - 0.1.6+: a per-image target `{ width, height, maxBytes }` with no
- *   `maxPixels` at all, validated by `validateTarget`.
- *
- * A 0.1.6-built pi-ai on a 0.1.5 host therefore hands the old store a target
- * the old store rejects, and every image-bearing request fails before it is
- * sent. The wrapper below fills the route's own pixel budget into a target
- * that lacks it: the 0.1.5 store then computes the same dimensions pi-ai's
- * budget already chose, and a 0.1.6 store ignores the extra key.
- */
-function withLegacyImageBudget(store: AttachmentStore): AttachmentStore {
-  return new Proxy(store, {
-    get(target, property, receiver) {
-      if (property !== 'readImageRequest') return Reflect.get(target, property, receiver)
-      return (...args: Parameters<AttachmentStore['readImageRequest']>) => {
-        const [ref, policy, signal] = args
-        // The ≤0.1.5 store's own validity rule is "safe integer AND positive";
-        // a present-but-non-positive maxPixels would pass an isSafeInteger-only
-        // check and still be rejected there, so it is replaced too.
-        const present = (policy as { maxPixels?: number } | undefined)?.maxPixels
-        const withPixels = Number.isSafeInteger(present) && (present as number) > 0
-          ? policy
-          : { ...policy, maxPixels: REQUEST_IMAGE_BUDGETS.requestImagePixelBudget } as typeof policy
-        return target.readImageRequest(ref, withPixels, signal)
-      }
-    },
-  })
-}
-
-/**
  * The suffix appended to a model's display name so its billing rate is visible
  * wherever the name is shown.
  *
@@ -280,7 +239,7 @@ function toPiModel(info: WorkBuddyModelInfo, baseUrl: string, observed?: WorkBud
  * public export surface (root entry, `lib/` deep imports blocked by the
  * exports map, `src/` not shipped), so hand-assembly is the only supported
  * path and every newly required field must be adopted here explicitly —
- * `modelErrors` since 0.1.5-alpha.2 (#12).
+ * `modelErrors` is one such field.
  */
 export function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBuddyAdapter {
   const { shim, catalog, resolveAttachments, observe, hidden } = options
@@ -323,8 +282,8 @@ export function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBu
     streamIdleTimeoutMs: WORKBUDDY_STREAM_IDLE_TIMEOUT_MS,
     retryPolicy: resolveRetryPolicy(undefined, 'dsh-workbuddy-bridge retryPolicy'),
     configuredMaxTokens: new Map(),
-    // Required since 0.1.5-alpha.2; the live catalog only exposes models that
-    // probed successfully, so there is never a per-model failure to report.
+    // The live catalog only exposes models that probed successfully, so there
+    // is never a per-model failure to report.
     modelErrors: new Map(),
     ...REQUEST_IMAGE_BUDGETS,
     piProvider: provider,
@@ -340,17 +299,7 @@ export function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBu
     // validates this before forwarding and resolves the real WorkBuddy token
     // itself via the store, so the secret never reaches upstream.
     resolveApiKey: async () => shim.token(),
-    // Every store the adapter hands to pi-ai passes the legacy-budget wrapper:
-    // see withLegacyImageBudget — the mismatch it heals depends on which host
-    // generation owns the attachment service, not on anything observable here.
-    ...resolveAttachments === undefined
-      ? {}
-      : {
-        resolveAttachments: () => {
-          const store = resolveAttachments()
-          return store === undefined ? undefined : withLegacyImageBudget(store)
-        },
-      },
+    ...resolveAttachments === undefined ? {} : { resolveAttachments },
   })
 
   return {

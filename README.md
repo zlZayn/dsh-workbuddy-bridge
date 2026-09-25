@@ -107,10 +107,8 @@ dsh --profile dsh-tui
 
 ## 版本兼容
 
-- 本仓（`0.1.0` 起）只支持 **DSH `0.1.7` 线**，实测在 `0.1.7-rc.2` 上通过；下限见 [package.json](package.json) 的 `engines.dsh`，本文不重抄。
-- 本仓是 [`dsh-workbuddy-connect`](https://github.com/corrinehu/dsh-workbuddy-connect) 的重做版本：
-  **包名不同、版本线也不同** —— 旧线的 `0.2.x`–`0.7.x` 发布在旧包名下，本仓不再发布那些号。
-  仍在更早 DSH 核心上的用户，请留在旧包名那条线。
+- 本仓只支持 **DSH `0.1.7` 线**（实测在 `0.1.7-rc.2` 上通过）；下限见 [package.json](package.json) 的 `engines.dsh`，本文不重抄。
+- **不提供跨代兼容**：宿主换线时本仓跟着抬下限，不在一份代码里同时伺候两条线。
 - 本仓**不查宿主版本号**：它按宿主声明的契约注册（槽、服务、配置接缝），没有防御性包装；
   接缝缺席时对应功能静默不出现，不会拖垮界面。
 

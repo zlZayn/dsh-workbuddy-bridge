@@ -1,13 +1,17 @@
-# pnpm 11 config. pnpm 11 refuses to run scripts (and to let `pnpm run <script>`
-# proceed past its dependency check) unless the packages that need build steps
-# are explicitly listed. Without this file pnpm auto-generates a placeholder
-# containing "set this to true or false", and every `pnpm run check` fails with
-# ERR_PNPM_IGNORED_BUILDS before reaching a single test.
+# pnpm 11 config.
 #
-# Both entries are transitive dependencies of @earendil-works/pi-ai (via
-# @google/genai and protobufjs), which the plugin's dependency tree pulls in.
-# The alpha line carried the same two entries (see adapt/dsh-0.1.2, 5a5fac6);
-# this is the stable-line equivalent, kept deliberately minimal.
+# allowBuilds：pnpm 11 不再默认放行任何包的构建脚本；没在这里列出的包，
+# `pnpm run <script>` 会先被 ERR_PNPM_IGNORED_BUILDS 拦住，一个测试都跑不到。
+# 两条都是 @earendil-works/pi-ai 的传递依赖（经 @google/genai 与 protobufjs），刻意保持最小。
 allowBuilds:
   '@google/genai': true
   protobufjs: true
+
+# minimumReleaseAge：pnpm 11 的供应链门禁默认拒绝「发布不足 24 小时」的版本。
+# 本插件跟的是宿主那条 rc 线，而宿主刚发布的 rc 天然落在 24 小时内 ——
+# 不放行就装不上：本机与 CI 都停在 install，报 ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION。
+#
+# 写成 0（关掉这道门禁）而不是逐个排除包，是因为**被拒的那批就是本插件声明的宿主包**，
+# 而宿主 rc 的发布节奏注定长期落在窗口内 —— 每来一个 rc 就补一次排除名单，
+# 那是把人当校验器用。门禁的其余部分（完整性、trustPolicy）照旧生效。
+minimumReleaseAge: 0

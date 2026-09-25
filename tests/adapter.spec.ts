@@ -87,14 +87,12 @@ describe('WorkBuddy adapter model descriptors', () => {
   })
 })
 
-describe('request-image contract across host generations', () => {
+describe('request-image contract (0.1.7 host)', () => {
   /**
-   * The exact failure from docs/image-request-maxpixels-2026-09-23.md: a
-   * link-installed plugin runs the pi-ai it was built with (0.1.6, which hands
-   * `readImageRequest` a per-image target with no `maxPixels`) against a host
-   * attachment service from ≤0.1.5 (which validates `maxPixels` and throws
-   * otherwise). The adapter must fill its own route budget into a
-   * pixel-less policy before the store sees it.
+   * The host's `readImageRequest(ref, target)` takes a per-image target
+   * `{ width, height, maxBytes }` — the shape pi-ai sends. The adapter hands
+   * the store through unchanged, so this pins the boundary: an image-bearing
+   * request reaches the store with that target and nothing else bolted on.
    */
   const IMAGE_MESSAGE = {
     id: 'test-message' as never,
@@ -124,85 +122,27 @@ describe('request-image contract across host generations', () => {
     }).adapter
   }
 
-  it('fills the route pixel budget for a store that validates maxPixels (≤0.1.5 hosts)', async () => {
+  it('hands the host store through unchanged', async () => {
     let observed: unknown
     const store = {
-      readImageRequest(_ref: unknown, policy: { maxPixels?: number }) {
-        // The ≤0.1.5 contract, verbatim in spirit.
-        if (!Number.isSafeInteger(policy.maxPixels) || (policy.maxPixels ?? 0) <= 0) {
-          throw new Error('Image request maxPixels must be a positive integer.')
-        }
-        observed = policy
-        // Sentinel past validation: proves the request survived the contract.
+      readImageRequest(_ref: unknown, target: Record<string, unknown>) {
+        observed = target
+        // Sentinel past the boundary: proves the request survived the contract.
         throw new Error('PAST_VALIDATION')
       },
     }
     const adapter = imageAdapter(store)
     const call = await adapter.prepareCall(WORKBUDDY_PROVIDER, 'glm-5.3')
     // The message rides dsh-llm's branded ids/media types; the test's interest
-    // is the policy at the attachment boundary, not Message branding.
+    // is the target at the attachment boundary, not Message branding.
     const messages = [IMAGE_MESSAGE as never]
     await expect(async () => {
       for await (const _chunk of call.stream({ provider: WORKBUDDY_PROVIDER, model: 'glm-5.3', messages })) {
         // drain; the store's sentinel is expected to end the iteration
       }
     }).rejects.toThrow('PAST_VALIDATION')
-    expect(observed).toMatchObject({ maxPixels: 4_194_304 })
-  })
-
-  it('passes a policy that already carries maxPixels through untouched', async () => {
-    let observed: unknown
-    const store = {
-      readImageRequest(_ref: unknown, policy: Record<string, unknown>) {
-        observed = policy
-        throw new Error('PAST_VALIDATION')
-      },
-    }
-    const adapter = imageAdapter(store)
-    const call = await adapter.prepareCall(WORKBUDDY_PROVIDER, 'glm-5.3')
-    const messages = [IMAGE_MESSAGE as never]
-    await expect(async () => {
-      for await (const _chunk of call.stream({ provider: WORKBUDDY_PROVIDER, model: 'glm-5.3', messages })) {
-        // drain
-      }
-    }).rejects.toThrow('PAST_VALIDATION')
-    // The 0.1.6 target shape reached the store with only the budget added.
-    expect(observed).toMatchObject({ width: 1, height: 1, maxBytes: 1_048_576, maxPixels: 4_194_304 })
-  })
-
-  it('replaces a present-but-non-positive maxPixels with the route budget', async () => {
-    // The ≤0.1.5 store accepts only a *positive* safe integer; 0 and negatives
-    // are safe integers and would slip through an isSafeInteger-only guard,
-    // then be rejected by the store — so the wrapper replaces them too.
-    // Called directly on the wrapped store (pi-ai itself always sends a
-    // pixel-less target, so only a future pi-ai could produce these shapes).
-    let observed: { maxPixels?: number } | undefined
-    const store = {
-      readImageRequest(_ref: unknown, policy: { maxPixels?: number }) {
-        if (!Number.isSafeInteger(policy.maxPixels) || (policy.maxPixels ?? 0) <= 0) {
-          throw new Error('Image request maxPixels must be a positive integer.')
-        }
-        observed = policy
-        return Promise.resolve({ bytes: 1 })
-      },
-    }
-    const adapter = imageAdapter(store)
-    const wrapped = (adapter as unknown as {
-      config: { resolveAttachments: () => { readImageRequest: (ref: unknown, policy: unknown, signal?: AbortSignal) => Promise<unknown> } }
-    }).config.resolveAttachments()
-    for (const invalid of [0, -1]) {
-      observed = undefined
-      await wrapped.readImageRequest(
-        { attachmentId: 'sha256:test', mediaType: 'image/png', width: 1, height: 1, bytes: 70 },
-        { width: 1, height: 1, maxBytes: 1_048_576, maxPixels: invalid },
-      )
-      expect(observed).toMatchObject({ maxPixels: 4_194_304 })
-    }
-    // A positive value is forwarded exactly as received.
-    await wrapped.readImageRequest(
-      { attachmentId: 'sha256:test', mediaType: 'image/png', width: 1, height: 1, bytes: 70 },
-      { maxPixels: 999 },
-    )
-    expect(observed).toMatchObject({ maxPixels: 999 })
+    // The host's own target shape, with nothing added.
+    expect(observed).toMatchObject({ width: 1, height: 1, maxBytes: 1_048_576 })
+    expect(observed).not.toHaveProperty('maxPixels')
   })
 })

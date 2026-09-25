@@ -19,11 +19,8 @@ import { WORKBUDDY_VARIANTS } from '../src/variants.ts'
  * boundary (catalog keeps everything, listModels hides, resolveModel resolves),
  * the per-account/per-variant isolation of the store, persistence, the
  * signed-out and uid-less degradations, and the control-route contract. The
- * card's checkboxes live in `tests/model-visibility-card.spec.ts` (client
- * project); the dual-DSH-ui aspect needs no feature tests of its own — the
- * controls live in the shared `WorkBuddyPluginCard`, which the existing 0.1.5
- * (`slot-registration.spec.ts`) and 0.1.6+ seam tests already exercise for
- * both surfaces.
+ * card's checkboxes live in `tests/browser/card.spec.ts` (client project);
+ * the controls themselves are exercised there.
  */
 
 const CLEANUP: (() => void)[] = []

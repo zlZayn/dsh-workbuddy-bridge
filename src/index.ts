@@ -506,9 +506,8 @@ async function startVariant(ctx: Context, runtime: VariantRuntime): Promise<bool
     }
 
     // Only the adapter registers. The plugin deliberately contributes NO
-    // `registerConfigurableProviders` directory entry — on either DSH
-    // generation: the Models settings page (present since 0.1.2, joining the
-    // same way on 0.1.5 and 0.1.6) builds its rows from that registration, so
+    // `registerConfigurableProviders` directory entry: the Models settings page
+    // builds its rows from that registration, so
     // omitting it keeps the WorkBuddy providers off that page (its editor has
     // no fields to offer them) while the adapter keeps serving models and the
     // sections keep serving `settings.yaml` and the TUI. A live route with no

@@ -48,12 +48,12 @@ src/
 
 ## 配置与实时状态的分界
 
-这条分界是 0.7.0 最重要的设计决定：
+这条分界是本插件最重要的设计决定：
 
-- **静态部署状态** → `Config` schema（`authFile`、`authFileAI`、`probeConsent`、`useMaximumContextWindow`）。0.1.7 起 `Config` schema **就是**设置文档，宿主按包名服务它，写入走 revision 封装的 `mutate`。没有第二份"设置区"，没有双代兼容层。
+- **静态部署状态** → `Config` schema（`authFile`、`authFileAI`、`probeConsent`、`useMaximumContextWindow`）。`Config` schema **就是**设置文档，宿主按包名服务它，写入走 revision 封装的 `mutate`。没有第二份「设置区」。
 - **实时账号状态**（账号、积分、目录来源、上下文与显隐、探测结果）→ 只读。卡片是宿主事实的报告者，不是编辑者；唯一的写路径是探测控制路由，且每次写完回读，让宿主的真相留在屏上。
 
-由此删除了 0.6.x 的 `set-maximum-context-window` 动作和整条 `installSection` 兼容路径——那是一整类"卡片说保存了、宿主却拒绝了"的错误的根源。
+由此不存在「卡片说保存了、宿主却拒绝了」那一类错误：写路径只有一条，且写入后必回读。
 
 ## 兼容性契约（改动前必读）
 
