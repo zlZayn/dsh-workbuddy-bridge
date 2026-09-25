@@ -5,10 +5,10 @@ import type { SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 /** Every copy key the browser half renders. */
 export type WorkBuddyLocaleKey =
   // Card frame
-  | 'title' | 'intro' | 'titleAI' | 'introAI'
+  | 'title' | 'intro' | 'titleAI'
   // Account state
   | 'loading' | 'signedOut' | 'signedOutHint' | 'signedOutHintAI' | 'signedIn' | 'signedInAs' | 'accessTokenExpires'
-  | 'accountHeading' | 'modelsHeading' | 'contextHeading'
+  | 'accountHeading'
   // Read failures
   | 'requestFailed' | 'statusRefreshFailed' | 'statusResponseInvalid'
   // Catalog provenance
@@ -16,22 +16,21 @@ export type WorkBuddyLocaleKey =
   // Actions
   | 'refresh' | 'refreshing' | 'refreshModels' | 'refreshingModels'
   // Tabs
-  | 'tabLabel' | 'tabStatus' | 'tabContext' | 'tabDetails'
+  | 'tabLabel' | 'tabCredits' | 'tabModels' | 'tabProbe'
   // Credit
-  | 'creditsHeading' | 'creditsDetailHeading' | 'creditsTotal' | 'creditsTotalUnlimited'
+  | 'creditsTotal' | 'creditsTotalUnlimited'
   | 'unlimitedQuota' | 'packageEnterprise' | 'cycleResetAt' | 'percentRemaining' | 'percentUnknown'
   | 'exactRemaining' | 'creditPackageUnknownSize' | 'creditsError'
   // Model offers
   | 'freeModel' | 'badgeLimitedFree' | 'badgeNightDiscount' | 'badgeFreeNow' | 'rate' | 'rateUnknown'
-  // Context window
+  // Model list
   | 'contextUpTo' | 'contextDefault' | 'contextUnknown'
-  // Model visibility
   | 'visibilityIntro' | 'visibilityStaleAccount'
-  // Reasoning-effort detection
-  | 'probeHeading' | 'probeIntro' | 'probeConsentHint' | 'probeStart' | 'probeRedetect'
-  | 'probeRunning' | 'probeRunningGeneric' | 'probeClear' | 'probeConfirmBody'
-  | 'probeResultVerified' | 'probeResultNotValidating' | 'probeResultUnknown' | 'probeResultAt'
-  | 'probeResultEmpty' | 'probeResultNoLevels' | 'probeFailed'
+  // Reasoning-effort detection (card tab)
+  | 'probeCostNote' | 'probeStart' | 'probeRedetect'
+  | 'probeRunning' | 'probeClear'
+  | 'probeResultNotValidating' | 'probeResultUnknown' | 'probeResultAt'
+  | 'probeResultEmpty' | 'probeFailed'
   // The composer control's own panel. Unlike the card, it has one action and no
   // confirmation step: the panel explains, the button acts.
   | 'probePanelLevels' | 'probePanelNone' | 'probePanelNote' | 'probePanelDetect'
@@ -40,7 +39,7 @@ export type WorkBuddyLocaleKey =
   | 'probeTooltipFailed'
   // Settings form
   | 'authFile' | 'authFileHint' | 'authFileAI' | 'authFileAIHint'
-  | 'probeConsent' | 'maximumContextWindow' | 'maximumContextWindowHint' | 'on' | 'off'
+  | 'probeConsent' | 'probeConsentHint' | 'maximumContextWindow' | 'maximumContextWindowHint'
   | 'overridden' | 'reset' | 'readOnly' | 'unavailable' | 'save' | 'saving' | 'saveFailed'
   // Agent assist
   | 'assistantHeading' | 'assistantIntro' | 'assistantCopy' | 'assistantCopied'
@@ -53,17 +52,14 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   title: 'WorkBuddy (CN)',
   intro: 'Follows the sign-in of the WorkBuddy desktop app and serves its models here.',
   titleAI: 'WorkBuddy AI (Global)',
-  introAI: 'Follows the sign-in of the WorkBuddy AI desktop app and serves its models here.',
   loading: 'Loading account…',
   signedOut: 'Not signed in',
   signedOutHint: 'Sign in once in the WorkBuddy desktop app; this plugin follows that sign-in automatically.',
   signedOutHintAI: 'Sign in once in the WorkBuddy AI desktop app; this plugin follows that sign-in automatically.',
   signedIn: 'Signed in',
   signedInAs: 'Signed in as {nickname}',
-  accessTokenExpires: 'Access token expires {time} (refresh is automatic)',
+  accessTokenExpires: 'Sign-in expires {time}; it renews automatically.',
   accountHeading: 'Account',
-  modelsHeading: 'Model offers',
-  contextHeading: 'Context window',
   requestFailed: 'Request failed',
   statusRefreshFailed: 'Refresh failed: {message} — showing the last known state',
   statusResponseInvalid: 'WorkBuddy returned an unreadable status reply',
@@ -77,11 +73,9 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   refreshModels: 'Refresh model list',
   refreshingModels: 'Refreshing models…',
   tabLabel: 'WorkBuddy detail',
-  tabStatus: 'Status',
-  tabContext: 'Context window',
-  tabDetails: 'Credit details',
-  creditsHeading: 'Remaining credit',
-  creditsDetailHeading: 'By package',
+  tabCredits: 'Credits',
+  tabModels: 'Models',
+  tabProbe: 'Detection',
   creditsTotal: 'Total: {total}',
   creditsTotalUnlimited: 'Total: Unlimited',
   unlimitedQuota: 'Unlimited',
@@ -95,29 +89,23 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   freeModel: 'Free',
   badgeLimitedFree: 'Limited-time free',
   badgeNightDiscount: 'Night discount',
-  badgeFreeNow: 'Free now',
+  badgeFreeNow: 'Free for now',
   rate: '{rate} credits per message',
   rateUnknown: 'Price unavailable — refresh to update',
   contextUpTo: 'up to {size}',
   contextDefault: 'default {size}',
   contextUnknown: 'no declared context window',
-  visibilityIntro: 'Uncheck a model to hide it from the model picker. Saved per signed-in account; chats already using a hidden model keep working.',
+  visibilityIntro: 'Uncheck a model to hide it from the picker. The choice is saved per signed-in account; chats already using a hidden model keep working.',
   visibilityStaleAccount: 'The signed-in account changed — this change was not saved.',
-  probeHeading: 'Reasoning effort detection',
-  probeIntro: 'Some models reason but declare no selectable effort levels. Detecting which levels a model accepts sends a few real requests that may consume credit.',
-  probeConsentHint: 'Each detection sends test requests to one model to confirm its available reasoning levels, and may consume a small amount of credit.',
+  probeCostNote: 'Some models reason but declare no selectable effort levels. Detecting sends a few real requests to one model and may consume a small amount of credit.',
   probeStart: 'Detect',
   probeRedetect: 'Detect again',
   probeRunning: 'Detecting {model}…',
-  probeRunningGeneric: 'Detecting…',
-  probeClear: 'Clear detected results',
-  probeConfirmBody: 'Send test requests to {model} to confirm its available reasoning levels. May consume a small amount of credit.',
-  probeResultVerified: 'Verified levels: {levels}',
+  probeClear: 'Clear results',
   probeResultNotValidating: 'This model does not check the effort parameter',
   probeResultUnknown: 'Detection did not complete',
   probeResultAt: 'Detected {time}',
-  probeResultEmpty: 'No detectable models right now.',
-  probeResultNoLevels: 'No tested levels were accepted.',
+  probeResultEmpty: 'No models need detecting right now.',
   probeFailed: 'Detection failed: {message}',
   probeLabel: 'Reasoning levels',
   probePanelLevels: 'Supported levels',
@@ -126,7 +114,7 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probePanelDetect: 'Detect',
   probePanelDetecting: 'Detecting…',
   probePanelRedetect: 'Detect again',
-  probePanelNotValidating: 'This model ignores the reasoning-level parameter.',
+  probePanelNotValidating: 'This model does not check the effort parameter.',
   probePanelFailed: 'Detection did not finish. You can run it again.',
   probeTooltipIdle: 'Detect the reasoning levels {model} supports',
   probeTooltipLevels: 'Supported levels: {levels}',
@@ -137,10 +125,9 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   authFileAI: 'WorkBuddy AI auth file',
   authFileAIHint: 'Path to the WorkBuddy AI desktop auth file. Leave blank to use the app’s own location.',
   probeConsent: 'Allow reasoning-effort detection',
+  probeConsentHint: 'Lets the plugin send test requests to a model to confirm which effort levels it accepts; each detection may consume a small amount of credit.',
   maximumContextWindow: 'Use the largest declared context window',
   maximumContextWindowHint: 'Applies to WorkBuddy AI models that offer a larger window.',
-  on: 'on',
-  off: 'off',
   overridden: 'Overridden',
   reset: 'Reset to default',
   readOnly: 'This deployment stores settings read-only.',
@@ -175,17 +162,14 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   title: 'WorkBuddy（国内版）',
   intro: '跟随 WorkBuddy 桌面 App 的登录状态，在此直接使用它的模型。',
   titleAI: 'WorkBuddy AI（国际版）',
-  introAI: '跟随 WorkBuddy AI 桌面 App 的登录状态，在此直接使用它的模型。',
   loading: '正在读取账号…',
   signedOut: '未登录',
   signedOutHint: '在 WorkBuddy 桌面 App 里登录一次即可，插件会自动跟随当前登录的账号。',
   signedOutHintAI: '在 WorkBuddy AI 国际版桌面 App 里登录一次即可，插件会自动跟随当前登录的账号。',
   signedIn: '已登录',
   signedInAs: '已登录：{nickname}',
-  accessTokenExpires: '访问令牌 {time} 过期（自动续期）',
+  accessTokenExpires: '登录将于 {time} 过期，届时自动续期。',
   accountHeading: '账号',
-  modelsHeading: '模型优惠',
-  contextHeading: '上下文窗口',
   requestFailed: '请求失败',
   statusRefreshFailed: '刷新失败：{message} — 当前显示的是上次成功获取的状态',
   statusResponseInvalid: 'WorkBuddy 返回的状态数据无法识别',
@@ -199,11 +183,9 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   refreshModels: '刷新模型列表',
   refreshingModels: '正在刷新模型…',
   tabLabel: 'WorkBuddy 详情',
-  tabStatus: '状态',
-  tabContext: '上下文窗口',
-  tabDetails: '积分详情',
-  creditsHeading: '剩余积分',
-  creditsDetailHeading: '按套餐',
+  tabCredits: '积分',
+  tabModels: '模型',
+  tabProbe: '检测',
   creditsTotal: '合计：{total}',
   creditsTotalUnlimited: '合计：不限额',
   unlimitedQuota: '不限额',
@@ -217,29 +199,23 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   freeModel: '免费',
   badgeLimitedFree: '限时免费',
   badgeNightDiscount: '夜间折扣',
-  badgeFreeNow: '限时免费',
+  badgeFreeNow: '当前免费',
   rate: '{rate} 积分/次',
   rateUnknown: '价格未知 — 刷新后更新',
   contextUpTo: '最高 {size}',
   contextDefault: '默认 {size}',
   contextUnknown: '未声明上下文窗口',
-  visibilityIntro: '取消勾选即可在模型选择器中隐藏该模型；按当前登录账号分别保存，已在用该模型的会话不受影响。',
+  visibilityIntro: '取消勾选即可将该模型从选择器中隐藏；按登录账号分别保存，已在用该模型的会话不受影响。',
   visibilityStaleAccount: '登录账号已切换——本次修改未保存。',
-  probeHeading: '推理档位检测',
-  probeIntro: '部分模型具备思考能力，但没有声明可选档位。检测会发送少量真实请求，可能消耗积分。',
-  probeConsentHint: '每次检测会向该模型发送探测请求，以确认可用推理档位，可能消耗少量积分。',
+  probeCostNote: '部分模型具备思考能力，但没有声明可选档位。检测会向一个模型发送少量真实请求以确认可用档位，可能消耗少量积分。',
   probeStart: '开始检测',
   probeRedetect: '重新检测',
   probeRunning: '正在检测 {model}…',
-  probeRunningGeneric: '正在检测…',
-  probeClear: '清除已探测结果',
-  probeConfirmBody: '向 {model} 发送探测请求，以确认可用推理档位。可能消耗少量积分。',
-  probeResultVerified: '已验证接受的档位：{levels}',
-  probeResultNotValidating: '该模型不校验该参数',
+  probeClear: '清除结果',
+  probeResultNotValidating: '该模型不校验档位参数',
   probeResultUnknown: '检测未完成',
   probeResultAt: '检测于 {time}',
-  probeResultEmpty: '当前没有可检测的模型。',
-  probeResultNoLevels: '本次测试的档位均未被接受。',
+  probeResultEmpty: '当前没有需要检测的模型。',
   probeFailed: '检测失败：{message}',
   probeLabel: '推理档位',
   probePanelLevels: '支持的档位',
@@ -248,7 +224,7 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probePanelDetect: '检测',
   probePanelDetecting: '检测中…',
   probePanelRedetect: '重新检测',
-  probePanelNotValidating: '该模型忽略推理档位参数。',
+  probePanelNotValidating: '该模型不校验档位参数。',
   probePanelFailed: '检测未完成，可以再检测一次。',
   probeTooltipIdle: '检测 {model} 支持的推理档位',
   probeTooltipLevels: '支持的档位：{levels}',
@@ -259,10 +235,9 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   authFileAI: 'WorkBuddy AI 登录文件',
   authFileAIHint: 'WorkBuddy AI 桌面 App 登录文件的路径。留空表示使用应用自身的位置。',
   probeConsent: '允许推理档位检测',
+  probeConsentHint: '允许插件向模型发送检测请求，以确认它接受哪些推理档位；每次检测可能消耗少量积分。',
   maximumContextWindow: '使用上游声明的最大上下文窗口',
   maximumContextWindowHint: '仅作用于 WorkBuddy AI 中声明了更大窗口的模型。',
-  on: '开',
-  off: '关',
   overridden: '已覆盖',
   reset: '恢复默认',
   readOnly: '本部署的设置为只读。',

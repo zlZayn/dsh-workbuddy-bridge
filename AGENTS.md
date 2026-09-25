@@ -41,13 +41,13 @@
 
 - **CI 已跑通**（Linux，[ci.yml](.github/workflows/ci.yml)）：install → typecheck（两半体）→ build → test → check:release 九步全绿。
   数字不抄，看 [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)。
-- 本机（Windows）实跑：`vitest` 29 files / 408 passed | 8 skipped —— 那 8 条是 Windows 与 POSIX 的语义差
+- 本机（Windows）实跑：`vitest` 全绿（文件数随套件增减，现跑现看）；skip 的那几条是 Windows 与 POSIX 的语义差
   （权限位、EACCES 注入、XDG/WSL 路径、跨进程启动时间），**不是缺陷**：CI 上它们真的执行并通过
 - 链接校验 0 errors（文件与链接计数随文档增删变，不抄）；warning 只来自门面的 HTML 语言切换链接，与另两仓同形
 
 ## 待办
 
-- [ ] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态（键名与插值形态已核，剩余为文案语义）
+- [x] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态；文案语义 2026-09-26 全量过一遍（标签按读者任务重排同批）
 - [ ] 首次发布 `0.1.0` 并回填发布态（含 README 的 npm 徽章）
 
 ## 活跃坑

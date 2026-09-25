@@ -12,6 +12,7 @@ import { act } from 'react-test-renderer'
 import { describe, expect, it } from 'vitest'
 import { WorkBuddyCard } from '../../src/client/WorkBuddyCard.tsx'
 import { AI_CARD_VARIANT, CN_CARD_VARIANT, type WorkBuddyCardVariant } from '../../src/client/variants.ts'
+import { formatTime as formatCardTime } from '../../src/client/format.ts'
 import { buttonLabels, clickText, expandDisclosure, signedIn, t, textOf, useBrowserStubs, useTree } from './harness.ts'
 
 const stub = useBrowserStubs()
@@ -52,8 +53,9 @@ describe('WorkBuddy card', () => {
     // transient error loses the credits and model list the reader was looking at.
     expect(text).toContain(t('statusRefreshFailed', { message: 'HTTP 500' }))
     // And the document's other lines are still on screen — only the failed read
-    // is reported, nothing is blanked.
-    expect(text).toContain('Access token expires')
+    // is reported, nothing is blanked. The expiry line is asserted via its key
+    // with the same formatter the card uses, so a wording edit cannot desync it.
+    expect(text).toContain(t('accessTokenExpires', { time: formatCardTime(Date.now() + 3_600_000) }))
   })
 
   it('lets the newest read win over a slower one started earlier', async () => {
@@ -125,10 +127,31 @@ describe('WorkBuddy card', () => {
     stub.body = signedIn({ models: [{ id: 'hy3', name: 'HY3', contextWindow: 200_000 }] })
     await mount(true)
     const labels = buttonLabels(box.view!)
-    expect(labels).toContain(t('tabStatus'))
-    expect(labels).toContain(t('tabContext'))
-    expect(labels).toContain(t('tabDetails'))
-    await clickText(box.view!, t('tabContext'))
+    expect(labels).toContain(t('tabCredits'))
+    expect(labels).toContain(t('tabModels'))
+    expect(labels).toContain(t('tabProbe'))
+    await clickText(box.view!, t('tabModels'))
     expect(box.view!.root.findAll(node => node.type === 'div' && node.props.role === 'tabpanel')).toHaveLength(1)
+  })
+
+  it('shows credit once: the total and the per-package bars share the credits tab', async () => {
+    stub.body = signedIn({
+      credits: {
+        total: 3767,
+        cycleResetTime: '2026-10-01T00:00:00Z',
+        accounts: [{ packageName: '个人套餐', remain: 2767, size: 10000 }],
+      },
+      models: [],
+    })
+    await mount(true)
+    const { formatNumber } = await import('../../src/client/format.ts')
+    const text = textOf(box.view!)
+    // The total and the bars live on one tab; the old split (total under
+    // "Status", bars under "Details") cannot reappear.
+    expect(text).toContain(t('creditsTotal', { total: formatNumber(3767) }))
+    expect(text).toContain(t('exactRemaining', { remain: formatNumber(2767), size: formatNumber(10000) }))
+    // The old "Status" tab label asserted as a literal: the key was deleted, so
+    // a typed key here would no longer compile — the literal is the guard.
+    expect(buttonLabels(box.view!)).not.toContain('Status')
   })
 })

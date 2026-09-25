@@ -12,7 +12,7 @@
 import { useId, useState, type ReactNode } from 'react'
 import { Button, DisclosureRow, SegmentedTabs, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SegmentedTab, StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
-import { AssistBlock, ContextPanel, CreditsPanel, ModelOffersPanel, ProbePanel, assistCodeFor } from './panels.tsx'
+import { AssistBlock, CreditsPanel, ModelsPanel, ProbePanel, assistCodeFor } from './panels.tsx'
 import { formatCycleReset, formatNumber, formatTime } from './format.ts'
 import { useWorkBuddyStatus } from './use-status.ts'
 import type { WorkBuddyTranslate } from './locales.ts'
@@ -21,7 +21,7 @@ import type { WorkBuddyWebStatus } from '../shared/paths.ts'
 import css from './workbuddy.module.css'
 
 /** The card's three panels, in display order. */
-type CardTab = 'status' | 'context' | 'details'
+type CardTab = 'credits' | 'models' | 'probe'
 
 /**
  * The state dot's semantic.
@@ -63,20 +63,20 @@ function catalogProvenance(
 /** Render one variant's live status card. */
 export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t: WorkBuddyTranslate }): ReactNode {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<CardTab>('status')
+  const [tab, setTab] = useState<CardTab>('credits')
   const { status, readFailure, busy, toggling, refresh, refreshModels, detect, clearDetections, setVisibility } =
     useWorkBuddyStatus(variant, t)
   const baseId = useId()
-  const statusTab: SegmentedTab<CardTab> = {
-    value: 'status', label: t('tabStatus'), id: `${baseId}-tab-status`, panelId: `${baseId}-panel-status`,
+  const creditsTab: SegmentedTab<CardTab> = {
+    value: 'credits', label: t('tabCredits'), id: `${baseId}-tab-credits`, panelId: `${baseId}-panel-credits`,
   }
-  const contextTab: SegmentedTab<CardTab> = {
-    value: 'context', label: t('tabContext'), id: `${baseId}-tab-context`, panelId: `${baseId}-panel-context`,
+  const modelsTab: SegmentedTab<CardTab> = {
+    value: 'models', label: t('tabModels'), id: `${baseId}-tab-models`, panelId: `${baseId}-panel-models`,
   }
-  const detailsTab: SegmentedTab<CardTab> = {
-    value: 'details', label: t('tabDetails'), id: `${baseId}-tab-details`, panelId: `${baseId}-panel-details`,
+  const probeTab: SegmentedTab<CardTab> = {
+    value: 'probe', label: t('tabProbe'), id: `${baseId}-tab-probe`, panelId: `${baseId}-panel-probe`,
   }
-  const tabs: readonly [SegmentedTab<CardTab>, ...SegmentedTab<CardTab>[]] = [statusTab, contextTab, detailsTab]
+  const tabs: readonly [SegmentedTab<CardTab>, ...SegmentedTab<CardTab>[]] = [creditsTab, modelsTab, probeTab]
 
   /**
    * The failure the assist block covers, when this document has one. Computed
@@ -138,9 +138,9 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
 
         {signedIn === undefined ? null : (
           <>
-            {/* Catalog provenance. Without it a stale list is indistinguishable
-                from a fresh one; the refresh action sits on the same line that
-                says whether the list needs refreshing. */}
+            {/* The card-level facts live above the tabs: the account section
+                names the session and its expiry, and this line says where the
+                model list came from — neither belongs to one tab. */}
             {signedIn.catalog === undefined ? null : (
               <div className={css.row}>
                 <span className={css.text}>{catalogProvenance(signedIn.catalog, t)}</span>
@@ -160,16 +160,15 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
               label={t('tabLabel')}
             />
 
-            {tab === 'status'
+            {tab === 'credits'
               ? (
-                <div className={css.section} id={statusTab.panelId} role="tabpanel" aria-labelledby={statusTab.id}>
+                <div className={css.section} id={creditsTab.panelId} role="tabpanel" aria-labelledby={creditsTab.id}>
                   {signedIn.credits === undefined ? null : (
                     <div className={css.section}>
                       <div className={css.row}>
-                        <h4 className={css.title}>{t('creditsHeading')}</h4>
                         {/* `unlimited` first: the placeholder total is 0 and
                             rendering it would claim the quota is exhausted. */}
-                        <span className={css.text}>{signedIn.credits.unlimited === true
+                        <span className={css.title}>{signedIn.credits.unlimited === true
                           ? t('creditsTotalUnlimited')
                           : t('creditsTotal', { total: formatNumber(signedIn.credits.total) })}</span>
                       </div>
@@ -180,28 +179,18 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
                       )}
                     </div>
                   )}
+                  {signedIn.credits === undefined ? null : <CreditsPanel credits={signedIn.credits} t={t} />}
                   {signedIn.creditsError === undefined
                     ? null
                     : <p className={css.error}>{t('creditsError', { message: signedIn.creditsError })}</p>}
-                  {signedIn.probe === undefined ? null : (
-                    <ProbePanel
-                      probe={signedIn.probe}
-                      models={signedIn.models}
-                      busy={busy}
-                      t={t}
-                      onDetect={model => { void detect(model) }}
-                      onClear={() => { void clearDetections() }}
-                    />
-                  )}
                 </div>
               )
-              : tab === 'context'
+              : tab === 'models'
                 ? (
-                  <div className={css.section} id={contextTab.panelId} role="tabpanel" aria-labelledby={contextTab.id}>
-                    <ContextPanel
+                  <div className={css.section} id={modelsTab.panelId} role="tabpanel" aria-labelledby={modelsTab.id}>
+                    <ModelsPanel
                       models={signedIn.models}
                       visibility={signedIn.visibility}
-                      maximumContextWindow={signedIn.useMaximumContextWindow}
                       toggling={toggling}
                       disabled={busy}
                       t={t}
@@ -210,9 +199,19 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
                   </div>
                 )
                 : (
-                  <div className={css.section} id={detailsTab.panelId} role="tabpanel" aria-labelledby={detailsTab.id}>
-                    {signedIn.credits === undefined ? null : <CreditsPanel credits={signedIn.credits} t={t} />}
-                    <ModelOffersPanel models={signedIn.models} t={t} />
+                  <div className={css.section} id={probeTab.panelId} role="tabpanel" aria-labelledby={probeTab.id}>
+                    {signedIn.probe === undefined
+                      ? null
+                      : (
+                        <ProbePanel
+                          probe={signedIn.probe}
+                          models={signedIn.models}
+                          busy={busy}
+                          t={t}
+                          onDetect={model => { void detect(model) }}
+                          onClear={() => { void clearDetections() }}
+                        />
+                      )}
                   </div>
                 )}
           </>

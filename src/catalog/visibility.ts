@@ -2,7 +2,7 @@
  * Per-account model-visibility preferences: which models the signed-in account
  * has hidden from the DSH model picker (issue #36).
  *
- * A disabled *list*, deliberately not an enabled whitelist: a new account and a
+ * A hidden-*id* list, deliberately not an enabled whitelist: a new account and a
  * model the upstream adds both start visible, and an id that temporarily
  * disappears from the catalog is kept — when the model returns it stays hidden
  * until this account says otherwise. Entries are also kept across sign-outs, so
@@ -41,7 +41,7 @@ interface SavedVisibility {
   /** `uid:enterpriseId` the preferences belong to. */
   account: string
   /** Model ids hidden from this account's picker; never auto-pruned. */
-  disabled: readonly string[]
+  hidden: readonly string[]
   /** When this account's list last changed, epoch milliseconds. */
   updatedAtMs: number
 }
@@ -56,15 +56,27 @@ export function workbuddyVisibilityPath(filename: string = WORKBUDDY_VISIBILITY_
   return join(resolveDshHome(), filename)
 }
 
-/** Whether a parsed value is a saved preference entry this reader can trust. */
+/**
+ * Whether a parsed value is a saved preference entry this reader can trust.
+ *
+ * The list is read from `hidden`, falling back to `disabled`: that was the
+ * field's first name and the file format never bumped a version for the rename,
+ * so a file written by an older build still parses instead of silently reading
+ * as "nothing hidden".
+ */
 function isSaved(value: unknown): value is SavedVisibility {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const entry = value as Record<string, unknown>
   if (typeof entry['account'] !== 'string' || entry['account'] === '') return false
   if (typeof entry['updatedAtMs'] !== 'number' || !Number.isFinite(entry['updatedAtMs'])) return false
-  const disabled = entry['disabled']
-  if (!Array.isArray(disabled)) return false
-  return disabled.every(id => typeof id === 'string' && id !== '')
+  const list = entry['hidden'] ?? entry['disabled']
+  if (!Array.isArray(list)) return false
+  return list.every(id => typeof id === 'string' && id !== '')
+}
+
+/** Normalize one parsed entry: pick the list up from either field name. */
+function normalize(value: SavedVisibility & { disabled?: readonly string[] }): SavedVisibility {
+  return { account: value.account, hidden: value.hidden ?? value.disabled ?? [], updatedAtMs: value.updatedAtMs }
 }
 
 /** Options for {@link WorkBuddyVisibilityStore}. */
@@ -107,7 +119,7 @@ export class WorkBuddyVisibilityStore {
           const raw = document['version'] === VISIBILITY_FORMAT_VERSION ? document['accounts'] : undefined
           if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
             for (const [key, value] of Object.entries(raw)) {
-              if (isSaved(value)) accounts[key] = value
+              if (isSaved(value)) accounts[key] = normalize(value)
             }
           }
         }
@@ -120,8 +132,8 @@ export class WorkBuddyVisibilityStore {
   }
 
   /** The model ids one account has hidden; empty when it never hid any. */
-  disabled(account: string): readonly string[] {
-    return this.load()[account]?.disabled ?? []
+  hidden(account: string): readonly string[] {
+    return this.load()[account]?.hidden ?? []
   }
 
   /**
@@ -134,11 +146,11 @@ export class WorkBuddyVisibilityStore {
    * re-read cannot lie about what was persisted.
    */
   setVisible(account: string, model: string, visible: boolean): void {
-    const current = this.load()[account]?.disabled ?? []
+    const current = this.load()[account]?.hidden ?? []
     const next = visible ? current.filter(id => id !== model) : [...new Set([...current, model])]
     const accounts = { ...this.load() }
     if (next.length === 0) delete accounts[account]
-    else accounts[account] = { account, disabled: next, updatedAtMs: Date.now() }
+    else accounts[account] = { account, hidden: next, updatedAtMs: Date.now() }
     this.persist(accounts)
     this.accounts = accounts
   }

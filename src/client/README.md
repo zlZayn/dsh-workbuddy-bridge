@@ -7,8 +7,9 @@
 - index.tsx —— 槽注册：`plugins.bundle.config`（key = **包名**）、`conversation.input.right`（探测控件）
 - config-controller.ts —— `ctx.configForms.get(ENTRY_ID)` 的staged 表单模型；四字段全部 volatile
 - WorkBuddyConfigPage.tsx —— 配置页：宿主 `SettingsForm`（两个文本字段）+ 两个官方开关行，然后是实时卡片
-- WorkBuddyCard.tsx —— 变体卡片：宿主 `DisclosureRow` 壳（`expandOnRowClick`，整行可点）+ 三段 SegmentedTabs
-- panels.tsx —— 卡片内的面板：账户 / 积分条 / 上下文显隐 / 检测 / 明细 / Agent assist
+- WorkBuddyCard.tsx —— 变体卡片：宿主 `DisclosureRow` 壳（`expandOnRowClick`，整行可点）；账号、令牌有效期、
+  目录来源常驻展开区顶部，下面按「读者任务」分三个 SegmentedTabs：积分（合计+套餐）/ 模型（显隐+窗口+倍率）/ 检测
+- panels.tsx —— 标签页内容：积分条与套餐明细 / 模型目录表（`ModelsPanel`）/ 档位检测（`ProbePanel`）/ Agent assist
 - probe-control.tsx —— 输入区推理档位控件：一个图标按钮 + 一个陈述式浮层（一个按钮，无确认/取消）
 - use-status.ts —— 状态文档的轮询与读写
 - status-document.ts —— 状态文档的形状守卫

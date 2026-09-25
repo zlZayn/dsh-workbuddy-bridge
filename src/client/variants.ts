@@ -16,8 +16,6 @@ export interface WorkBuddyCardVariant {
   readonly id: string
   /** Locale key for the card title. */
   readonly titleKey: WorkBuddyLocaleKey
-  /** Locale key for the card's one-line description. */
-  readonly introKey: WorkBuddyLocaleKey
   /** Locale key for the not-signed-in hint. */
   readonly signedOutKey: WorkBuddyLocaleKey
   /** Status document route. */
@@ -38,7 +36,6 @@ export interface WorkBuddyCardVariant {
 export const CN_CARD_VARIANT: WorkBuddyCardVariant = {
   id: 'workbuddy',
   titleKey: 'title',
-  introKey: 'intro',
   signedOutKey: 'signedOutHint',
   statusPath: WORKBUDDY_STATUS_PATH,
   probePath: WORKBUDDY_PROBE_PATH,
@@ -50,7 +47,6 @@ export const CN_CARD_VARIANT: WorkBuddyCardVariant = {
 export const AI_CARD_VARIANT: WorkBuddyCardVariant = {
   id: 'workbuddy-ai',
   titleKey: 'titleAI',
-  introKey: 'introAI',
   signedOutKey: 'signedOutHintAI',
   statusPath: WORKBUDDY_AI_STATUS_PATH,
   probePath: WORKBUDDY_AI_PROBE_PATH,

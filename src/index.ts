@@ -580,7 +580,7 @@ async function startVariant(ctx: Context, runtime: VariantRuntime): Promise<bool
       // invalidate, and a signed-out or uid-less variant hides nothing.
       hidden: () => {
         const account = runtime.account()
-        return account === undefined ? [] : runtime.visibilityStore.disabled(account)
+        return account === undefined ? [] : runtime.visibilityStore.hidden(account)
       },
     })
     runtime.invalidate = () => {
@@ -780,7 +780,7 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
           const account = runtime.account()
           return account === undefined
             ? undefined
-            : { account, disabled: runtime.visibilityStore.disabled(account) }
+            : { account, hidden: runtime.visibilityStore.hidden(account) }
         },
         // Reported as a fact, not edited from here: the preference is a
         // configuration field now, and the card points at the settings page

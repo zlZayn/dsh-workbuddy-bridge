@@ -141,15 +141,17 @@ function CreditBar({ label, remain, size, unlimited, t }: {
       >
         {percent === undefined ? null : <div className={css.fill} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />}
       </div>
+      {/* The exact figure belongs on screen, not only in the progressbar's
+          accessibility text: a percentage alone cannot be quoted to support. */}
+      <span className={css.meta}>{detail}</span>
     </div>
   )
 }
 
-/** The per-package credit breakdown. */
+/** The per-package credit breakdown, under the card's own "Credits" tab. */
 export function CreditsPanel({ credits, t }: { credits: WorkBuddyWebCredits; t: WorkBuddyTranslate }): ReactNode {
   return (
     <div className={css.section}>
-      <h4 className={css.title}>{t('creditsDetailHeading')}</h4>
       {credits.accounts
         // Skip the packages that say nothing: an exhausted non-enterprise
         // package is noise once the total is on screen.
@@ -168,37 +170,9 @@ export function CreditsPanel({ credits, t }: { credits: WorkBuddyWebCredits; t: 
   )
 }
 
-/** The per-model discount reference. */
-export function ModelOffersPanel({ models, t }: {
-  models: readonly WorkBuddyWebModelBadge[] | undefined
-  t: WorkBuddyTranslate
-}): ReactNode {
-  const offers = (models ?? []).filter(model => model.free === true || (model.badges?.length ?? 0) > 0)
-  if (offers.length === 0) return null
-  return (
-    <div className={css.section}>
-      <h4 className={css.title}>{t('modelsHeading')}</h4>
-      {offers.map(model => (
-        <div key={model.id} className={css.modelRow}>
-          <span className={css.modelMain}>
-            <span>{model.name}</span>
-            <ModelBadges model={model} t={t} />
-          </span>
-          {model.credits === undefined
-            // No rate to show. When the plugin withheld it because the price
-            // came from an ended promotion, say so plainly rather than showing
-            // nothing — silence here reads as "free", which is the claim being
-            // avoided.
-            ? model.rateUnknown === true ? <span className={css.dim}>{t('rateUnknown')}</span> : null
-            : <span className={css.dim}>{t('rate', { rate: model.credits })}</span>}
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /**
- * Context window and model visibility, one row per catalog model.
+ * The model catalog: one row per model, visibility checkbox on the left,
+ * context window, rate and badges on the right.
  *
  * The list is driven by the full current catalog, not by context metadata:
  * hiding a model is a statement about the picker, and a model without a
@@ -209,17 +183,15 @@ export function ModelOffersPanel({ models, t }: {
  * Purely a report of the upstream's own numbers. The plugin offers no tier
  * picker: the CN catalog declares one capacity per model and publishes no
  * alternatives, so a menu there would mean inventing client-side policy. The
- * international document does declare alternatives (`supportedLengths`), and
- * they are shown as a secondary figure rather than merged into one number —
- * the default is the budget actually requested, while the larger value is a
- * ceiling the upstream would accept.
+ * international document does declare alternatives, and they are shown as a
+ * secondary figure rather than merged into one number — the default is the
+ * budget actually requested, while the larger value is a ceiling the upstream
+ * would accept.
  */
-export function ContextPanel({ models, visibility, maximumContextWindow, toggling, disabled, onToggle, t }: {
+export function ModelsPanel({ models, visibility, toggling, disabled, onToggle, t }: {
   models: readonly WorkBuddyWebModelBadge[] | undefined
   /** Per-account hidden-model state; undefined renders no checkboxes. */
   visibility: WorkBuddyWebVisibilitySection | undefined
-  /** The effective maximum-context preference, shown as a fact rather than edited here. */
-  maximumContextWindow: boolean | undefined
   /** The models whose visibility writes are in flight; only those rows lock. */
   toggling: ReadonlySet<string>
   /** Whether every control is locked while another card action runs. */
@@ -236,18 +208,9 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
     return b.contextWindow - a.contextWindow
   })
   if (rows.length === 0) return null
-  const hidden = new Set(visibility?.disabled ?? [])
+  const hidden = new Set(visibility?.hidden ?? [])
   return (
     <div className={css.section}>
-      <h4 className={css.title}>{t('contextHeading')}</h4>
-      {/* The preference belongs to the plugin's configuration, not to this
-          list: it is reported as a fact with a pointer to where it is set
-          rather than duplicated as a control that writes somewhere else. */}
-      {maximumContextWindow === undefined ? null : (
-        <p className={css.dim}>
-          {t('maximumContextWindow')}：{t(maximumContextWindow ? 'on' : 'off')}
-        </p>
-      )}
       {/* One line on what the checkboxes mean, only when they are rendered —
           a bare checkbox column with no explanation reads as selection, not
           visibility. */}
@@ -278,6 +241,13 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
                 )}
             </span>
             <span className={css.modelEnd}>
+              {model.credits === undefined
+                // No rate to show. When the plugin withheld it because the price
+                // came from an ended promotion, say so plainly rather than showing
+                // nothing — silence here reads as "free", which is the claim being
+                // avoided.
+                ? model.rateUnknown === true ? <span className={css.dim}>{t('rateUnknown')}</span> : null
+                : <span className={css.dim}>{t('rate', { rate: model.credits })}</span>}
               {capacity === undefined
                 ? <span className={css.meta} aria-label={t('contextUnknown')}>—</span>
                 : <span>{formatTokens(capacity)}</span>}
@@ -307,6 +277,8 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
  * - a `non-validating` result is presented as an observation about the
  *   parameter ("this model does not check it"), never as a statement that a
  *   level is unsupported.
+ *
+ * The tab bar owns the heading, so this panel renders no heading of its own.
  */
 export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
   probe: WorkBuddyWebProbeSection
@@ -343,11 +315,7 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
 
   return (
     <div className={css.section}>
-      <h4 className={css.title}>{t('probeHeading')}</h4>
-      <p className={css.text}>{t('probeIntro')}</p>
-      <p className={css.dim}>{t('probeConsentHint')}</p>
-      {probe.candidates.length === 0 ? null : <p className={css.dim}>{t('probeConfirmBody')}</p>}
-      {probe.running ? <p className={css.text}>{t('probeRunningGeneric')}</p> : null}
+      <p className={css.text}>{t('probeCostNote')}</p>
       {/*
         * One row per probeable model, each carrying its own result and button.
         * Buttons used to live in a block above the results, so a detected model

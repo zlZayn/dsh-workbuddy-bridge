@@ -88,7 +88,7 @@ export interface WorkBuddyWebVisibilitySection {
   /** The `uid:enterpriseId` identity these preferences belong to. */
   account: string
   /** Model ids this account has hidden from the picker (the full list, including ids not in the current catalog). */
-  disabled: readonly string[]
+  hidden: readonly string[]
 }
 
 /**

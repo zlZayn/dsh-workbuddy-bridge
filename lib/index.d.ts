@@ -1347,7 +1347,7 @@ declare class WorkBuddyCatalogStore {
  * Per-account model-visibility preferences: which models the signed-in account
  * has hidden from the DSH model picker (issue #36).
  *
- * A disabled *list*, deliberately not an enabled whitelist: a new account and a
+ * A hidden-*id* list, deliberately not an enabled whitelist: a new account and a
  * model the upstream adds both start visible, and an id that temporarily
  * disappears from the catalog is kept — when the model returns it stays hidden
  * until this account says otherwise. Entries are also kept across sign-outs, so
@@ -1395,7 +1395,7 @@ declare class WorkBuddyVisibilityStore {
   filePath(): string;
   private load;
   /** The model ids one account has hidden; empty when it never hid any. */
-  disabled(account: string): readonly string[];
+  hidden(account: string): readonly string[];
   /**
    * Show or hide one model for one account, persisting before committing.
    *

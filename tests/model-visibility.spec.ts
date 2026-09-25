@@ -50,10 +50,27 @@ const SHIM = {
   close: async () => {},
 } as unknown as WorkBuddyShim
 
-describe('A. disabled-list semantics (visibility store)', () => {
+describe('A. hidden-list semantics (visibility store)', () => {
   it('hides nothing for an account that never toggled anything', () => {
     const store = new WorkBuddyVisibilityStore(join(tempDir('wb-vis-'), 'v.json'))
-    expect(store.disabled('uid-a:')).toEqual([])
+    expect(store.hidden('uid-a:')).toEqual([])
+  })
+
+  it('reads the first field name (disabled) from an old file so saved hides survive the rename', () => {
+    const dir = tempDir('wb-vis-old-')
+    const path = join(dir, 'v.json')
+    writeFileSync(path, JSON.stringify({
+      version: 1,
+      accounts: { 'uid-a:': { account: 'uid-a:', disabled: ['glm-5.3'], updatedAtMs: 1 } },
+    }, null, 2))
+    const store = new WorkBuddyVisibilityStore(path)
+    expect(store.hidden('uid-a:')).toEqual(['glm-5.3'])
+    // A write through the new name rewrites the entry wholly, so old files
+    // converge on the new field on first toggle.
+    store.setVisible('uid-a:', 'hy3', false)
+    const written = JSON.parse(readFileSync(path, 'utf8')) as { accounts: Record<string, { hidden?: string[]; disabled?: string[] }> }
+    expect(written.accounts['uid-a:']?.hidden).toEqual(['glm-5.3', 'hy3'])
+    expect(written.accounts['uid-a:']?.disabled).toBeUndefined()
   })
 
   it('disable removes the model from selectable listings; re-enable restores it', async () => {
@@ -70,11 +87,11 @@ describe('A. disabled-list semantics (visibility store)', () => {
     expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'hy3', 'auto'])
 
     store.setVisible('uid-a:', 'glm-5.3', false)
-    hidden = store.disabled('uid-a:')
+    hidden = store.hidden('uid-a:')
     expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['hy3', 'auto'])
 
     store.setVisible('uid-a:', 'glm-5.3', true)
-    hidden = store.disabled('uid-a:')
+    hidden = store.hidden('uid-a:')
     expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'hy3', 'auto'])
   })
 
@@ -82,18 +99,18 @@ describe('A. disabled-list semantics (visibility store)', () => {
     const store = new WorkBuddyVisibilityStore(join(tempDir('wb-vis-'), 'v.json'))
     store.setVisible('uid-a:', 'hy3', false)
     // 'new-super-model' was never named by this account: not in the list.
-    expect(store.disabled('uid-a:')).toEqual(['hy3'])
-    expect(store.disabled('uid-a:').includes('new-super-model')).toBe(false)
+    expect(store.hidden('uid-a:')).toEqual(['hy3'])
+    expect(store.hidden('uid-a:').includes('new-super-model')).toBe(false)
   })
 
-  it('keeps a disabled id whose model temporarily left the catalog', () => {
+  it('keeps a hidden id whose model temporarily left the catalog', () => {
     const store = new WorkBuddyVisibilityStore(join(tempDir('wb-vis-'), 'v.json'))
     store.setVisible('uid-a:', 'glm-5.3', false)
     // The catalog drops the row (upstream refresh without it); the stored list
     // is untouched, so the model stays hidden when it returns.
-    expect(store.disabled('uid-a:')).toEqual(['glm-5.3'])
+    expect(store.hidden('uid-a:')).toEqual(['glm-5.3'])
     store.setVisible('uid-a:', 'hy3', false)
-    expect(store.disabled('uid-a:')).toEqual(['glm-5.3', 'hy3'])
+    expect(store.hidden('uid-a:')).toEqual(['glm-5.3', 'hy3'])
   })
 
   it('removes the account bucket once nothing is hidden', () => {
@@ -102,7 +119,7 @@ describe('A. disabled-list semantics (visibility store)', () => {
     const store = new WorkBuddyVisibilityStore(path)
     store.setVisible('uid-a:', 'hy3', false)
     store.setVisible('uid-a:', 'hy3', true)
-    expect(store.disabled('uid-a:')).toEqual([])
+    expect(store.hidden('uid-a:')).toEqual([])
     expect(JSON.parse(readFileSync(path, 'utf8')).accounts).toEqual({})
   })
 
@@ -110,9 +127,9 @@ describe('A. disabled-list semantics (visibility store)', () => {
     const path = join(tempDir('wb-vis-'), 'v.json')
     writeFileSync(path, '{not json', { mode: 0o600 })
     const store = new WorkBuddyVisibilityStore(path)
-    expect(store.disabled('uid-a:')).toEqual([])
+    expect(store.hidden('uid-a:')).toEqual([])
     store.setVisible('uid-a:', 'hy3', false)
-    expect(new WorkBuddyVisibilityStore(path).disabled('uid-a:')).toEqual(['hy3'])
+    expect(new WorkBuddyVisibilityStore(path).hidden('uid-a:')).toEqual(['hy3'])
   })
 
   it.skipIf(process.platform === 'win32')('writes the file with owner-only permissions', () => {
@@ -148,7 +165,7 @@ describe('B. resolve compatibility (hidden but resolvable)', () => {
       catalog,
       store: {} as WorkBuddyCredentialStore,
       shim: SHIM,
-      hidden: () => (account === undefined ? [] : store.disabled(account)),
+      hidden: () => (account === undefined ? [] : store.hidden(account)),
     })
     expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'auto'])
     account = 'uid-b:'
@@ -163,12 +180,12 @@ describe('C/D. per-account and per-variant isolation', () => {
     const store = new WorkBuddyVisibilityStore(join(tempDir('wb-vis-'), 'v.json'))
     store.setVisible('uid-a:', 'model-a', false)
     store.setVisible('uid-b:', 'model-b', false)
-    expect(store.disabled('uid-a:')).toEqual(['model-a'])
-    expect(store.disabled('uid-b:')).toEqual(['model-b'])
+    expect(store.hidden('uid-a:')).toEqual(['model-a'])
+    expect(store.hidden('uid-b:')).toEqual(['model-b'])
     // A disables what B hid: A's own list gains it, B's is untouched.
     store.setVisible('uid-a:', 'model-b', false)
-    expect(store.disabled('uid-a:')).toEqual(['model-a', 'model-b'])
-    expect(store.disabled('uid-b:')).toEqual(['model-b'])
+    expect(store.hidden('uid-a:')).toEqual(['model-a', 'model-b'])
+    expect(store.hidden('uid-b:')).toEqual(['model-b'])
   })
 
   it('the same account key under two variants never shares a file', () => {
@@ -178,11 +195,11 @@ describe('C/D. per-account and per-variant isolation', () => {
     const cnStore = new WorkBuddyVisibilityStore(join(dir, cn.visibilityFilename))
     const aiStore = new WorkBuddyVisibilityStore(join(dir, ai.visibilityFilename))
     cnStore.setVisible('uid-1:', 'glm-5.3', false)
-    expect(cnStore.disabled('uid-1:')).toEqual(['glm-5.3'])
-    expect(aiStore.disabled('uid-1:')).toEqual([])
+    expect(cnStore.hidden('uid-1:')).toEqual(['glm-5.3'])
+    expect(aiStore.hidden('uid-1:')).toEqual([])
     aiStore.setVisible('uid-1:', 'hy3', false)
-    expect(cnStore.disabled('uid-1:')).toEqual(['glm-5.3'])
-    expect(aiStore.disabled('uid-1:')).toEqual(['hy3'])
+    expect(cnStore.hidden('uid-1:')).toEqual(['glm-5.3'])
+    expect(aiStore.hidden('uid-1:')).toEqual(['hy3'])
   })
 
   it('each variant descriptor names its own visibility file', () => {
@@ -201,8 +218,8 @@ describe('E. persistence', () => {
     first.setVisible('uid-a:', 'hy3', false)
     // New process, same file: A finds its list, B starts clean.
     const second = new WorkBuddyVisibilityStore(path)
-    expect(second.disabled('uid-a:')).toEqual(['glm-5.3', 'hy3'])
-    expect(second.disabled('uid-b:')).toEqual([])
+    expect(second.hidden('uid-a:')).toEqual(['glm-5.3', 'hy3'])
+    expect(second.hidden('uid-b:')).toEqual([])
   })
 
   it('preferences are kept across a sign-out (restored on return)', () => {
@@ -211,7 +228,7 @@ describe('E. persistence', () => {
     store.setVisible('uid-a:', 'glm-5.3', false)
     // Sign-out deletes the saved *catalog* in index.ts, never this file.
     const reopened = new WorkBuddyVisibilityStore(path)
-    expect(reopened.disabled('uid-a:')).toEqual(['glm-5.3'])
+    expect(reopened.hidden('uid-a:')).toEqual(['glm-5.3'])
   })
 
   it('a failed write propagates instead of reporting success', () => {
@@ -221,7 +238,7 @@ describe('E. persistence', () => {
     const store = new WorkBuddyVisibilityStore(join(blocker, 'sub', 'v.json'))
     expect(() => store.setVisible('uid-a:', 'hy3', false)).toThrow()
     // In-memory state stayed untouched: a re-read cannot claim it persisted.
-    expect(store.disabled('uid-a:')).toEqual([])
+    expect(store.hidden('uid-a:')).toEqual([])
   })
 })
 
@@ -238,7 +255,7 @@ describe('F. signed-out and uid-less degradation', () => {
       store: { status: async () => ({ state: 'signed-out' }) } as unknown as WorkBuddyCredentialStore,
       client: { fetchCredits: async () => ({ total: 0, accounts: [] }) },
       models: () => [],
-      visibility: () => ({ account: 'u1:', disabled: ['hy3'] }),
+      visibility: () => ({ account: 'u1:', hidden: ['hy3'] }),
     }
     expect(await workBuddyWebStatus(deps)).toEqual({ status: 'signed-out' })
   })
@@ -267,10 +284,10 @@ describe('F. signed-out and uid-less degradation', () => {
       } as unknown as WorkBuddyCredentialStore,
       client: { fetchCredits: async () => ({ total: 0, accounts: [] }) },
       models: () => [...MODELS],
-      visibility: () => ({ account: 'u1:ent', disabled: ['hy3', 'gone-upstream'] }),
+      visibility: () => ({ account: 'u1:ent', hidden: ['hy3', 'gone-upstream'] }),
     }
     const doc = await workBuddyWebStatus(deps)
-    expect(doc.status === 'signed-in' && doc.visibility).toEqual({ account: 'u1:ent', disabled: ['hy3', 'gone-upstream'] })
+    expect(doc.status === 'signed-in' && doc.visibility).toEqual({ account: 'u1:ent', hidden: ['hy3', 'gone-upstream'] })
   })
 })
 
@@ -324,7 +341,7 @@ describe('control route: set-model-visibility', () => {
     expect(body['state']).toBe('updated')
     // The expected account travels with the write; nothing is bucketed by guess.
     expect(seen).toBe('u1:')
-    expect(store.disabled('u1:')).toEqual(['hy3'])
+    expect(store.hidden('u1:')).toEqual(['hy3'])
   })
 
   it('an expected-account mismatch is the host guard\'s stale-account refusal', async () => {

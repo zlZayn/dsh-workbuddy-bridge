@@ -46,7 +46,7 @@ own account and credit. The models appear directly in the DSH model picker — n
 - **Reasoning levels**: models that declare levels expose them directly (low / high / max on GLM-5.3 and GLM-5.3-Flash);
   models that do not can be **checked manually** on Web and Desktop (see [Why detection is manual](#why-detection-is-manual)).
   Models without a check result or usable levels keep WorkBuddy's default.
-- **Model visibility**: the card's "Context window" tab selects which models appear in the picker; the choice is
+- **Model visibility**: the card's "Models" tab selects which models appear in the picker; the choice is
   **saved per signed-in account** and follows account switches. Hiding only affects pickability — **chats already
   using that model keep working**.
 - **Account and credit**: the plugin page shows the account, token validity (auto-renewed), remaining credit, and model
@@ -128,23 +128,23 @@ under the description and is editable in place**, with no second Configure step 
 
 - **Configuration form**: `authFile` (CN sign-in file), `authFileAI` (international), **allow reasoning-level detection**,
   and **use the largest context window the upstream declares**. Leave the first two blank to use the app's own location.
-- **Two cards**: one per version, each reporting its own account. Expanding one shows three tabs —
-  "Status" / "Context window" / "Details":
-  - **Status**: account, token validity, total credit, catalog source, and the detection entry.
-  - **Context window**: each model's window plus the **model visibility** checkboxes.
-  - **Details**: per-package credit and model offers.
+- **Two cards**: one per version, each reporting its own account. The account, token validity and catalog source
+  sit above the tabs; the three tabs below split by what a reader came to do:
+  - **Credits**: total, cycle reset, and per-package allowances in one place.
+  - **Models**: the full catalog in one table — **visibility** checkboxes, context windows, credit rates and badges.
+  - **Detection**: reasoning-level detection, one row per model; empty when nothing needs detecting.
 
 <p align="center">
-  <img src="assets/6.png" alt="Plugin page: the configuration form and model visibility in the context-window list" width="480">
+  <img src="assets/6.png" alt="Plugin page: the configuration form and model visibility in the Models tab" width="480">
   <br>
-  <em>The configuration form sits above the two cards; the "Context window" tab selects which models the picker shows.</em>
+  <em>The configuration form sits above the two cards; the "Models" tab selects which models the picker shows.</em>
 </p>
 
 <p align="center">
   <img src="assets/2.png" alt="The card's three tabs" width="420">
   <img src="assets/3.png" alt="The card showing account and remaining credit" width="420">
   <br>
-  <em>Expanding a card shows three tabs: Status (account, token, total credit, catalog source), Context window, and Details (per-package credit and offers).</em>
+  <em>Expanding a card shows three tabs: Credits (total and per-package), Models (visibility, windows, rates), and Detection (reasoning levels).</em>
 </p>
 
 Saving takes effect immediately. **Configuration changes do not need a host restart** (configuration is a volatile

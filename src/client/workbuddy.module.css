@@ -280,12 +280,6 @@
    host's list rows use exactly this tier for the line under a model name. */
 /* A capacity figure: the hint tier is what the host's own list rows use for
    the value column, and `tabular-nums` keeps a column of them aligned. */
-.figure {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--dsw-alias-label-secondary);
-  font-variant-numeric: tabular-nums;
-}
 .meta {
   font-size: 11px;
   line-height: 1.5;
@@ -306,26 +300,6 @@
 .sectionActions {
   display: flex;
   justify-content: flex-end;
-}
-
-/* ---- Inline confirmation ------------------------------------------------ */
-
-/* A paid action's confirmation: one line plus two small buttons, placed in the
-   row it guards rather than in a modal. */
-.confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: var(--dsw-radius-md);
-  background: var(--dsw-alias-bg-layer-3);
-}
-
-.confirmRow {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 
 /* ---- Probe row ---------------------------------------------------------- */
