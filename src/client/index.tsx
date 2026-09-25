@@ -19,6 +19,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-model-selection/client'
+// Type-only, and load-bearing: this is the merge that declares `sessionId: SessionId`
+// on the session-scope slot props. Without it `SessionIdOf` falls back to `string`,
+// and the composer seat's injected `directoryFor(sessionId)` stops typechecking.
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import { WorkBuddyConfigPage } from './WorkBuddyConfigPage.tsx'
 import { WorkBuddyProbeControl } from './probe-control.tsx'
 import { WorkBuddyConfigController } from './config-controller.ts'
