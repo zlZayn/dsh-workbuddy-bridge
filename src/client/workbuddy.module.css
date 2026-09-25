@@ -30,11 +30,12 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 }
 
-/* The live half's own rhythm. The cards are separate disclosures, so they take
-   the same 12px the host uses between two fields. */
+/* The live half's own rhythm. The cards are separate disclosures; 12px is the
+   host's field rhythm — the same one the official voice-input config card spaces
+   every block with (`gap: 12px`, `.preparation { margin: 12px 0 }`). */
 .cards {
   display: flex;
   flex-direction: column;
@@ -89,17 +90,14 @@
   padding: 4px 0 12px;
 }
 
-/* One labelled block inside a card. Separated from its sibling by the same
-   0.5px rule the host's fields use between two fields. */
+/* One labelled block inside a card. The official voice-input config card spaces
+   its blocks with `margin: 12px 0` and draws no rule between them — the heading
+   does the separating. Same here; the card body carries no extra gap either. */
 .section {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 0;
-}
-
-.section + .section {
-  border-top: 0.5px solid var(--dsw-alias-border-l2);
+  margin: 12px 0;
 }
 
 /* A section heading. The host's own cards put the label at 13/1.5 w500 primary
@@ -123,19 +121,33 @@
   gap: 8px;
 }
 
-/* The account line: a state dot and a name. Same label tier as .title, but it
-   is not a heading — it is the value the card exists to report. */
-.accountRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.5;
-  color: var(--dsw-alias-label-primary);
+/* The disclosure header row, restated from the official voice-input card's
+   `.summaryRow` / `.summaryTitle` / `.metric`: `height: auto` +
+   `min-height: 28px` lets a wrapped status fit, `flex: 1` on the title pushes
+   the status to the row's right edge, and the status itself is the host's
+   12px hint tier with a live dot. */
+.summaryRow {
+  flex-wrap: wrap;
+  gap: 4px;
+  height: auto;
+  min-height: 28px;
 }
 
+.summaryTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The signed-in line in the header: dot + label, hint-tier ink because it is
+   a fact about the session, not the card's heading. */
+.statusLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
+}
 /* Secondary body text. */
 .text {
   margin: 0;
@@ -198,36 +210,28 @@
 
 /* ---- Model rows --------------------------------------------------------- */
 
-/* The container for a list of models. Same object as the host's
-   SubagentModelSelectionCard `.models`: a bordered box with its own radius and
-   internal padding, so a list of rows reads as one control rather than as rows
-   loose on the page. `max-height` + `overflow` is theirs too, for a catalog
-   long enough to need it. */
+/* The container for a list of models.
+   Copied from the official `dsh-experimental-client-ui-voice-input` plugin's
+   configuration card, which frames each block exactly this way:
+   `.preparation { border: .5px solid border-l1; border-radius: 10px; gap: 10px;
+   margin: 12px 0; padding: 14px; font-size: 13px }`. `max-height` + `overflow`
+   come from the host's settings-subagent `.models`, for a catalog long enough
+   to need one. */
 .list {
   display: grid;
   gap: 6px;
   min-width: 0;
   max-height: 280px;
   margin: 0;
-  padding: 10px;
+  padding: 14px;
   overflow: auto;
-  border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: var(--dsw-radius-lg);
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
 }
 
-/* One row inside that box: the host gives each 6px of breathing room. */
-.list > * {
-  padding: 6px;
-  border-radius: var(--dsw-radius-md);
-}
-
-/* Consecutive rows are separated by the host's hairline at a lighter tier than
-   the box's own border, so the container still reads as one object. */
-.list > * + * {
-  border-top: 0.5px solid var(--dsw-alias-border-l3);
-}
-
-/* One model: name and badges on the left, capacity or rate on the right. */
+/* One model: name and badges on the left, capacity or rate on the right.
+   No per-row padding and no per-row radius: the box above already gives the
+   list its breathing room, which is what the official card does too. */
 .modelRow {
   display: flex;
   align-items: flex-start;
@@ -262,6 +266,9 @@
   flex-direction: column;
   gap: 2px;
   text-align: right;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
   /* Figures stay column-aligned down a list of capacities. */
   font-variant-numeric: tabular-nums;
 }
@@ -279,6 +286,15 @@
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* A list-scoped action sits right-aligned under the list, the way the host's
+   action rows do. Without this the flex column's default `stretch` would pull
+   the button across the full card width — which is exactly what made it read
+   as a second, stray control. */
+.sectionActions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ---- Inline confirmation ------------------------------------------------ */

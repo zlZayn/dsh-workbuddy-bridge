@@ -394,9 +394,11 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
         )
       })}
       </div>
-      {probe.results.length === 0
-        ? null
-        : <Button size="sm" disabled={busy} onClick={onClear}>{t('probeClear')}</Button>}
+      {probe.results.length === 0 ? null : (
+        <div className={css.sectionActions}>
+          <Button size="sm" disabled={busy} onClick={onClear}>{t('probeClear')}</Button>
+        </div>
+      )}
     </div>
   )
 }

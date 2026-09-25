@@ -91,20 +91,28 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
     <DisclosureRow
       icon={<StateDot state={dotState(status)} />}
       title={t(variant.titleKey)}
+      /* `summaryTitle`'s `flex: 1` is what pushes the status to the row's right
+         edge — without it the status text sits glued to the title. */
+      titleClassName={css.summaryTitle}
+      rowClassName={css.summaryRow}
       open={open}
       expandable
       onToggle={() => { setOpen(!open) }}
-      collapsedContent={<span className={css.dim}>{accountLabel(status, t)}</span>}
+      collapsedContent={(
+        <span className={css.statusLine} role="status" aria-busy={status === undefined}>
+          <StateDot state={dotState(status)} />
+          <span>{accountLabel(status, t)}</span>
+        </span>
+      )}
     >
       <div className={css.body}>
         <div className={css.section}>
           <h4 className={css.title}>{t('accountHeading')}</h4>
           {/* `aria-busy` while nothing has been read: the value is pending, not absent. */}
           <div className={css.row}>
-            <span className={css.accountRow} role="status" aria-busy={status === undefined}>
-              <StateDot state={dotState(status)} />
-              <span>{accountLabel(status, t)}</span>
-            </span>
+            {/* The header line already says who is signed in; this row carries the
+                action that belongs to that fact. */}
+            {assistCode === undefined ? <span className={css.dim}>{accountLabel(status, t)}</span> : null}
             {/* The assist block carries the re-check in its state, so the
                 refresh button steps aside rather than duplicating it. */}
             {assistCode === undefined
