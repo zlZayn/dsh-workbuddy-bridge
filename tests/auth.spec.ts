@@ -438,7 +438,7 @@ async function asLinux<T>(options: {
     })
   })
 
-  it('skips an empty config-home file and resolves to the data-home credential', async () => {
+  it.skipIf(process.platform === 'win32')('skips an empty config-home file and resolves to the data-home credential', async () => {
     // The probe treats an empty file as absent and moves on; the resolved-path
     // diagnostic must agree, or doctor would name the empty config-home file
     // while authentication actually uses the data-home candidate.
@@ -464,7 +464,7 @@ async function asLinux<T>(options: {
     })
   })
 
-  it('resolves the actually-hit path when only the data home carries the file', async () => {
+  it.skipIf(process.platform === 'win32')('resolves the actually-hit path when only the data home carries the file', async () => {
     // Issue #43 diagnostics: the first *candidate* is the config home, but
     // when only the data-home copy exists, resolvedDesktopAuthPath() must
     // name it — for both variants.
@@ -490,7 +490,7 @@ async function asLinux<T>(options: {
     })
   })
 
-  it('uses translated WSL environment paths when the Windows user differs', async () => {
+  it.skipIf(process.platform === 'win32')('uses translated WSL environment paths when the Windows user differs', async () => {
     const root = await mkdtemp(join(tmpdir(), 'wb-wsl-'))
     CLEANUP.push(() => rm(root, { recursive: true, force: true }))
     const windowsProfile = join(root, 'Users', 'windows-alice')

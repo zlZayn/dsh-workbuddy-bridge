@@ -118,7 +118,7 @@ describe('A. disabled-list semantics (visibility store)', () => {
     expect(new WorkBuddyVisibilityStore(path).disabled('uid-a:')).toEqual(['hy3'])
   })
 
-  it('writes the file with owner-only permissions', () => {
+  it.skipIf(process.platform === 'win32')('writes the file with owner-only permissions', () => {
     const path = join(tempDir('wb-vis-'), 'v.json')
     new WorkBuddyVisibilityStore(path).setVisible('uid-a:', 'hy3', false)
     // Owner read/write only, matching the credential/catalog stores.

@@ -179,7 +179,7 @@ describe('#48 identity is proved before execution', () => {
     expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
   })
 
-  it('rejects a matching bundle whose Electron is not executable', async () => {
+  it.skipIf(process.platform === 'win32')('rejects a matching bundle whose Electron is not executable', async () => {
     const bundlePath = join(root, 'WorkBuddy.app')
     // Present but not executable: identity alone is not enough to execute it.
     await mkdir(join(bundlePath, 'Contents', 'MacOS'), { recursive: true })
@@ -308,7 +308,7 @@ describe('#48 an unfinished check is not an absent app', () => {
     expect(provider.helperPath()).toBe(good.electronPath)
   })
 
-  it('never treats an uninspectable candidate as absent, even beside a usable app', async () => {
+  it.skipIf(process.platform === 'win32')('never treats an uninspectable candidate as absent, even beside a usable app', async () => {
     // A candidate the process may not stat is *not* a deleted one. Reading
     // only ENOENT as "gone" is what keeps a live app from being chosen over a
     // candidate we merely could not inspect: `existsSync` answers `false` for

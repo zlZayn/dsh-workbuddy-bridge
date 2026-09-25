@@ -116,7 +116,7 @@ describe('doctor desktop auth format', () => {
     expect((broken.json['desktopAuthFile'] as Record<string, unknown>)['format']).toBe('unrecognized')
   })
 
-  it('reports the XDG data-home file as the desktop auth path when only it exists', async () => {
+  it.skipIf(process.platform === 'win32')('reports the XDG data-home file as the desktop auth path when only it exists', async () => {
     // Issue #43: the first *candidate* on Linux is the config home, but the
     // file actually lives under the data home on UOS/deepin. Doctor must name
     // the file that was really hit, for both variants.

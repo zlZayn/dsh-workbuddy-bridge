@@ -394,7 +394,7 @@ declare function probeModel(options: {
  * 部分失败既不带码也不带明确状态，此时它是唯一线索 —— 命中兜底时调用方应当
  * 记日志，让新出现的文案能被发现并补进码表。
  *
- * @module dsh-workbuddy-connect/protocol/errors
+ * @module dsh-workbuddy-bridge/protocol/errors
  */
 /** Upstream failure classes the shim maps onto distinct HTTP answers. */
 type UpstreamErrorKind$1 = 'hard_credit' | 'soft_rate' | 'session_dead' | 'not_found' | 'server' | 'client';
@@ -1337,7 +1337,7 @@ declare class WorkBuddyCatalogStore {
  * version-tagged document, atomic write with `0o600`, and a malformed file that
  * reads as "nothing saved" rather than throwing.
  *
- * @module dsh-workbuddy-connect/visibility-store
+ * @module dsh-workbuddy-bridge/visibility-store
  */
 /** Basename of the CN variant's visibility file inside the Harness home. */
 declare const WORKBUDDY_VISIBILITY_FILENAME = ".workbuddy-model-visibility.json";
@@ -1453,7 +1453,7 @@ declare class WorkBuddyProbeService {
  * This asymmetry is intentional: the host is the load-bearing half, and
  * a missing heartbeat unambiguously means the host never started.
  *
- * @module dsh-workbuddy-connect/host-heartbeat
+ * @module dsh-workbuddy-bridge/host-heartbeat
  */
 /** Basename of the host heartbeat file inside the Harness home. */
 declare const WORKBUDDY_HOST_HEARTBEAT_FILENAME = ".workbuddy-host-heartbeat.json";
@@ -1462,7 +1462,7 @@ declare const HEARTBEAT_FORMAT_VERSION = 1;
 /** On-disk shape of the heartbeat. */
 interface WorkBuddyHostHeartbeat {
   version: typeof HEARTBEAT_FORMAT_VERSION;
-  package: 'dsh-workbuddy-connect';
+  package: 'dsh-workbuddy-bridge';
   pluginVersion: string;
   /** Epoch milliseconds when the host registered the provider. */
   registeredAt: number;

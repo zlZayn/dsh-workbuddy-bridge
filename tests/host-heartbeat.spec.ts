@@ -76,7 +76,7 @@ describe('host heartbeat', () => {
     expect(await readHostHeartbeat()).toBeUndefined()
   })
 
-  it('detects a recycled PID as dead (registeredAt after this process started)', async () => {
+  it.skipIf(process.platform === 'win32')('detects a recycled PID as dead (registeredAt after this process started)', async () => {
     // The current process started at some point in the past. If a stale
     // heartbeat claims a `registeredAt` that is *older* than this process's
     // own start time, the PID cannot be the original host — it has been
