@@ -51,6 +51,7 @@
 
 - [x] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态；文案语义 2026-09-26 全量过一遍（标签按读者任务重排同批）
 - [x] 首次发布 `0.1.0`（维护者本地 publish + Trusted Publisher 已配）；README 门面已按发布态重写（npm 徽章已加）
+- [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
 - [ ] **补 git 侧发布产物**：tag `v0.1.0`（指向 3721cc3 或发布时那棵树）+ GitHub Release —— 发布时 workflow 未用上，
       两样按 [docs/PUBLISHING.md](docs/PUBLISHING.md) 手工补，之后 release.yml 的守卫才有基线
 

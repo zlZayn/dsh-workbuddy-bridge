@@ -91,18 +91,18 @@ Configuration takes effect immediately — no restart needed. The live state on 
 model list) comes from the two cards below.
 
 <p align="center">
-  <img src="assets/3.png" alt="Credits tab: total and per-package allowances" width="400">
-  <img src="assets/6.png" alt="Models tab: visibility, windows, rates" width="400">
+  <img src="assets/6.png" alt="Models tab: visibility, windows, rates" width="300">
+  <img src="assets/7.png" alt="Detection tab: reasoning-level detection" width="300">
   <br>
-  <em>Expanding the "WorkBuddy (CN)" card: the Credits tab shows the total and each package's allowance;
-  the Models tab manages visibility and shows windows and rates.</em>
+  <em>Expanding the "WorkBuddy (CN)" card: the Models tab (left) manages visibility and shows windows and
+  rates; the Detection tab (right) is one row per model — press Detect to confirm which reasoning levels
+  it accepts, and the results also land in the model picker.</em>
 </p>
 
 <p align="center">
-  <img src="assets/7.png" alt="Detection tab: reasoning-level detection" width="560">
+  <img src="assets/3.png" alt="Credits tab: total and per-package allowances" width="640">
   <br>
-  <em>The Detection tab: one row per model — press Detect to confirm which reasoning levels it accepts;
-  results also land in the model picker.</em>
+  <em>The Credits tab: the total on one line, each package's allowance as a bar below.</em>
 </p>
 
 ## Why detection is manual

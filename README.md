@@ -84,16 +84,16 @@ dsh plugin --profile web add "$PWD"
 配置改动立即生效，不需要重启；卡片上的实时状态（账号、积分、模型列表）则来自下面的两张卡。
 
 <p align="center">
-  <img src="assets/3.png" alt="积分标签：合计与套餐余量" width="400">
-  <img src="assets/6.png" alt="模型标签：显隐、窗口、倍率" width="400">
+  <img src="assets/6.png" alt="模型标签：显隐、窗口、倍率" width="300">
+  <img src="assets/7.png" alt="检测标签：推理档位检测" width="300">
   <br>
-  <em>展开「WorkBuddy（国内版）」卡片：左边「积分」标签看合计与各套餐余量，右边「模型」标签管理显隐、看窗口与倍率。</em>
+  <em>展开「WorkBuddy（国内版）」卡片：左「模型」标签管理显隐、看窗口与倍率；右「检测」标签一模型一行，点「开始检测」确认它接受哪些推理档位，结果也回写到模型选择器里。</em>
 </p>
 
 <p align="center">
-  <img src="assets/7.png" alt="检测标签：推理档位检测" width="560">
+  <img src="assets/3.png" alt="积分标签：合计与套餐余量" width="640">
   <br>
-  <em>「检测」标签：一模型一行，点「开始检测」确认它接受哪些推理档位；结果也回写到模型选择器里。</em>
+  <em>「积分」标签：合计一行，下面是各套餐余量条。</em>
 </p>
 
 ## 为什么是手动检测
