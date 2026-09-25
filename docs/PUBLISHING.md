@@ -9,7 +9,7 @@
 1. **版本线一致**：[package.json](../package.json) 的 `version`、`src/version.ts` 的 `PLUGIN_VERSION`、`lib/` 产物的内置版本三者必须一致。
    - 前两者由 `tests/version.spec.ts` 兜底；第三者要求**先 `build` 再 `test`**（顺序反了会红，这是刻意的）。
 2. **全量检查**：`pnpm check`（= `typecheck` + `vitest run` + `build`，命令原文见 [package.json](../package.json) 的 `scripts`）。
-3. **文档同步**：改了对外可见行为（配置项、工具/模型面、安装命令、版本对应表）→ 同一次改动内同步 [README.md](../README.md) 与 [README.en.md](../README.en.md)（**两份必同改**）。
+3. **文档同步**：改了对外可见行为（配置项、工具/模型面、安装命令、版本对应表）→ 同一次改动内同步 [README.md](../README.md) 与 [README_en.md](../README_en.md)（**两份必同改**）。
 4. **链接与格式**：跑一次链接校验（见 [AGENTS.md](../AGENTS.md) 的常用命令），确保 `docs/` 与子树双件没有断链。
 
 ## 发版
