@@ -1,27 +1,74 @@
-/* The composer's reasoning-level control: an icon, its annotation label, and
-   the bubble anchored above it. */
+/* The composer's reasoning-level control: one icon button, plus the bubble
+   anchored above it.
+
+   Every colour is a --dsw-alias-* token and the artwork strokes currentColor,
+   so light and dark themes follow from the button's colour alone. There is no
+   [data-ds-dark-theme] selector and no literal colour here — the host's own
+   sidebar buttons are built the same way. */
 
 .wrapper {
   display: inline-flex;
   position: relative;
   align-items: center;
-  /* The host slot's baseline sits a touch high and leaves a full inter-control
-     gap before the model picker. Nudge only this annotation down and inward so
-     it reads as part of the selected model rather than a separate toolbar item. */
-  transform: translateY(2px);
-  margin-right: -8px;
 }
 
+/* Geometry copied value-for-value from the host sidebar's .iconButton, via
+   dsh-ds-balance's popover button (which cites
+   packages/client/ui-sidebar/src/client/SidebarRoot.module.css). 28px circle,
+   transparent until hover: it reads as a peer of the host's own composer
+   chrome rather than as a labelled toolbar item. */
 .trigger {
-  /* Tight gap: the label is an annotation on the icon, not a peer of the model
-     name it sits beside. */
-  gap: 2px;
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  corner-shape: round;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
 }
 
-.label {
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--dsw-alias-label-tertiary);
+.trigger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* A disabled control still has to be findable and legible: the host dims by
+   token rather than by opacity, so the icon keeps its contrast on both themes.
+   `--dsw-alias-label-dimmed` is the host's own dimmed label token —
+   `--dsw-alias-label-quaternary` does not exist and would silently do nothing. */
+.trigger:disabled {
+  cursor: default;
+  color: var(--dsw-alias-label-dimmed);
+}
+
+/* Unfocusable interactive controls are a defect in this repository: the ring
+   matches the sibling button in dsh-ds-balance. */
+.trigger:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: -2px;
+}
+
+/* While a probe is running the icon pulses. It is the only signal the control
+   can give in a 28px square, and reduced motion turns it off entirely. */
+.trigger[aria-busy='true'] svg {
+  animation: wb-probe-spin 1.2s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes wb-probe-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger[aria-busy='true'] svg {
+    animation: none;
+  }
 }
 
 /* Confirmation bubble: one line plus two small buttons, anchored to the

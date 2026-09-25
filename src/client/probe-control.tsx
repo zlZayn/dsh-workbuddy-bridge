@@ -1,17 +1,23 @@
 /**
  * Per-model reasoning-effort entry beside the Composer's model selector.
  *
- * Interaction follows the Fast Mode control `dsh-codex-connect` ships in this
- * same seat, which is the established shape for composer chrome here:
+ * It is **only an icon** — no inline text. The composer row is shared with the
+ * host's own model picker, and a word here competes with the model name for the
+ * same glance while adding nothing: the verified levels already appear in the
+ * model dropdown (the adapter exposes them as selectable efforts). What the
+ * control offers is an *action*, so it is drawn like the other icon-only
+ * buttons in this chrome, and its meaning lives in the tooltip and the
+ * accessible name.
  *
- * - a **static inline label** next to the icon names the feature ("Reasoning
- *   levels"), set smaller and dimmer than the surrounding chrome so it reads as
- *   an annotation on the icon. It never carries state: the verified levels
- *   already appear in the model dropdown (the adapter exposes them as
- *   selectable efforts), so repeating them here would duplicate the real answer
- *   and make the label's width jump as results change.
- * - a **hover/focus tooltip** carries the state and the click's purpose, the way
- *   Fast Mode's tooltip explains its current speed.
+ * Styling follows `dsh-ds-balance`'s popover button, which copies the host's own
+ * sidebar `.iconButton` (28px circle, `--dsw-alias-label-secondary` icon on a
+ * transparent background, `--dsw-alias-interactive-bg-hover` on hover). The
+ * artwork strokes `currentColor`, so light and dark themes are handled by the
+ * token rather than by two sets of colours — no `[data-ds-dark-theme]` selector
+ * and no hard-coded colour anywhere.
+ *
+ * - a **hover/focus tooltip** carries the state and the click's purpose, and is
+ *   also the button's `aria-label`.
  * - the **confirmation** is a small bubble anchored to the control, not a
  *   `window.confirm`. Probing spends real credit, so a confirmation stays — but
  *   it belongs next to the thing it acts on, sized to one line plus two small
@@ -21,7 +27,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { Button, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconThinkOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ModelDirectory } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import { cardVariantFor } from './variants.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
@@ -215,19 +221,17 @@ function ModelProbe({ model, card, t }: {
   return (
     <span className={css.wrapper}>
       <Tooltip label={text} side="top" portal disabled={confirming || note !== undefined}>
-        <Button
+        <button
+          type="button"
           className={css.trigger}
-          size="sm"
-          variant="toolbar"
-          icon={<ProbeIcon />}
           aria-label={text}
           aria-busy={busy}
           aria-expanded={confirming}
           disabled={disabled}
           onClick={() => { setConfirming(true) }}
         >
-          <span className={css.label}>{t('probeLabel')}</span>
-        </Button>
+          <ProbeIcon />
+        </button>
       </Tooltip>
 
       {confirming
@@ -254,15 +258,19 @@ function ModelProbe({ model, card, t }: {
   )
 }
 
-/** The control's icon: a target over a reasoning aperture. */
+/**
+ * The control's icon — the host's own reasoning glyph.
+ *
+ * Deliberately **not** a hand-drawn shape. Every icon in this chrome is one of
+ * the host's, drawn on the same grid (16-unit viewBox, 1px stroke) with the same
+ * `currentColor` convention, so borrowing the host's artwork is the only way to
+ * land in the same visual language — anything original reads as foreign beside
+ * the model picker it sits next to.
+ *
+ * `IconThinkOutlineRegular` is the host's semantic icon for reasoning, which is
+ * exactly what this control acts on. It is exported from a package this plugin
+ * already depends on, so it costs no new dependency edge.
+ */
 function ProbeIcon(): ReactNode {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.6" aria-hidden="true" focusable="false">
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 12 20 4" />
-      <circle cx="12" cy="12" r="1" />
-    </svg>
-  )
+  return <IconThinkOutlineRegular size={16} />
 }

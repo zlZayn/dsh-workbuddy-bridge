@@ -13,7 +13,7 @@
  * @module dsh-workbuddy-bridge
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
 import { WorkBuddyCredentialStore, type WorkBuddyCredential, type WorkBuddyStoreOptions } from './credential/store.ts'
@@ -189,38 +189,108 @@ function credentialPollMs(): number {
  */
 const CATALOG_RETRY_SWEEPS = 10
 
-/** Plugin configuration. */
+/**
+ * Plugin configuration.
+ *
+ * No field is optional: an empty string means "not set", which is also what
+ * the form shows. That is forced by `.volatile()` — a volatile field always
+ * carries a value, so an optional marker here would describe a different type
+ * than the schema produces (and `exactOptionalPropertyTypes` rejects the
+ * mismatch rather than letting it slide).
+ */
 export interface Config {
-  /** Explicit WorkBuddy (CN) desktop auth-file path, overriding env and platform defaults. */
-  authFile?: string
-  /** Explicit WorkBuddy AI (international) desktop auth-file path, overriding env and platform defaults. */
-  authFileAI?: string
+  /** Explicit WorkBuddy (CN) desktop auth-file path, overriding env and platform defaults; empty means "use the app's own". */
+  authFile: string
+  /** Explicit WorkBuddy AI (international) desktop auth-file path; empty means "use the app's own". */
+  authFileAI: string
   /**
    * Whether the user has authorized sending probe requests about reasoning
    * efforts. Off by default: a probe spends real credit, so nothing is sent
    * until the user explicitly agrees.
    */
-  probeConsent?: boolean
+  probeConsent: boolean
   /** Use the largest context window the international catalog explicitly offers. */
-  useMaximumContextWindow?: boolean
+  useMaximumContextWindow: boolean
 }
 
 /** Explicit CN desktop auth-file path (shared by the plugin schema and its section). */
-const AUTH_FILE_FIELD = z.string().description('WorkBuddy desktop auth file (defaults to the app\'s own location)')
+const AUTH_FILE_FIELD = z.string().default('').volatile()
+  .description('WorkBuddy desktop auth file (defaults to the app\'s own location)')
 /** Explicit international desktop auth-file path (shared by the plugin schema and its section). */
-const AUTH_FILE_AI_FIELD = z.string().description('WorkBuddy AI desktop auth file (defaults to the app\'s own location)')
+const AUTH_FILE_AI_FIELD = z.string().default('').volatile()
+  .description('WorkBuddy AI desktop auth file (defaults to the app\'s own location)')
 /** Probe authorization (shared by the plugin schema and the CN section). */
-const PROBE_CONSENT_FIELD = z.boolean().default(false)
+const PROBE_CONSENT_FIELD = z.boolean().default(false).volatile()
   .description('Authorize reasoning-effort probes (each probe sends real requests that may consume credit)')
-const MAXIMUM_CONTEXT_WINDOW_FIELD = z.boolean().default(true)
+const MAXIMUM_CONTEXT_WINDOW_FIELD = z.boolean().default(true).volatile()
   .description('Use the largest context window declared by WorkBuddy AI when alternatives are available (on by default)')
 
-export const Config: z<Config> = z.object({
+/**
+ * Every field is `.volatile()`, and both reasons matter:
+ *
+ * 1. **Only volatile fields reach the form.** The host's `volatileForm()` returns
+ *    `undefined` when a schema has no volatile field, which drops the whole entry
+ *    out of `describe()` — so `ctx.configForms.get(ENTRY_ID)` never becomes ready
+ *    and the plugin's configuration area stays **empty**, with no error anywhere.
+ *    A single field missing `.volatile()` does not fail loudly either; it just
+ *    silently vanishes from the form.
+ * 2. **The write path is allow-listed per volatile path.** A non-volatile path is
+ *    rejected outright (`Config field "..." is not volatile`), so a form that did
+ *    show the field could never save it.
+ *
+ * `.default()` must come **before** `.volatile()`: the former fixes the mode, the
+ * latter then yields `Volatile<T>` rather than `Volatile<T | undefined>`.
+ *
+ * The side effect is welcome: with every field volatile the Loader always
+ * concludes "only volatile fields changed", so editing configuration never
+ * remounts the plugin and `apply` runs exactly once.
+ *
+ * Host sources: `packages/settings/settings/src/schema.ts` (`volatileForm`) and
+ * `settings/src/index.ts` (`write`).
+ */
+/**
+ * The reference face `apply` receives: every field is a cell whose `get()`
+ * returns the current value.
+ *
+ * An all-volatile schema is what makes that so — the Loader commits new values
+ * into the running references and remounts only the volatile parts, so this
+ * plugin never remounts and `apply` runs exactly once. It also means a value
+ * must never be captured into a field: read it through {@link configOf} at the
+ * point of use, because the reference always holds the newest value.
+ *
+ * Host sources: `vendor/cosmokit/src/volatile.ts` (`Volatile<T>` exposes only
+ * `get()`) and `vendor/loader/src/config/entry.ts` (`_commitVolatile`).
+ */
+export type ConfigRefs = { readonly [K in keyof Config]: Volatile<Config[K]> }
+
+export const Config = z.object({
   authFile: AUTH_FILE_FIELD,
   authFileAI: AUTH_FILE_AI_FIELD,
   probeConsent: PROBE_CONSENT_FIELD,
   useMaximumContextWindow: MAXIMUM_CONTEXT_WINDOW_FIELD,
 })
+
+/**
+ * Read the current plain configuration.
+ *
+ * Called at the point of use rather than cached: see {@link ConfigRefs}. Several
+ * callers are lazy accessors evaluated long after `apply` returned, and those
+ * must observe an edit made in between.
+ * @param refs - the reference face handed to `apply`.
+ * @returns the values in effect right now.
+ */
+function configOf(refs: ConfigRefs): Config {
+  // The `?? ` fallbacks repeat the schema's own defaults. A volatile reference
+  // is typed `Volatile<T | undefined>` for a `.default()` field, and the schema
+  // is the only place the default is applied — so repeating it here is what
+  // keeps the value face honest rather than casting the difference away.
+  return {
+    authFile: refs.authFile.get() ?? '',
+    authFileAI: refs.authFileAI.get() ?? '',
+    probeConsent: refs.probeConsent?.get() ?? false,
+    useMaximumContextWindow: refs.useMaximumContextWindow?.get() ?? true,
+  }
+}
 
 /** One variant's live runtime, assembled by {@link createVariantRuntime}. */
 interface VariantRuntime {
@@ -313,9 +383,21 @@ export function visibilityAccountOf(credential: Pick<WorkBuddyCredential, 'uid' 
   return credential.uid === '' ? undefined : credentialIdentity(credential)
 }
 
-/** Read the configured explicit auth-file path for one variant. */
+/**
+ * Read the configured explicit auth-file path for one variant.
+ *
+ * An empty string means "not set" — that is what the schema's default and the
+ * form's empty field both produce — and it must be reported as `undefined`
+ * rather than passed along. The consumers below treat a *present* path as
+ * authoritative and stop falling back to the env var and the platform default,
+ * so forwarding `''` would silently disable both.
+ * @param config - the plain configuration in effect.
+ * @param variant - which of the two desktop apps this is for.
+ * @returns the configured path, or `undefined` when the field is empty.
+ */
 function configuredAuthFile(config: Config, variant: WorkBuddyVariant): string | undefined {
-  return variant.id === CN_VARIANT.id ? config.authFile : config.authFileAI
+  const path = variant.id === CN_VARIANT.id ? config.authFile : config.authFileAI
+  return path === '' ? undefined : path
 }
 
 /**
@@ -372,7 +454,7 @@ function createVariantRuntime(
     catalog,
     credentials: store,
     client,
-    consent: () => config.probeConsent === true,
+    consent: () => config.probeConsent,
     // Observations are per account: the service reads and writes its records
     // against this identity, so one account's detected levels never answer for
     // another's, and an in-flight sweep cannot store under a new account.
@@ -549,7 +631,15 @@ async function startVariant(ctx: Context, runtime: VariantRuntime): Promise<bool
  * out groups with no models), which keeps a sign-in that happens after startup
  * working without re-registering the provider.
  */
-export function apply(ctx: Context, config: Config): void {
+export function apply(ctx: Context, refs: ConfigRefs): void {
+  /**
+   * The configuration in effect *now*.
+   *
+   * A function rather than a captured object because the references are live:
+   * the lazy accessors registered below outlive `apply`, and an edit made in
+   * between must be visible to them.
+   */
+  const config = (): Config => configOf(refs)
   /** Timers and in-flight work belonging to this plugin instance. */
   let stopped = false
   const timers: NodeJS.Timeout[] = []
@@ -584,7 +674,7 @@ export function apply(ctx: Context, config: Config): void {
       discovery: variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none',
     })
   const runtimes = WORKBUDDY_VARIANTS.map(variant => createVariantRuntime(
-    config,
+    config(),
     variant,
     id => lastIdentities.get(id),
     id => lastAccounts.get(id),
@@ -681,7 +771,7 @@ export function apply(ctx: Context, config: Config): void {
         client: runtime.client,
         models: () => runtime.catalog.current(),
         catalog: () => catalogSection(runtime),
-        probe: () => probeSection(runtime, config.probeConsent === true),
+        probe: () => probeSection(runtime, config().probeConsent),
         probeKey,
         // The full per-account hidden list — stale ids included — so the card's
         // checkboxes answer exactly what the picker filter reads. Absent (and
@@ -696,7 +786,7 @@ export function apply(ctx: Context, config: Config): void {
         // configuration field now, and the card points at the settings page
         // rather than writing a second, competing copy of it.
         ...runtime.variant.id === CN_VARIANT.id ? {} : {
-          useMaximumContextWindow: () => config.useMaximumContextWindow === true,
+          useMaximumContextWindow: () => config().useMaximumContextWindow,
         },
       })
       registerWorkBuddyProbeRoute(webCtx, {

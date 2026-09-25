@@ -125,16 +125,31 @@ describe('插件图标', () => {
     expect(opens).toBe(closes)
   })
 
-  it('就是检测控件那个图形的等比放大（同一套几何）', () => {
+  /**
+   * 控件与插件页图标必须是**同一个字形**，而且那个字形来自宿主。
+   *
+   * 自绘图标在这条 chrome 里天然显生：邻居全是宿主自己的图标（16 格 / 1px 笔画 /
+   * currentColor）。所以控件直接渲染宿主的 IconThinkOutlineRegular，本仓不再维护一份
+   * 私有墨迹；插件页的 icon.svg 是它放大后的副本。
+   *
+   * 两处都要核：控件**不许**再出现自绘 svg，icon.svg 的路径必须与宿主逐字相同。
+   */
+  it('控件用宿主的字形，icon.svg 是它的等比放大', () => {
     const svg = read('icon.svg')
     const control = read('src/client/probe-control.tsx')
-    for (const shape of ['r="9"', 'r="4"', 'M12 12 20 4']) {
-      expect(control, `控件里应有 ${shape}`).toContain(shape)
-      expect(svg, `图标里应有 ${shape}`).toContain(shape)
-    }
-    // 36 画布 + translate(6 6)：外接框 3–21 落到 9–27，四周各留 9。
+    // 控件渲染宿主的图标组件。
+    expect(control).toContain('IconThinkOutlineRegular')
+    expect(control).not.toContain('<svg')
+    // 36 画布 + 16 格 × scale(2)：整组落到 2–34，四周各留 2，笔画 1 → 2。
     expect(svg).toContain('viewBox="0 0 36 36"')
-    expect(svg).toContain('translate(6 6)')
+    expect(svg).toContain('translate(2 2) scale(2)')
+    // 自检：真源里确实取到了两条路径，免得下面的循环空转成假绿。
+    const hostPaths = [
+      'M10.7554 5.24466C13.9891 8.4783 15.3769 12.3333 13.8552 13.8551C12.3335 15.3768 8.4785 13.989 5.24478 10.7553C2.01111 7.52165 0.623307 3.66664 2.14504 2.14491C3.66676 0.623189 7.52178 2.01099 10.7554 5.24466Z',
+      'M10.7554 10.7553C7.52178 13.989 3.66676 15.3768 2.14504 13.8551C0.623307 12.3333 2.01111 8.4783 5.24478 5.24466C8.4785 2.01099 12.3335 0.623189 13.8552 2.14491C15.3769 3.66664 13.9891 7.52165 10.7554 10.7553Z',
+    ]
+    expect(hostPaths.length).toBe(2)
+    for (const d of hostPaths) expect(svg, '图标里应有宿主那条路径').toContain(d)
   })
 })
 

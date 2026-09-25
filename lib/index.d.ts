@@ -1,7 +1,7 @@
 import z from "@deepseek-ai/schemastery";
 import "@earendil-works/pi-ai";
 import { PiAiAdapter } from "@deepseek-ai/dsh-llm-pi-ai";
-import { Context } from "@deepseek-ai/cordis";
+import { Context, Volatile } from "@deepseek-ai/cordis";
 import { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 //#region src/shared/paths.d.ts
 /**
@@ -1544,22 +1544,77 @@ declare function isHeartbeatProcessAlive(heartbeat: WorkBuddyHostHeartbeat): boo
 declare const name = "llm-workbuddy";
 /** The model registry required before the provider can register. */
 declare const inject: string[];
-/** Plugin configuration. */
+/**
+ * Plugin configuration.
+ *
+ * No field is optional: an empty string means "not set", which is also what
+ * the form shows. That is forced by `.volatile()` — a volatile field always
+ * carries a value, so an optional marker here would describe a different type
+ * than the schema produces (and `exactOptionalPropertyTypes` rejects the
+ * mismatch rather than letting it slide).
+ */
 interface Config {
-  /** Explicit WorkBuddy (CN) desktop auth-file path, overriding env and platform defaults. */
-  authFile?: string;
-  /** Explicit WorkBuddy AI (international) desktop auth-file path, overriding env and platform defaults. */
-  authFileAI?: string;
+  /** Explicit WorkBuddy (CN) desktop auth-file path, overriding env and platform defaults; empty means "use the app's own". */
+  authFile: string;
+  /** Explicit WorkBuddy AI (international) desktop auth-file path; empty means "use the app's own". */
+  authFileAI: string;
   /**
    * Whether the user has authorized sending probe requests about reasoning
    * efforts. Off by default: a probe spends real credit, so nothing is sent
    * until the user explicitly agrees.
    */
-  probeConsent?: boolean;
+  probeConsent: boolean;
   /** Use the largest context window the international catalog explicitly offers. */
-  useMaximumContextWindow?: boolean;
+  useMaximumContextWindow: boolean;
 }
-declare const Config: z<Config>;
+/**
+ * Every field is `.volatile()`, and both reasons matter:
+ *
+ * 1. **Only volatile fields reach the form.** The host's `volatileForm()` returns
+ *    `undefined` when a schema has no volatile field, which drops the whole entry
+ *    out of `describe()` — so `ctx.configForms.get(ENTRY_ID)` never becomes ready
+ *    and the plugin's configuration area stays **empty**, with no error anywhere.
+ *    A single field missing `.volatile()` does not fail loudly either; it just
+ *    silently vanishes from the form.
+ * 2. **The write path is allow-listed per volatile path.** A non-volatile path is
+ *    rejected outright (`Config field "..." is not volatile`), so a form that did
+ *    show the field could never save it.
+ *
+ * `.default()` must come **before** `.volatile()`: the former fixes the mode, the
+ * latter then yields `Volatile<T>` rather than `Volatile<T | undefined>`.
+ *
+ * The side effect is welcome: with every field volatile the Loader always
+ * concludes "only volatile fields changed", so editing configuration never
+ * remounts the plugin and `apply` runs exactly once.
+ *
+ * Host sources: `packages/settings/settings/src/schema.ts` (`volatileForm`) and
+ * `settings/src/index.ts` (`write`).
+ */
+/**
+ * The reference face `apply` receives: every field is a cell whose `get()`
+ * returns the current value.
+ *
+ * An all-volatile schema is what makes that so — the Loader commits new values
+ * into the running references and remounts only the volatile parts, so this
+ * plugin never remounts and `apply` runs exactly once. It also means a value
+ * must never be captured into a field: read it through {@link configOf} at the
+ * point of use, because the reference always holds the newest value.
+ *
+ * Host sources: `vendor/cosmokit/src/volatile.ts` (`Volatile<T>` exposes only
+ * `get()`) and `vendor/loader/src/config/entry.ts` (`_commitVolatile`).
+ */
+type ConfigRefs = { readonly [K in keyof Config]: Volatile<Config[K]>; };
+declare const Config: z<Schemastery.ObjectS<NoInfer<{
+  authFile: z<string, string, "volatile-defined">;
+  authFileAI: z<string, string, "volatile-defined">;
+  probeConsent: z<boolean, boolean, "volatile-defined">;
+  useMaximumContextWindow: z<boolean, boolean, "volatile-defined">;
+}>>, Schemastery.ObjectT<NoInfer<{
+  authFile: z<string, string, "volatile-defined">;
+  authFileAI: z<string, string, "volatile-defined">;
+  probeConsent: z<boolean, boolean, "volatile-defined">;
+  useMaximumContextWindow: z<boolean, boolean, "volatile-defined">;
+}>>, "plain">;
 /**
  * The account key model-visibility preferences are stored under: the stable
  * identity, but only when it carries a uid.
@@ -1582,6 +1637,6 @@ declare function visibilityAccountOf(credential: Pick<WorkBuddyCredential, 'uid'
  * out groups with no models), which keeps a sign-in that happens after startup
  * working without re-registering the provider.
  */
-declare function apply(ctx: Context, config: Config): void;
+declare function apply(ctx: Context, refs: ConfigRefs): void;
 //#endregion
-export { AI_VARIANT, type AppVersionInfo, CN_APP_VERSION_FILENAME, CN_VARIANT, type ChatIdentity, Config, FALLBACK_CN_APP_VERSION, FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS, PROBE_EFFORT_CANDIDATES, type ProbeAttempt, type ProbeOutcome, type ProbeSender, type ResolveChatIdentityOptions, type UpstreamErrorKind, WORKBUDDY_APP_VERSION_FILENAME, WORKBUDDY_AUTH_FILENAME, WORKBUDDY_AUTH_FILE_ENV, WORKBUDDY_CATALOG_FILENAME, WORKBUDDY_HOST_HEARTBEAT_FILENAME, WORKBUDDY_PROBE_FILENAME, WORKBUDDY_PROVIDER, WORKBUDDY_STREAM_IDLE_TIMEOUT_MS, WORKBUDDY_VARIANTS, WORKBUDDY_VISIBILITY_FILENAME, type WorkBuddyAdapter, type WorkBuddyAppVersionSource, type WorkBuddyAuthStatus, WorkBuddyCatalog, type WorkBuddyCatalogFetch, WorkBuddyCatalogStore, type WorkBuddyChatResult, type WorkBuddyCredential, WorkBuddyCredentialStore, type WorkBuddyCredits, type WorkBuddyEffort, type WorkBuddyHostHeartbeat, type WorkBuddyModelBilling, type WorkBuddyModelInfo, type WorkBuddyModelReasoning, type WorkBuddyProbeRecord, WorkBuddyProbeService, type WorkBuddyProbeStatus, WorkBuddyProbeStore, type WorkBuddyProbeValidation, type WorkBuddyPromotion, type WorkBuddyRefreshOutcome, type WorkBuddyShim, WorkBuddyUpstreamClient, type WorkBuddyUpstreamModel, type WorkBuddyVariant, WorkBuddyVisibilityStore, appUserAgent, apply, chatUserAgent, classifyUpstreamError, clearHostHeartbeat, createWorkBuddyAdapter, createWorkBuddyShim, defaultDesktopAuthCandidates, defaultDesktopAuthPath, desktopAuthCandidatesFor, fallbackChatIdentity, fingerprintModel, inject, installedAppVersion, isHeartbeatProcessAlive, modelWithCurrentPromotion, name, normalizeCredits, parseModelCatalog, parseWorkBuddyAuth, prepareChatBody, prepareInternationalChatBody, probeModel, processStartTimeMs, randomSentinel, readBundleVersion, readCliVersion, readHostHeartbeat, regionOf, resolveAppVersion, resolveChatIdentity, validAppVersion, validCliVersion, variantFor, visibilityAccountOf, workbuddyCatalogPath, workbuddyHostHeartbeatPath, workbuddyOwnAuthPath, workbuddyProbePath, workbuddyVisibilityPath };
+export { AI_VARIANT, type AppVersionInfo, CN_APP_VERSION_FILENAME, CN_VARIANT, type ChatIdentity, Config, ConfigRefs, FALLBACK_CN_APP_VERSION, FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS, PROBE_EFFORT_CANDIDATES, type ProbeAttempt, type ProbeOutcome, type ProbeSender, type ResolveChatIdentityOptions, type UpstreamErrorKind, WORKBUDDY_APP_VERSION_FILENAME, WORKBUDDY_AUTH_FILENAME, WORKBUDDY_AUTH_FILE_ENV, WORKBUDDY_CATALOG_FILENAME, WORKBUDDY_HOST_HEARTBEAT_FILENAME, WORKBUDDY_PROBE_FILENAME, WORKBUDDY_PROVIDER, WORKBUDDY_STREAM_IDLE_TIMEOUT_MS, WORKBUDDY_VARIANTS, WORKBUDDY_VISIBILITY_FILENAME, type WorkBuddyAdapter, type WorkBuddyAppVersionSource, type WorkBuddyAuthStatus, WorkBuddyCatalog, type WorkBuddyCatalogFetch, WorkBuddyCatalogStore, type WorkBuddyChatResult, type WorkBuddyCredential, WorkBuddyCredentialStore, type WorkBuddyCredits, type WorkBuddyEffort, type WorkBuddyHostHeartbeat, type WorkBuddyModelBilling, type WorkBuddyModelInfo, type WorkBuddyModelReasoning, type WorkBuddyProbeRecord, WorkBuddyProbeService, type WorkBuddyProbeStatus, WorkBuddyProbeStore, type WorkBuddyProbeValidation, type WorkBuddyPromotion, type WorkBuddyRefreshOutcome, type WorkBuddyShim, WorkBuddyUpstreamClient, type WorkBuddyUpstreamModel, type WorkBuddyVariant, WorkBuddyVisibilityStore, appUserAgent, apply, chatUserAgent, classifyUpstreamError, clearHostHeartbeat, createWorkBuddyAdapter, createWorkBuddyShim, defaultDesktopAuthCandidates, defaultDesktopAuthPath, desktopAuthCandidatesFor, fallbackChatIdentity, fingerprintModel, inject, installedAppVersion, isHeartbeatProcessAlive, modelWithCurrentPromotion, name, normalizeCredits, parseModelCatalog, parseWorkBuddyAuth, prepareChatBody, prepareInternationalChatBody, probeModel, processStartTimeMs, randomSentinel, readBundleVersion, readCliVersion, readHostHeartbeat, regionOf, resolveAppVersion, resolveChatIdentity, validAppVersion, validCliVersion, variantFor, visibilityAccountOf, workbuddyCatalogPath, workbuddyHostHeartbeatPath, workbuddyOwnAuthPath, workbuddyProbePath, workbuddyVisibilityPath };
