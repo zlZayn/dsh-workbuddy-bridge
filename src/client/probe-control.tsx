@@ -42,7 +42,6 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CS
 import { createPortal } from 'react-dom'
 import {
   Button,
-  IconCloseOutlineRegular,
   IconThinkOutlineRegular,
   Tooltip,
   useAnchoredPosition,
@@ -83,15 +82,18 @@ function resultFor(status: WorkBuddyWebStatus, model: string): WorkBuddyWebProbe
 }
 
 /**
- * The one-line tooltip: current state first, then what a click does — the same
- * two-part shape Fast Mode uses.
+ * What hovering the icon says: the levels this model accepts, when they are
+ * known.
  *
- * A recorded result outranks a remembered failure. `failed` only means "the last
- * run from this control did not complete"; the host can record a result for the
- * same model at any time (a detection started from the settings card, another
- * conversation, or a finished sweep), and the levels the user paid for are the
- * more useful answer than the stale failure. Failure copy is what remains when
- * there is no result to report.
+ * The answer is the *result*, not the action — a user hovering a small glyph
+ * beside the model picker is asking "what does this model support?", and the
+ * action is what the panel they can open is for.
+ *
+ * A recorded result outranks a remembered failure: `failed` only means "the last
+ * run from this control did not finish", and the host can record a result for
+ * the same model at any time (a detection started from the settings card,
+ * another conversation, or a finished sweep). The levels the user already paid
+ * for are the better answer; failure copy is what remains when there is none.
  */
 function tooltipText(
   t: WorkBuddyTranslate,
@@ -102,20 +104,19 @@ function tooltipText(
   const result = state.result
   if (result !== undefined) {
     if (result.validation === 'validating' && result.efforts.length > 0) {
-      return t('probeTooltipVerified', { levels: result.efforts.join(' / ') })
+      return t('probeTooltipLevels', { levels: result.efforts.join(' / ') })
     }
     if (result.validation === 'non-validating') return t('probeTooltipNotValidating')
-    return t('probeTooltipRetry')
+    return t('probeTooltipFailed')
   }
-  return state.failed ? t('probeTooltipRetry') : t('probeTooltipIdle', { model })
+  return state.failed ? t('probeTooltipFailed') : t('probeTooltipIdle', { model })
 }
 
-/** Compose the one-line outcome string the note bubble shows. */
-function noteText(t: WorkBuddyTranslate, result: WorkBuddyWebProbeModel): string {
-  if (result.validation === 'validating' && result.efforts.length > 0) {
-    return t('probeNoteVerified', { levels: result.efforts.join(' / ') })
-  }
-  return t(result.validation === 'non-validating' ? 'probeNoteNotValidating' : 'probeNoteUnknown')
+/** The levels this model accepts, as one line; undefined when there are none to show. */
+function levelsLine(result: WorkBuddyWebProbeModel | undefined): string | undefined {
+  if (result === undefined) return undefined
+  if (result.validation === 'validating' && result.efforts.length > 0) return result.efforts.join(' / ')
+  return undefined
 }
 
 /** Model-independent shell: resolves the selection, then delegates per model. */
@@ -139,11 +140,23 @@ function ModelProbe({ model, card, t }: {
 }): ReactNode {
   const [status, setStatus] = useState<WorkBuddyWebStatus>()
   const [busy, setBusy] = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  /**
+   * Whether the panel is open.
+   *
+   * One flag, not a confirmation-plus-result pair: the panel shows the same
+   * thing before and after a run (the levels, and the one button that gets
+   * them), so there is no second state to model. Opening it is not a commitment
+   * either — the button inside is.
+   */
+  const [open, setOpen] = useState(false)
   const [failed, setFailed] = useState(false)
-  // Only an explicit detection response opens a note. Background reads and
-  // remounts never replay stored results; no persisted "seen" marks are needed.
-  const [note, setNote] = useState<WorkBuddyWebProbeModel>()
+  /**
+   * The outcome of the run this control just performed.
+   *
+   * Kept so a fresh answer is shown immediately, without waiting for the next
+   * status read; `result` from the document is what stands when there is none.
+   */
+  const [fresh, setFresh] = useState<WorkBuddyWebProbeModel>()
   const inFlight = useRef(false)
   const mounted = useRef(false)
   const readSeq = useRef(0)
@@ -209,13 +222,12 @@ function ModelProbe({ model, card, t }: {
   }, [result])
 
   // A selection change must not strand an open bubble.
-  useEffect(() => { setConfirming(false); setNote(undefined) }, [model])
+  useEffect(() => { setOpen(false); setFresh(undefined) }, [model])
 
   const detect = async (): Promise<void> => {
     if (key === undefined || inFlight.current || probe?.running === true) return
     inFlight.current = true
-    setNote(undefined)
-    setConfirming(false)
+    setFresh(undefined)
     setBusy(true)
     setFailed(false)
     try {
@@ -237,7 +249,7 @@ function ModelProbe({ model, card, t }: {
       // an older cached result. Do not wait for /status (which fetches credit),
       // or infer completion from wall-clock timestamps and background polls.
       if (mounted.current) {
-        setNote({
+        setFresh({
           id: model, name: model, validation: body.validation as WorkBuddyWebProbeModel['validation'],
           efforts: body.efforts as string[], probedAt: Date.now(),
         })
@@ -250,8 +262,6 @@ function ModelProbe({ model, card, t }: {
       if (mounted.current) setBusy(false)
     }
   }
-
-  const open = confirming || note !== undefined
 
   // Both hooks live above the `visible` early return: hooks may not be skipped,
   // and a control that comes and goes with the selection must keep a stable
@@ -270,7 +280,7 @@ function ModelProbe({ model, card, t }: {
   useDismissOnOutsidePointer(
     rootRef,
     open,
-    () => { setConfirming(false); setNote(undefined) },
+    () => { setOpen(false) },
     panelRef,
   )
 
@@ -278,26 +288,35 @@ function ModelProbe({ model, card, t }: {
 
   const text = tooltipText(t, model, { busy, result, failed })
   const disabled = busy || probe?.running === true || key === undefined
-  // The confirmation and the result note both suppress the tooltip: leaving it
-  // visible would overlap them, and the note already states the same outcome.
+  // The freshly-answered result wins over the document's, so the panel the user
+  // just acted in shows what the action produced rather than the older snapshot.
+  const shown = fresh ?? result
+  const levels = levelsLine(shown)
+  const notValidating = shown?.validation === 'non-validating'
+  // The open panel already says everything the tooltip would, so it steps aside
+  // rather than hovering over the thing it describes.
   return (
     <span className={css.wrapper} ref={rootRef}>
-      <Tooltip label={text} side="top" portal disabled={confirming || note !== undefined}>
+      <Tooltip label={text} side="top" portal disabled={open}>
         <button
           type="button"
           className={css.trigger}
           aria-label={text}
           aria-busy={busy}
-          aria-expanded={confirming}
+          aria-expanded={open}
           disabled={disabled}
-          onClick={() => { setConfirming(true) }}
+          onClick={() => { setOpen(!open) }}
         >
           <ProbeIcon />
         </button>
       </Tooltip>
 
       {/* Closed means unmounted: a panel left in the DOM is a `position: fixed`
-          hit-testing box that would sit over the composer after it closed. */}
+          hit-testing box that would sit over the composer after it closed.
+
+          There is no close button and no cancel: the panel explains one action and
+          holds the one button that takes it, so the ways out are the ways out of
+          any popover — click away, press Escape, or click the icon again. */}
       {open
         ? createPortal(
           <section
@@ -305,42 +324,33 @@ function ModelProbe({ model, card, t }: {
             className={css.panel}
             style={position ?? MEASURE_STYLE}
             role="dialog"
-            aria-label={confirming ? t('probeLabel') : t('probeNoteTitle')}
+            aria-label={t('probeLabel')}
           >
             <div className={css.panelTitle}>
               <span className={css.panelTitleIcon}><ProbeIcon /></span>
               <span className={css.panelTitleText}>{model}</span>
-              <button
-                type="button"
-                className={css.iconButton}
-                aria-label={t('probeNoteDismiss')}
-                onClick={() => { setConfirming(false); setNote(undefined) }}
-              >
-                <IconCloseOutlineRegular size={16} />
-              </button>
             </div>
 
             <div className={css.titleRule} aria-hidden />
 
-            {confirming
-              ? (
-                <>
-                  <p className={css.body}>{t('probeBubbleBody')}</p>
-                  <div className={css.panelActions}>
-                    <Button size="sm" variant="outline" onClick={() => { setConfirming(false) }}>
-                      {t('cancel')}
-                    </Button>
-                    <Button size="sm" variant="primary" onClick={() => { void detect() }}>
-                      {t('probeConfirmAction')}
-                    </Button>
-                  </div>
-                </>
-              )
-              : (
-                <p className={css.body} role="status" aria-live="polite">
-                  {note === undefined ? '' : noteText(t, note)}
-                </p>
-              )}
+            <p className={css.levelsLabel}>{t('probePanelLevels')}</p>
+            <p className={css.levels} role="status" aria-live="polite">
+              {levels ?? t('probePanelNone')}
+            </p>
+            {notValidating ? <p className={css.dim}>{t('probePanelNotValidating')}</p> : null}
+            {failed && shown === undefined ? <p className={css.dim}>{t('probePanelFailed')}</p> : null}
+
+            {/* The cost note belongs to the action, so it steps aside once the
+                levels are known and the button only repeats a run. */}
+            {levels === undefined && !notValidating ? (
+              <p className={css.note}>{t('probePanelNote')}</p>
+            ) : null}
+
+            <div className={css.panelActions}>
+              <Button size="sm" variant="primary" disabled={disabled} onClick={() => { void detect() }}>
+                {busy ? t('probePanelDetecting') : levels === undefined ? t('probePanelDetect') : t('probePanelRedetect')}
+              </Button>
+            </div>
           </section>,
           document.body,
         )

@@ -14,7 +14,7 @@ export type WorkBuddyLocaleKey =
   // Catalog provenance
   | 'catalogLive' | 'catalogSaved' | 'catalogFallback' | 'catalogError' | 'catalogAppVersion'
   // Actions
-  | 'refresh' | 'refreshing' | 'refreshModels' | 'refreshingModels' | 'cancel'
+  | 'refresh' | 'refreshing' | 'refreshModels' | 'refreshingModels'
   // Tabs
   | 'tabLabel' | 'tabStatus' | 'tabContext' | 'tabDetails'
   // Credit
@@ -29,12 +29,15 @@ export type WorkBuddyLocaleKey =
   | 'visibilityIntro' | 'visibilityStaleAccount'
   // Reasoning-effort detection
   | 'probeHeading' | 'probeIntro' | 'probeConsentHint' | 'probeStart' | 'probeRedetect'
-  | 'probeRunning' | 'probeRunningGeneric' | 'probeClear' | 'probeConfirmBody' | 'probeConfirmAction'
+  | 'probeRunning' | 'probeRunningGeneric' | 'probeClear' | 'probeConfirmBody'
   | 'probeResultVerified' | 'probeResultNotValidating' | 'probeResultUnknown' | 'probeResultAt'
   | 'probeResultEmpty' | 'probeResultNoLevels' | 'probeFailed'
-  | 'probeLabel' | 'probeTooltipIdle' | 'probeTooltipVerified' | 'probeTooltipNotValidating'
-  | 'probeTooltipRetry' | 'probeBubbleBody' | 'probeNoteVerified' | 'probeNoteNotValidating'
-  | 'probeNoteUnknown' | 'probeNoteDismiss' | 'probeNoteTitle'
+  // The composer control's own panel. Unlike the card, it has one action and no
+  // confirmation step: the panel explains, the button acts.
+  | 'probePanelLevels' | 'probePanelNone' | 'probePanelNote' | 'probePanelDetect'
+  | 'probePanelDetecting' | 'probePanelRedetect' | 'probePanelNotValidating' | 'probePanelFailed'
+  | 'probeLabel' | 'probeTooltipIdle' | 'probeTooltipLevels' | 'probeTooltipNotValidating'
+  | 'probeTooltipFailed'
   // Settings form
   | 'settingsHeading' | 'authFile' | 'authFileHint' | 'authFileAI' | 'authFileAIHint'
   | 'probeConsent' | 'maximumContextWindow' | 'maximumContextWindowHint' | 'on' | 'off'
@@ -73,7 +76,6 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   refreshing: 'Refreshing…',
   refreshModels: 'Refresh model list',
   refreshingModels: 'Refreshing models…',
-  cancel: 'Cancel',
   tabLabel: 'WorkBuddy detail',
   tabStatus: 'Status',
   tabContext: 'Context window',
@@ -110,7 +112,6 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeRunningGeneric: 'Detecting…',
   probeClear: 'Clear detected results',
   probeConfirmBody: 'Send test requests to {model} to confirm its available reasoning levels. May consume a small amount of credit.',
-  probeConfirmAction: 'Confirm',
   probeResultVerified: 'Verified levels: {levels}',
   probeResultNotValidating: 'This model does not check the effort parameter',
   probeResultUnknown: 'Detection did not complete',
@@ -119,16 +120,18 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeResultNoLevels: 'No tested levels were accepted.',
   probeFailed: 'Detection failed: {message}',
   probeLabel: 'Reasoning levels',
-  probeTooltipIdle: 'Detect the reasoning levels {model} accepts',
-  probeTooltipVerified: 'Accepted levels: {levels} · click to detect again',
-  probeTooltipNotValidating: 'This model does not check the effort parameter',
-  probeTooltipRetry: 'Detection did not complete · click to retry',
-  probeBubbleBody: 'Send test requests to confirm the available reasoning levels. May consume a small amount of credit.',
-  probeNoteVerified: 'Detected: {levels}',
-  probeNoteNotValidating: 'This model does not check the effort parameter',
-  probeNoteUnknown: 'Detection did not complete',
-  probeNoteDismiss: 'Got it',
-  probeNoteTitle: 'Reasoning-level detection',
+  probePanelLevels: 'Supported levels',
+  probePanelNone: 'Not detected yet',
+  probePanelNote: 'Detection sends a few requests to this model and may consume a small amount of credit.',
+  probePanelDetect: 'Detect',
+  probePanelDetecting: 'Detecting…',
+  probePanelRedetect: 'Detect again',
+  probePanelNotValidating: 'This model ignores the reasoning-level parameter.',
+  probePanelFailed: 'Detection did not finish. You can run it again.',
+  probeTooltipIdle: 'Detect the reasoning levels {model} supports',
+  probeTooltipLevels: 'Supported levels: {levels}',
+  probeTooltipNotValidating: 'This model ignores the reasoning-level parameter',
+  probeTooltipFailed: 'Detection did not finish · click to run it again',
   settingsHeading: 'Configuration',
   authFile: 'WorkBuddy auth file',
   authFileHint: 'Path to the WorkBuddy desktop auth file. Leave blank to use the app’s own location.',
@@ -196,7 +199,6 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   refreshing: '正在刷新…',
   refreshModels: '刷新模型列表',
   refreshingModels: '正在刷新模型…',
-  cancel: '取消',
   tabLabel: 'WorkBuddy 详情',
   tabStatus: '状态',
   tabContext: '上下文窗口',
@@ -233,7 +235,6 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probeRunningGeneric: '正在检测…',
   probeClear: '清除已探测结果',
   probeConfirmBody: '向 {model} 发送探测请求，以确认可用推理档位。可能消耗少量积分。',
-  probeConfirmAction: '确认检测',
   probeResultVerified: '已验证接受的档位：{levels}',
   probeResultNotValidating: '该模型不校验该参数',
   probeResultUnknown: '检测未完成',
@@ -241,17 +242,19 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probeResultEmpty: '当前没有可检测的模型。',
   probeResultNoLevels: '本次测试的档位均未被接受。',
   probeFailed: '检测失败：{message}',
-  probeLabel: '推理等级',
-  probeTooltipIdle: '检测 {model} 可用的推理档位',
-  probeTooltipVerified: '已接受：{levels} · 点击可重新检测',
-  probeTooltipNotValidating: '该模型不校验该参数',
-  probeTooltipRetry: '检测未完成 · 点击重试',
-  probeBubbleBody: '发送探测请求以确认可用推理档位。可能消耗少量积分。',
-  probeNoteVerified: '已检测：{levels}',
-  probeNoteNotValidating: '该模型不校验该参数',
-  probeNoteUnknown: '检测未完成',
-  probeNoteDismiss: '知道了',
-  probeNoteTitle: '推理档位检测',
+  probeLabel: '推理档位',
+  probePanelLevels: '支持的档位',
+  probePanelNone: '尚未检测',
+  probePanelNote: '检测会向该模型发送若干请求，可能消耗少量积分。',
+  probePanelDetect: '检测',
+  probePanelDetecting: '检测中…',
+  probePanelRedetect: '重新检测',
+  probePanelNotValidating: '该模型忽略推理档位参数。',
+  probePanelFailed: '检测未完成，可以再检测一次。',
+  probeTooltipIdle: '检测 {model} 支持的推理档位',
+  probeTooltipLevels: '支持的档位：{levels}',
+  probeTooltipNotValidating: '该模型忽略推理档位参数',
+  probeTooltipFailed: '检测未完成 · 点击可再检测一次',
   settingsHeading: '配置',
   authFile: 'WorkBuddy 登录文件',
   authFileHint: 'WorkBuddy 桌面 App 登录文件的路径。留空表示使用应用自身的位置。',

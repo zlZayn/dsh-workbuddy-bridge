@@ -150,48 +150,47 @@
   white-space: nowrap;
 }
 
-/* The close button is the same 28px circle as the trigger, pushed to the right
-   end by the auto margin. */
-.iconButton {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-left: auto;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  corner-shape: round;
-  background: transparent;
-  cursor: pointer;
-  color: var(--dsw-alias-label-secondary);
-}
-
-.iconButton:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.iconButton:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
-  outline-offset: 1px;
-}
-
 /* The one line between the title and what it has to say. */
 .titleRule {
   margin: 8px 0 10px;
   border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
-/* The hint tier. Not tertiary: this line carries the outcome the user opened
-   the panel for, against the title's primary ink. */
-.body {
+/* The two lines that answer the question the panel exists for: what does this
+   model accept? A quiet caption over the answer, the way the host labels a
+   field it asks the user to read rather than fill in. */
+.levelsLabel {
+  margin: 0 0 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* The answer itself: primary ink, so it reads as the value and not as more
+   commentary. It is also the panel's live region, which is why the pending and
+   empty wordings land in exactly this line. */
+.levels {
   margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+  overflow-wrap: anywhere;
+}
+
+/* The hint tier: the cost of the action, and the two outcomes that need a
+   sentence rather than a value. */
+.note,
+.dim {
+  margin: 12px 0 0;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* An outcome that is not a value sits tight under the answer it explains. */
+.dim {
+  margin-top: 2px;
 }
 
 .panelActions {

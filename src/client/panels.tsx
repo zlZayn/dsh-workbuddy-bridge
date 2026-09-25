@@ -294,8 +294,10 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
  * Reasoning-effort detection: one row per detectable model.
  *
  * Two deliberate UX rules:
- * - the confirmation is shown *before* any request, and its copy states the
- *   credit caveat;
+ * - **one press detects.** The row states what the model accepts and the button
+ *   beside it runs the check; the cost is stated once, above the list, instead
+ *   of being asked again per row. A confirmation whose only other option is
+ *   "cancel" costs a click and answers nothing;
  * - a `non-validating` result is presented as an observation about the
  *   parameter ("this model does not check it"), never as a statement that a
  *   level is unsupported.
@@ -309,18 +311,10 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
   onClear: () => void
   t: WorkBuddyTranslate
 }): ReactNode {
-  // Which model is awaiting confirmation. A modal alert for a one-line
-  // decision is heavier than the action it guards.
-  const [pending, setPending] = useState<string>()
   // Which model this card last asked to detect. `busy` alone cannot answer
   // that — it is true for any in-flight request — so the running label needs
   // the id, otherwise every candidate button claims to be running at once.
   const [runningModel, setRunningModel] = useState<string>()
-  // A sweep that finishes (or a catalogue change that removes the candidate)
-  // must not leave a stale confirmation behind.
-  useEffect(() => {
-    if (pending !== undefined && !probe.candidates.includes(pending)) setPending(undefined)
-  }, [pending, probe.candidates])
   // Clear the running label once the request settles.
   //
   // Keyed on `busy` alone this would fire immediately: the click that starts a
@@ -346,9 +340,10 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
       <h4 className={css.title}>{t('probeHeading')}</h4>
       <p className={css.text}>{t('probeIntro')}</p>
       <p className={css.dim}>{t('probeConsentHint')}</p>
+      {probe.candidates.length === 0 ? null : <p className={css.dim}>{t('probeConfirmBody')}</p>}
       {probe.running ? <p className={css.text}>{t('probeRunningGeneric')}</p> : null}
       {/*
-        * One row per probeable model, each carrying its own state and button.
+        * One row per probeable model, each carrying its own result and button.
         * Buttons used to live in a block above the results, so a detected model
         * left the button list and reappeared only as a result below — re-running
         * it meant clearing every other result. Rows keep the model and its
@@ -376,7 +371,10 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
                 <Button
                   size="sm"
                   disabled={probe.running || busy}
-                  onClick={() => { setPending(id) }}
+                  onClick={() => {
+                    setRunningModel(id)
+                    onDetect(id)
+                  }}
                 >
                   {/* Only the button that was pressed reports progress; the
                       card-wide `busy` flag cannot pick the label. */}
@@ -388,34 +386,7 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
             </div>
             {result === undefined ? null
               : <span className={css.dim}>{t('probeResultAt', { time: formatTime(result.probedAt) })}</span>}
-            {/*
-              * The confirmation expands inside the row it belongs to. Rendered
-              * after the whole list it sat a screen away from the button that
-              * asked the question. In-flow placement keeps them together and
-              * needs no positioning or overflow handling.
-              */}
-            {pending === id
-              ? (
-                <div className={css.confirm}>
-                  <p className={css.text}>{t('probeConfirmBody', { model: name })}</p>
-                  <div className={css.confirmRow}>
-                    <Button size="sm" onClick={() => { setPending(undefined) }}>{t('cancel')}</Button>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      disabled={probe.running || busy}
-                      onClick={() => {
-                        setRunningModel(id)
-                        setPending(undefined)
-                        onDetect(id)
-                      }}
-                    >
-                      {t('probeConfirmAction')}
-                    </Button>
-                  </div>
-                </div>
-              )
-              : null}
+
           </div>
         )
       })}
