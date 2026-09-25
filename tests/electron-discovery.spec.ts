@@ -9,6 +9,8 @@ import {
   WORKBUDDY_ELECTRON_BIN_ENV,
   deriveProtectorKey,
   reasonCodeOf,
+  windowsInstallsFromRegistry,
+  workBuddyWindowsDiscoveryTools,
 } from '../src/credential/at-rest.ts'
 import type { WorkBuddyDiscoveryTools } from '../src/credential/at-rest.ts'
 import { WorkBuddyCredentialStore } from '../src/credential/store.ts'
@@ -540,3 +542,141 @@ function encryptedEnvelopeFixture(): string {
     },
   })
 }
+
+describe('Windows discovery: the Uninstall registry supplies the location', () => {
+  /** Real \`reg query\` output, trimmed to the fields the parser reads. */
+  const REGISTRY_DUMP = [
+    'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BFD312E9',
+    '    DisplayName    REG_SZ    WorkBuddy 5.6.2',
+    '    UninstallString    REG_SZ    "E:\\WorkBuddy\\Uninstall WorkBuddy.exe" /currentuser',
+    '    DisplayIcon    REG_SZ    E:\\WorkBuddy\\WorkBuddy.exe,0',
+    '    Comments    REG_SZ    WorkBuddy Desktop - AI Agent Desktop Application',
+    'End of search: 9 match(es) found.',
+  ].join('\n')
+
+  it('reads the install directory from DisplayIcon', () => {
+    expect(windowsInstallsFromRegistry(REGISTRY_DUMP)).toEqual(['E:\\WorkBuddy'])
+  })
+
+  it('strips both the quotes and the icon index DisplayIcon is written with', () => {
+    const dump = [
+      'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{X}',
+      '    DisplayName    REG_SZ    WorkBuddy 5.6.2',
+      '    DisplayIcon    REG_SZ    "D:\\Apps\\WorkBuddy\\WorkBuddy.exe",0',
+    ].join('\n')
+    expect(windowsInstallsFromRegistry(dump)).toEqual(['D:\\Apps\\WorkBuddy'])
+  })
+
+  it('ignores a block that merely mentions WorkBuddy', () => {
+    // The search matches the product name inside any value, so a foreign entry
+    // that only references WorkBuddy must not be read as an installation.
+    const dump = [
+      'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{Y}',
+      '    DisplayName    REG_SZ    CodeBuddy CN',
+      '    DisplayIcon    REG_SZ    E:\\CodeBuddy CN\\CodeBuddy.exe,0',
+      '    Comments    REG_SZ    WorkBuddy host application',
+    ].join('\n')
+    expect(windowsInstallsFromRegistry(dump)).toEqual([])
+  })
+
+  it('falls back to InstallLocation when DisplayIcon names no executable', () => {
+    const dump = [
+      'HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{Z}',
+      '    DisplayName    REG_SZ    WorkBuddy 5.6.2',
+      '    DisplayIcon    REG_SZ    C:\\Program Files\\WorkBuddy\\uninstall.ico,0',
+      '    InstallLocation    REG_SZ    C:\\Program Files\\WorkBuddy',
+    ].join('\n')
+    expect(windowsInstallsFromRegistry(dump)).toEqual(['C:\\Program Files\\WorkBuddy'])
+  })
+
+  it('reports nothing for an empty dump', () => {
+    expect(windowsInstallsFromRegistry('')).toEqual([])
+  })
+})
+
+describe('Windows discovery: against the real registry', () => {
+  /**
+   * The end-to-end seam: a real `reg.exe`, on the hives the plugin really reads.
+   *
+   * It exists because the exit-code contract is not guessable from the outside.
+   * `reg` answers "nothing matched" with exit code 1 in two shapes — a localised
+   * "0 matches" on stdout when the key exists, and its message on stderr when the
+   * key does not. Reading either as "we could not check" made every discovery
+   * incomplete, which is exactly how this failed the first time it ran on a real
+   * machine. A stand-in cannot catch that; only the real tool can.
+   */
+  it.skipIf(process.platform !== 'win32')('reads the hives without faulting, whatever they hold', async () => {
+    const roots = await workBuddyWindowsDiscoveryTools().findInstallRoots(new AbortController().signal)
+    expect(Array.isArray(roots)).toBe(true)
+    for (const root of roots) expect(root.trim()).not.toBe('')
+  })
+
+  it.skipIf(process.platform !== 'win32')('treats an already-aborted budget as incomplete', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await expect(workBuddyWindowsDiscoveryTools().findInstallRoots(controller.signal)).rejects.toThrow()
+  })
+})
+
+describe('Windows discovery: resolution order and outcomes', () => {
+  /** One registered installation whose \`WorkBuddy.exe\` really exists. */
+  async function registeredInstall(name: string): Promise<{ root: string, electronPath: string }> {
+    const root = await executableAt(name, 'WorkBuddy.exe')
+    return { root: dirname(root), electronPath: root }
+  }
+
+  function providerFor(roots: string[], spawn: (path: string) => void = () => {}): WorkBuddyAtRestKeyProvider {
+    return new WorkBuddyAtRestKeyProvider({
+      discovery: 'windows-workbuddy',
+      defaultElectronPath: join(root, 'absent', 'WorkBuddy.exe'),
+      windowsTools: { findInstallRoots: async () => roots },
+      spawnHelper: async path => { spawn(path); return PAYLOAD_TEXT },
+    })
+  }
+
+  it('uses the registered install when the platform default is absent', async () => {
+    const install = await registeredInstall('registered')
+    let spawned: string | undefined
+    await providerFor([install.root], path => { spawned = path }).protectorKeyFor([KEY_ID])
+    expect(spawned).toBe(install.electronPath)
+  })
+
+  it('prefers the platform default over the registry', async () => {
+    const preferred = await executableAt('preferred-Electron')
+    let spawned: string | undefined
+    const provider = new WorkBuddyAtRestKeyProvider({
+      discovery: 'windows-workbuddy',
+      defaultElectronPath: preferred,
+      windowsTools: { findInstallRoots: async () => [(await registeredInstall('ignored')).root] },
+      spawnHelper: async path => { spawned = path; return PAYLOAD_TEXT },
+    })
+    await provider.protectorKeyFor([KEY_ID])
+    expect(spawned).toBe(preferred)
+  })
+
+  it('classifies two registered installs as ambiguous rather than picking one', async () => {
+    const first = await registeredInstall('one')
+    const second = await registeredInstall('two')
+    const error = await providerFor([first.root, second.root])
+      .protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
+    expect(reasonCodeOf(error)).toBe('electron-binary-ambiguous')
+  })
+
+  it('classifies an empty registry as not-found', async () => {
+    const error = await providerFor([]).protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
+    expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
+  })
+
+  it('treats a registry that could not be read as incomplete, never as not-found', async () => {
+    const provider = new WorkBuddyAtRestKeyProvider({
+      discovery: 'windows-workbuddy',
+      defaultElectronPath: join(root, 'absent', 'WorkBuddy.exe'),
+      windowsTools: { findInstallRoots: async () => { throw new Error('reg.exe unavailable') } },
+      spawnHelper: async () => PAYLOAD_TEXT,
+    })
+    const error = await provider.protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
+    // "We could not check" must not be recorded as "it is not installed".
+    expect(reasonCodeOf(error)).not.toBe('electron-binary-not-found')
+  })
+})
+

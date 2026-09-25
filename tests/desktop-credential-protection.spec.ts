@@ -266,11 +266,19 @@ describe('at-rest key provider', () => {
     // no-arg default is 'none' so a provider that was never told which product
     // it serves cannot reach for another product's binary.
     vi.stubEnv(WORKBUDDY_ELECTRON_BIN_ENV, '   ')
+    // The macOS strategy only owns a default on macOS; the Windows one only on
+    // Windows. Each is `undefined` elsewhere, so a provider never advertises a
+    // binary belonging to the other product's layout.
     const cn = new WorkBuddyAtRestKeyProvider({ discovery: 'macos-workbuddy' })
-    if (process.platform === 'darwin') {
-      expect(cn.helperPath()).toBe('/Applications/WorkBuddy.app/Contents/MacOS/Electron')
+    expect(cn.helperPath()).toBe(
+      process.platform === 'darwin' ? '/Applications/WorkBuddy.app/Contents/MacOS/Electron' : undefined,
+    )
+    const win = new WorkBuddyAtRestKeyProvider({ discovery: 'windows-workbuddy' })
+    const localAppData = process.env['LOCALAPPDATA']
+    if (process.platform === 'win32' && localAppData !== undefined && localAppData !== '') {
+      expect(win.helperPath()).toBe(join(localAppData, 'Programs', 'WorkBuddy', 'WorkBuddy.exe'))
     } else {
-      expect(cn.helperPath()).toBeUndefined()
+      expect(win.helperPath()).toBeUndefined()
     }
     expect(new WorkBuddyAtRestKeyProvider().helperPath()).toBeUndefined()
   })

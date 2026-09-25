@@ -41,7 +41,7 @@
 
 - **CI 已跑通**（Linux，[ci.yml](.github/workflows/ci.yml)）：install → typecheck（两半体）→ build → test → check:release 九步全绿。
   数字不抄，看 [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)。
-- 本机（Windows）实跑：`vitest` 29 files / 395 passed | 8 skipped —— 那 8 条是 Windows 与 POSIX 的语义差
+- 本机（Windows）实跑：`vitest` 29 files / 408 passed | 8 skipped —— 那 8 条是 Windows 与 POSIX 的语义差
   （权限位、EACCES 注入、XDG/WSL 路径、跨进程启动时间），**不是缺陷**：CI 上它们真的执行并通过
 - 链接校验 0 errors（文件与链接计数随文档增删变，不抄）；warning 只来自门面的 HTML 语言切换链接，与另两仓同形
 
@@ -52,6 +52,18 @@
 
 ## 活跃坑
 
+- **设置命名空间 = loader 条目 id，不是包名**：`configForms.get()` 收的是命名空间，
+  而宿主按 `ns: entry.options.id` 发布设置文档。喂包名的表现是**静默**的 —— 那个命名空间
+  从没被服务过，`whileServed` 永不触发，**配置页根本不出现**（2026-09-25 真机踩过）。
+  分工：槽 key 取**包名**（宿主按 `pkg.name` 派发），命名空间取**条目 id**；
+  两个常量各自由红线钉在 `cordis.patch.yml` 上
+- **Windows 上取凭据要用 WorkBuddy 自带的 Electron**：桌面凭据是 at-rest 加密的，
+  密钥助手就是那个 exe。**发现策略按平台选**（`cnAppDiscovery()`，宿主与 CLI 共用一处）、
+  **默认路径按策略取** —— 两者混用会让一条策略报出另一条平台的路径，与紧随其后的
+  发现流程自相矛盾
+- **`reg query` 的退出码 1 有两种形状、都是「这一格没有」**：键在但没匹配 → stdout 打本地化的
+  「找到 0 匹配」；键不在 → stdout 空、消息走 stderr。只有**被杀死（超时）**或**没起来**
+  （非数字 code）才算「查不了」。这条猜不出来 —— 别用替身测，红线上有一条打真实 `reg.exe` 的守卫
 - **槽的 `kind` 决定能不能注册**：`kind: 'single'` 的槽一格只能有一个占用者 —— 同 priority 再注册会抛错，
   而**抛出方是后注册的那一个**（宿主自带 UI 会因此消失）；要并排只能选 `kind: 'list'` 的槽。
   判据与先例见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「平台契约的取真源方式」

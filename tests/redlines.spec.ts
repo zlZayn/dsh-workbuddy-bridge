@@ -155,6 +155,31 @@ describe('客户端接缝', () => {
     expect(source).toContain(`const BUNDLE_NAME = '${pkg.name}'`)
   })
 
+  /**
+   * 设置命名空间是 **loader 条目 id**，不是包名 —— 两个不同的东西。
+   *
+   * 宿主 `dsh-settings/lib/index.js:432,443` 把每个插件的 `Config` 文档发布成
+   * `ns: entry.options.id`。而 `ctx.configForms.get()` 收的就是命名空间。
+   * 传包名的表现是**静默**的：那个命名空间从没被服务过，`whileServed` 永不触发，
+   * 配置页根本不出现 —— 没有报错、没有日志。
+   *
+   * 2026-09-25 真机就是这条：条目 id 是 `llm-workbuddy`，客户端却问包名。
+   * 所以这里把两个 id 各自的出处都钉住：包名 → 槽 key，条目 id → 命名空间。
+   */
+  it('configForms.get() 的实参取自 cordis.patch.yml 的 insert id，不是包名', () => {
+    const source = read('src/client/index.tsx')
+    const patch = read('cordis.patch.yml')
+    const entryId = /-\s*id:\s*(\S+)/.exec(patch)?.[1]
+    // 自检：patch 里必须真的能读出一个条目 id。
+    expect(entryId, 'cordis.patch.yml 里读不出 insert id').toBeTruthy()
+    expect(source).toContain(`export const ENTRY_ID = '${entryId as string}'`)
+    expect(source).toContain('ctx.configForms.get(ENTRY_ID)')
+    expect(source).toContain('whileServed([ENTRY_ID]')
+    // 反过来：不许再把包名喂给命名空间那一侧。
+    expect(source).not.toContain('configForms.get(BUNDLE_NAME)')
+    expect(source).not.toContain('whileServed([BUNDLE_NAME]')
+  })
+
   it('源码里不再出现宿主已删的旧接缝 conversation.input.right 之外的历史槽名', () => {
     const source = read('src/client/index.tsx')
     expect(source).not.toMatch(/conversation\.input\.(left|model|dock|activity|attachments)'/)

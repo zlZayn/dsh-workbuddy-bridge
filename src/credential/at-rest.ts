@@ -40,13 +40,46 @@ export const WORKBUDDY_ELECTRON_BIN_ENV = 'WORKBUDDY_ELECTRON_BIN'
 const MACOS_ELECTRON_PATH = '/Applications/WorkBuddy.app/Contents/MacOS/Electron'
 
 /**
- * The Electron binary the helper would spawn on this platform, or `undefined`
- * where no default has been verified. Other platforms must set
- * {@link WORKBUDDY_ELECTRON_BIN_ENV} explicitly — the layout is simply not
- * known, and guessing would spawn the wrong app's binary.
+ * The Windows install locations probed in order, confirmed on WorkBuddy 5.6.2.
+ *
+ * The app ships the Electron runtime as `WorkBuddy.exe` beside its `resources/`
+ * and `locales/` directories — there is no `Electron.exe`, and the launcher is
+ * the runtime itself (it honours `ELECTRON_RUN_AS_NODE`, which is what the key
+ * helper relies on).
+ *
+ * The default location is `%LOCALAPPDATA%\Programs\WorkBuddy`, but the 5.6.2
+ * installer here put it at the drive root (`E:\WorkBuddy`), so the registry's
+ * `DisplayIcon` is consulted as well — see {@link windowsElectronCandidates}.
  */
-export function defaultWorkBuddyElectronPath(): string | undefined {
-  return process.platform === 'darwin' ? MACOS_ELECTRON_PATH : undefined
+/** The Electron runtime as the Windows installer ships it — there is no `Electron.exe`. */
+const WINDOWS_ELECTRON_FILENAME = 'WorkBuddy.exe'
+
+/** Where the 5.6.2 installer puts the app unless the user picks another drive. */
+const WINDOWS_LOCAL_PROGRAM_SUFFIX = ['Programs', 'WorkBuddy', WINDOWS_ELECTRON_FILENAME] as const
+
+/**
+ * The Electron binary one discovery strategy expects at its default location, or
+ * `undefined` where that strategy has no verified layout on this platform.
+ *
+ * Keyed by **strategy** rather than by platform: a strategy names both the
+ * product and the layout it expects, so a macOS-strategy provider on Windows
+ * must report no default rather than this platform's — `discoverMacosApp` would
+ * contradict it a moment later, and a caller reading `helperPath()` for
+ * diagnostics would be pointed at a binary that can never run.
+ *
+ * A platform without a verified layout must set
+ * {@link WORKBUDDY_ELECTRON_BIN_ENV} explicitly — guessing would spawn the wrong
+ * app's binary.
+ */
+export function defaultWorkBuddyElectronPath(discovery: WorkBuddyElectronDiscovery = 'none'): string | undefined {
+  if (discovery === 'macos-workbuddy' && process.platform === 'darwin') return MACOS_ELECTRON_PATH
+  if (discovery === 'windows-workbuddy' && process.platform === 'win32') {
+    const localAppData = process.env['LOCALAPPDATA']?.trim()
+    if (localAppData !== undefined && localAppData !== '') {
+      return join(localAppData, ...WINDOWS_LOCAL_PROGRAM_SUFFIX)
+    }
+  }
+  return undefined
 }
 
 /** One decrypted-openable envelope's decoded parts. */
@@ -313,11 +346,30 @@ export type WorkBuddyKeyPayloadSource = () => Promise<string>
  * binary is configured.
  *
  * `none` is the safe default: a provider that has not been told which product
- * it serves must not reach for another product's app. `macos-workbuddy` is the
- * CN line — the only one whose at-rest credentials and app layout have been
- * verified live — and resolves the platform default and then Spotlight.
+ * it serves must not reach for another product's app.
+ *
+ * The two `*-workbuddy` kinds name a **platform strategy** — both verified live
+ * against WorkBuddy 5.6.2, both only ever looking for the CN app — and each
+ * refuses when the running platform is not its own:
+ * `macos-workbuddy` resolves the platform default and then Spotlight;
+ * `windows-workbuddy` resolves the platform default and then the Uninstall
+ * registry key.
  */
-export type WorkBuddyElectronDiscovery = 'none' | 'macos-workbuddy'
+export type WorkBuddyElectronDiscovery = 'none' | 'macos-workbuddy' | 'windows-workbuddy'
+
+/**
+ * The strategy the CN app may use on this platform.
+ *
+ * Both macOS and Windows have a verified WorkBuddy 5.6.2 layout; anything else
+ * gets `none`, which reads as "not configured" rather than "we searched and
+ * failed". Lives here — beside the strategies it chooses between — so the plugin
+ * host and the CLI cannot drift apart on it, which they did once already.
+ */
+export function cnAppDiscovery(): WorkBuddyElectronDiscovery {
+  if (process.platform === 'darwin') return 'macos-workbuddy'
+  if (process.platform === 'win32') return 'windows-workbuddy'
+  return 'none'
+}
 
 /** The CN app's bundle id; the only one this round resolves by discovery. */
 export const WORKBUDDY_CN_BUNDLE_ID = 'com.tencent.workbuddy.mac'
@@ -399,6 +451,8 @@ export interface WorkBuddyAtRestKeyProviderOptions {
   defaultElectronPath?: string | undefined
   /** Discovery subprocesses; injectable so tests never spawn. */
   tools?: WorkBuddyDiscoveryTools
+  /** Windows registry subprocess; injectable so tests never spawn `reg.exe`. */
+  windowsTools?: WorkBuddyWindowsDiscoveryTools
   /**
    * Total budget for one discovery run, covering the search and every
    * candidate check. Injectable so tests can exercise exhaustion without
@@ -407,6 +461,165 @@ export interface WorkBuddyAtRestKeyProviderOptions {
   discoveryBudgetMs?: number
 }
 
+/** `reg.exe` by absolute path: never resolved through `PATH`, which a user can change. */
+const REG_BIN = `${process.env['SystemRoot'] ?? 'C:\\Windows'}\\System32\\reg.exe`
+
+/** Registry paths searched for a registered WorkBuddy, in order. */
+const WINDOWS_UNINSTALL_HIVES = [
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+  'HKLM\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+] as const
+
+/** Three hives' worth of matching entries is far smaller than this. */
+const WINDOWS_REGISTRY_MAX_OUTPUT_BYTES = 256 * 1024
+
+/** Seams the Windows discovery flow runs through, so tests never spawn a process. */
+export interface WorkBuddyWindowsDiscoveryTools {
+  /**
+   * Registered WorkBuddy install directories. An empty array means "the query ran
+   * and matched nothing" — a decidable absence. A query that could not run at all
+   * must throw {@link DiscoveryIncompleteError}, so a broken tool is never read
+   * as "not installed".
+   */
+  findInstallRoots: (signal: AbortSignal) => Promise<readonly string[]>
+}
+
+/**
+ * Install directories named by one `reg query` dump, in listing order.
+ *
+ * `reg query <hive> /s /f WorkBuddy` prints one block per matching key: a
+ * `HKEY_…` header, then indented `Name    REG_SZ    value` lines. The identity
+ * proof is `DisplayName` starting with `WorkBuddy` — the search also matches the
+ * product name inside *other* values, so a block that merely mentions it must not
+ * count. The location comes from `DisplayIcon`, because that is the field that
+ * carries the path: the 5.6.2 installer here wrote the app to a drive root and
+ * left `InstallLocation` empty.
+ *
+ * Only the fields read here are mentioned: the same `/f` filter that finds these
+ * blocks also drops every value that does not contain "WorkBuddy", so the dump
+ * is a partial view of the key by construction and must not be read as one.
+ *
+ * Exported for tests: the flow's whole decision surface is here, so it can be
+ * exercised without running `reg.exe`.
+ */
+export function windowsInstallsFromRegistry(output: string): string[] {
+  const roots: string[] = []
+  let name: string | undefined
+  let icon: string | undefined
+  let location: string | undefined
+  const flush = (): void => {
+    if (name !== undefined && /^WorkBuddy\b/u.test(name)) {
+      const root = iconRootOf(icon) ?? locationRootOf(location)
+      if (root !== undefined && !roots.includes(root)) roots.push(root)
+    }
+    name = undefined
+    icon = undefined
+    location = undefined
+  }
+  for (const line of output.split(/\r?\n/u)) {
+    if (line.startsWith('HKEY_')) {
+      flush()
+      continue
+    }
+    const field = /^\s+(\S+)\s+REG_[A-Z_]+\s+(.*)$/u.exec(line)
+    if (field === null) continue
+    const key = field[1] ?? ''
+    const value = (field[2] ?? '').trim()
+    if (key === 'DisplayName') name = value
+    else if (key === 'DisplayIcon') icon = value
+    else if (key === 'InstallLocation') location = value
+  }
+  flush()
+  return roots
+}
+
+/**
+ * Strip what the registry wraps a path value in: a surrounding pair of quotes and
+ * a trailing `,<icon index>`. Neither is part of the path.
+ */
+function unwrapRegistryPath(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const path = value.trim().replace(/^"(.*)"(?:,-?\d+)?$/u, '$1').replace(/,-?\d+$/u, '')
+  return path === '' ? undefined : path
+}
+
+/**
+ * The install directory `DisplayIcon` points at, or `undefined` when it names
+ * something other than the app's executable.
+ *
+ * It is rejected unless it names a `.exe`: installers often point this value at an
+ * icon file, and a `.ico` is not a directory that could hold the runtime. Rejecting
+ * it is what lets {@link locationRootOf} answer instead.
+ *
+ * The split is done on Windows separators explicitly: the value comes out of the
+ * Windows registry, so its shape must not depend on the host that happens to parse
+ * it — a Linux CI runner reads the same dump and must reach the same directory.
+ */
+function iconRootOf(value: string | undefined): string | undefined {
+  const path = unwrapRegistryPath(value)
+  if (path === undefined || !/\.exe$/iu.test(path)) return undefined
+  return path.replace(/[\\/][^\\/]*$/u, '')
+}
+
+/**
+ * The directory `InstallLocation` names, or `undefined` when it names nothing.
+ *
+ * It is a directory by definition, so it is taken as-is — this installer leaves it
+ * empty, which is exactly the "no answer here" case.
+ */
+function locationRootOf(value: string | undefined): string | undefined {
+  const path = unwrapRegistryPath(value)
+  if (path === undefined) return undefined
+  return /\.exe$/iu.test(path) ? path.replace(/[\\/][^\\/]*$/u, '') : path
+}
+
+/**
+ * The default Windows discovery tools: `reg.exe` from its absolute path, so a
+ * user's `PATH` cannot redirect what the plugin executes.
+ *
+ * A hive that cannot be read at all — a missing `reg.exe`, a denied key — raises
+ * {@link DiscoveryIncompleteError}, because "we could not check" must never be
+ * read as "not installed". A hive that simply holds no WorkBuddy entry is a
+ * normal empty result: `reg` reports that with exit code 1 and empty stdout.
+ */
+export function workBuddyWindowsDiscoveryTools(): WorkBuddyWindowsDiscoveryTools {
+  return {
+    findInstallRoots: async signal => {
+      const found: string[] = []
+      for (const hive of WINDOWS_UNINSTALL_HIVES) {
+        if (signal.aborted) {
+          throw new DiscoveryIncompleteError('the Windows registry search was not started: the discovery budget was already spent')
+        }
+        const output = await new Promise<string>((resolve, reject) => {
+          execFile(REG_BIN, ['query', hive, '/s', '/f', 'WorkBuddy'], {
+            maxBuffer: WINDOWS_REGISTRY_MAX_OUTPUT_BYTES,
+            timeout: WORKBUDDY_DISCOVERY_STEP_TIMEOUT_MS,
+            windowsHide: true,
+          }, (error, stdout) => {
+            if (error === null || error === undefined) {
+              resolve(stdout)
+              return
+            }
+            // `reg` reports "nothing matched" as exit code 1, in two shapes the
+            // plugin must treat alike: a key that holds no WorkBuddy entry prints a
+            // localised "0 matches" on stdout, while an absent key prints its message
+            // on stderr instead. Both are answers about this hive, so only a killed
+            // process (a timeout) or one that never started (ENOENT/EACCES — a string
+            // code, not a number) means "we could not check".
+            if (error.killed !== true && typeof error.code !== 'string') {
+              resolve(stdout)
+              return
+            }
+            reject(new DiscoveryIncompleteError(`the Windows registry query for ${hive} could not complete (${error.killed === true ? 'timed out' : String(error.code)})`))
+          })
+        })
+        found.push(...windowsInstallsFromRegistry(output))
+      }
+      return found
+    },
+  }
+}
 /**
  * The default discovery tools: Spotlight for the bundle, `/usr/bin/plutil` for
  * identity. Every failure that means "we could not tell" — a missing tool, a
@@ -500,6 +713,9 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
   private readonly tools: WorkBuddyDiscoveryTools
   /** Explicit `tools` means the caller owns the platform question (tests, custom hosts). */
   private readonly toolsAreInjected: boolean
+  private readonly windowsTools: WorkBuddyWindowsDiscoveryTools
+  /** Explicit `windowsTools` means the caller owns the platform question. */
+  private readonly windowsToolsAreInjected: boolean
   private readonly discoveryBudgetMs: number
   private readonly timeoutMs: number
   private readonly source: WorkBuddyKeyPayloadSource
@@ -522,10 +738,12 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
     this.explicitPath = options.electronPath ?? envPath
     this.discovery = options.discovery ?? 'none'
     this.defaultPath = options.defaultElectronPath === undefined
-      ? defaultWorkBuddyElectronPath()
+      ? defaultWorkBuddyElectronPath(this.discovery)
       : options.defaultElectronPath ?? undefined
     this.tools = options.tools ?? workBuddyDiscoveryTools()
     this.toolsAreInjected = options.tools !== undefined
+    this.windowsTools = options.windowsTools ?? workBuddyWindowsDiscoveryTools()
+    this.windowsToolsAreInjected = options.windowsTools !== undefined
     this.discoveryBudgetMs = options.discoveryBudgetMs ?? WORKBUDDY_DISCOVERY_BUDGET_MS
     this.timeoutMs = options.timeoutMs ?? 10_000
     this.spawnHelper = options.spawnHelper ?? (path => this.spawnAt(path))
@@ -631,7 +849,9 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
       if (isExecutable(this.discoveredPath)) return this.discoveredPath
       this.discoveredPath = undefined
     }
-    const found = await this.discoverMacosApp()
+    const found = this.discovery === 'windows-workbuddy'
+      ? await this.discoverWindowsApp()
+      : await this.discoverMacosApp()
     this.discoveredPath = found
     return found
   }
@@ -744,6 +964,67 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
         )
       }
       return [...seen.values()][0]!.electronPath
+    } finally {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }
+
+  /**
+   * Resolve the CN app from its Windows registration.
+   *
+   * There is no second identity check as on macOS: the registration *is* the
+   * identity — {@link windowsInstallsFromRegistry} only accepts blocks whose
+   * `DisplayName` starts with `WorkBuddy` — and the executable is a fixed name
+   * inside the registered directory. A registered directory that no longer holds
+   * an executable is a decidable exclusion, the same way a Spotlight row for a
+   * deleted app is.
+   */
+  private async discoverWindowsApp(): Promise<string> {
+    if (process.platform !== 'win32' && !this.windowsToolsAreInjected) {
+      throw new WorkBuddyElectronPathError(
+        'electron-binary-unavailable',
+        `no WorkBuddy Electron binary is configured for this platform;`
+        + ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
+      )
+    }
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.discoveryBudgetMs)
+    try {
+      let roots: readonly string[]
+      try {
+        roots = await this.windowsTools.findInstallRoots(controller.signal)
+      } catch {
+        throw discoveryIncomplete('the Windows registry search did not complete')
+      }
+      const seen = new Map<string, string>()
+      for (const root of roots) {
+        const electronPath = join(root, WINDOWS_ELECTRON_FILENAME)
+        if (!isExecutable(electronPath)) continue
+        let identity: string
+        try {
+          identity = realpathSync(electronPath)
+        } catch {
+          identity = electronPath
+        }
+        seen.set(identity, electronPath)
+      }
+      if (seen.size > 1) {
+        const listed = [...seen.values()].map(path => `  - ${path}`).join('\n')
+        throw new WorkBuddyElectronPathError(
+          'electron-binary-ambiguous',
+          `more than one WorkBuddy application was found, so none was chosen:\n${listed}\n`
+          + ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the one to use`,
+        )
+      }
+      if (seen.size === 0) {
+        throw new WorkBuddyElectronPathError(
+          'electron-binary-not-found',
+          `no WorkBuddy application was found in the default location or its Windows registration;`
+          + ` if WorkBuddy is installed elsewhere, set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
+        )
+      }
+      return [...seen.values()][0]!
     } finally {
       clearTimeout(timer)
       controller.abort()

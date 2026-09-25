@@ -40,11 +40,16 @@ type WorkBuddyKeyPayloadSource = () => Promise<string>;
  * binary is configured.
  *
  * `none` is the safe default: a provider that has not been told which product
- * it serves must not reach for another product's app. `macos-workbuddy` is the
- * CN line — the only one whose at-rest credentials and app layout have been
- * verified live — and resolves the platform default and then Spotlight.
+ * it serves must not reach for another product's app.
+ *
+ * The two `*-workbuddy` kinds name a **platform strategy** — both verified live
+ * against WorkBuddy 5.6.2, both only ever looking for the CN app — and each
+ * refuses when the running platform is not its own:
+ * `macos-workbuddy` resolves the platform default and then Spotlight;
+ * `windows-workbuddy` resolves the platform default and then the Uninstall
+ * registry key.
  */
-type WorkBuddyElectronDiscovery = 'none' | 'macos-workbuddy';
+type WorkBuddyElectronDiscovery = 'none' | 'macos-workbuddy' | 'windows-workbuddy';
 /** Seams the discovery flow runs through, so tests never spawn a process. */
 interface WorkBuddyDiscoveryTools {
   /** Candidate `.app` bundles for the CN bundle id, or a throw for an unusable tool. */
@@ -94,12 +99,24 @@ interface WorkBuddyAtRestKeyProviderOptions {
   defaultElectronPath?: string | undefined;
   /** Discovery subprocesses; injectable so tests never spawn. */
   tools?: WorkBuddyDiscoveryTools;
+  /** Windows registry subprocess; injectable so tests never spawn `reg.exe`. */
+  windowsTools?: WorkBuddyWindowsDiscoveryTools;
   /**
    * Total budget for one discovery run, covering the search and every
    * candidate check. Injectable so tests can exercise exhaustion without
    * waiting out the production 10s.
    */
   discoveryBudgetMs?: number;
+}
+/** Seams the Windows discovery flow runs through, so tests never spawn a process. */
+interface WorkBuddyWindowsDiscoveryTools {
+  /**
+   * Registered WorkBuddy install directories. An empty array means "the query ran
+   * and matched nothing" — a decidable absence. A query that could not run at all
+   * must throw {@link DiscoveryIncompleteError}, so a broken tool is never read
+   * as "not installed".
+   */
+  findInstallRoots: (signal: AbortSignal) => Promise<readonly string[]>;
 }
 /**
  * In-memory protector-key resolver: one spawn per key id, single-flight, never
@@ -118,6 +135,9 @@ interface WorkBuddyAtRestKeyProviderOptions {
   private readonly tools;
   /** Explicit `tools` means the caller owns the platform question (tests, custom hosts). */
   private readonly toolsAreInjected;
+  private readonly windowsTools;
+  /** Explicit `windowsTools` means the caller owns the platform question. */
+  private readonly windowsToolsAreInjected;
   private readonly discoveryBudgetMs;
   private readonly timeoutMs;
   private readonly source;
@@ -167,6 +187,17 @@ interface WorkBuddyAtRestKeyProviderOptions {
    * unfinished check rather than an absent app.
    */
   private discoverMacosApp;
+  /**
+   * Resolve the CN app from its Windows registration.
+   *
+   * There is no second identity check as on macOS: the registration *is* the
+   * identity — {@link windowsInstallsFromRegistry} only accepts blocks whose
+   * `DisplayName` starts with `WorkBuddy` — and the executable is a fixed name
+   * inside the registered directory. A registered directory that no longer holds
+   * an executable is a decidable exclusion, the same way a Spotlight row for a
+   * deleted app is.
+   */
+  private discoverWindowsApp;
   private spawnPayload;
   private spawnAt;
 }

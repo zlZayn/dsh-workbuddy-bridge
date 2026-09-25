@@ -17,7 +17,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
 import { WorkBuddyCredentialStore, type WorkBuddyCredential, type WorkBuddyStoreOptions } from './credential/store.ts'
-import { WorkBuddyAtRestKeyProvider } from './credential/at-rest.ts'
+import { WorkBuddyAtRestKeyProvider, cnAppDiscovery } from './credential/at-rest.ts'
 import { FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS, WorkBuddyCatalog } from './catalog/index.ts'
 import { workbuddyCatalogPath, WorkBuddyCatalogStore } from './catalog/store.ts'
 import { WorkBuddyVisibilityStore, workbuddyVisibilityPath } from './catalog/visibility.ts'
@@ -144,6 +144,7 @@ export const name = 'llm-workbuddy'
 
 /** The model registry required before the provider can register. */
 export const inject = ['llm']
+
 
 /**
  * How often the credential files are re-checked, in milliseconds.
@@ -580,7 +581,7 @@ export function apply(ctx: Context, config: Config): void {
   // read.
   const atRestKeysFor = (variant: WorkBuddyVariant): WorkBuddyAtRestKeyProvider =>
     new WorkBuddyAtRestKeyProvider({
-      discovery: variant.id === CN_VARIANT.id ? 'macos-workbuddy' : 'none',
+      discovery: variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none',
     })
   const runtimes = WORKBUDDY_VARIANTS.map(variant => createVariantRuntime(
     config,
