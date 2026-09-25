@@ -125,7 +125,24 @@ export function buttonLabels(view: ReactTestRenderer): string[] {
   return view.root.findAllByType('button').map(node => node.children.join(''))
 }
 
-/** Click the first button whose text contains `label`. */
+/**
+ * Expand a disclosure whose whole header row is the toggle.
+ *
+ * The official `DisclosureRow` only renders a dedicated leading `<button>` when
+ * `expandOnRowClick` is false. This suite's cards set `expandOnRowClick` (the
+ * whole row toggles, as in `dsh-ds-balance`), so the row itself is the button —
+ * a `div` with `role="button"` and `data-disclosure-row`, which
+ * `findAllByType('button')` deliberately does not see.
+ */
+export async function expandDisclosure(view: ReactTestRenderer): Promise<void> {
+  const row = view.root.findAll(node =>
+    node.type === 'div' && node.props['data-disclosure-row'] === true,
+  )[0]
+  if (row === undefined) throw new Error('no disclosure row to expand')
+  await act(async () => { row.props.onClick(SYNTHETIC_EVENT) })
+}
+
+/** Click the first button whose text contains `label`. *//** Click the first button whose text contains `label`. */
 export async function clickText(view: ReactTestRenderer, label: string, nth = 0): Promise<void> {
   const matches = view.root.findAllByType('button').filter(node => node.children.join('').includes(label))
   const target = matches[nth]

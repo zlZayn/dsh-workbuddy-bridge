@@ -12,7 +12,7 @@ import { act } from 'react-test-renderer'
 import { describe, expect, it } from 'vitest'
 import { WorkBuddyCard } from '../../src/client/WorkBuddyCard.tsx'
 import { AI_CARD_VARIANT, CN_CARD_VARIANT, type WorkBuddyCardVariant } from '../../src/client/variants.ts'
-import { buttonLabels, clickText, signedIn, t, textOf, useBrowserStubs, useTree } from './harness.ts'
+import { buttonLabels, clickText, expandDisclosure, signedIn, t, textOf, useBrowserStubs, useTree } from './harness.ts'
 
 const stub = useBrowserStubs()
 const box = useTree()
@@ -20,9 +20,9 @@ const box = useTree()
 /** Mount a card, optionally expanded. */
 async function mount(expanded: boolean, variant: WorkBuddyCardVariant = CN_CARD_VARIANT): Promise<void> {
   await act(async () => { box.view = (await import('react-test-renderer')).create(createElement(WorkBuddyCard, { variant, t })) })
-  // The disclosure's leading button is the chevron: the official row keeps its
-  // title outside the control, so "the first button" is the row's toggle.
-  if (expanded) await clickText(box.view!, '')
+  // The whole header row is the toggle (`expandOnRowClick`), so expansion is a
+  // row click — there is no separate leading <button> to find.
+  if (expanded) await expandDisclosure(box.view!)
 }
 
 describe('WorkBuddy card', () => {

@@ -97,6 +97,7 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
       rowClassName={css.summaryRow}
       open={open}
       expandable
+      expandOnRowClick
       onToggle={() => { setOpen(!open) }}
       collapsedContent={(
         <span className={css.statusLine} role="status" aria-busy={status === undefined}>

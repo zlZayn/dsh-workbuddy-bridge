@@ -263,16 +263,19 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
         return (
           <div key={model.id} className={css.modelRow}>
             <span className={css.modelMain}>
-              {visibility === undefined ? null : (
-                <Checkbox
-                  checked={!hidden.has(model.id)}
-                  disabled={disabled || toggling.has(model.id)}
-                  label={model.name}
-                  onChange={visible => { onToggle(model.id, visible, visibility.account) }}
-                />
-              )}
-              {visibility === undefined ? <span className={css.name}>{model.name}</span> : null}
-              <ModelBadges model={model} t={t} />
+              {/* The checkbox owns the name: it is one control whose label is the
+                  model, exactly the shape the host's Checkbox is built for. Splitting
+                  the name out of it would read as two objects and double the label. */}
+              {visibility === undefined
+                ? <span className={css.name}>{model.name}</span>
+                : (
+                  <Checkbox
+                    checked={!hidden.has(model.id)}
+                    disabled={disabled || toggling.has(model.id)}
+                    label={model.name}
+                    onChange={visible => { onToggle(model.id, visible, visibility.account) }}
+                  />
+                )}
             </span>
             <span className={css.modelEnd}>
               {capacity === undefined
@@ -283,6 +286,7 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
                 : capacity !== undefined && model.defaultContextWindow !== undefined && model.defaultContextWindow < capacity
                   ? <span className={css.dim}>{t('contextDefault', { size: formatTokens(model.defaultContextWindow) })}</span>
                   : null}
+              <span className={css.badges}><ModelBadges model={model} t={t} /></span>
             </span>
           </div>
         )

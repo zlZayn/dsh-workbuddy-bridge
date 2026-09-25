@@ -112,13 +112,16 @@
 }
 
 /* A row: text on the left, its control on the right. Layout follows the host's
-   `fields.module.css` `.head` (gap 8); the padding is the field rhythm. */
+   `fields.module.css` `.head` (gap 8); the padding is the field rhythm — without
+   it the row's neighbours close to 0 and the control looks glued to the section
+   above. */
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
+  padding: 12px 0;
 }
 
 /* The disclosure header row, restated from the official voice-input card's
@@ -275,6 +278,14 @@
 
 /* Metadata under a name or beside a figure: one step smaller, tertiary. The
    host's list rows use exactly this tier for the line under a model name. */
+/* A capacity figure: the hint tier is what the host's own list rows use for
+   the value column, and `tabular-nums` keeps a column of them aligned. */
+.figure {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-secondary);
+  font-variant-numeric: tabular-nums;
+}
 .meta {
   font-size: 11px;
   line-height: 1.5;

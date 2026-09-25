@@ -28,6 +28,6 @@
 - variants.spec.ts
 - version.spec.ts
 - web-status.spec.ts
-- 子目录：browser
+- 子目录：browser —— **真实 React 树**的浏览器半边用例（卡片渲染契约、配置控制器）。折叠头的展开走 [browser/README.md](browser/README.md) 的 `expandDisclosure`，不是找第一个按钮
 
 变更影响路由：改本目录 → 同步根 [AGENTS.md](../AGENTS.md) 的待办与活跃坑；设计变化写 [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
