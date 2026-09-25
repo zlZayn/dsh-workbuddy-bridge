@@ -494,7 +494,7 @@ spawnPayload() 抛 Error
 
 用户给的草稿：
 
-> 请帮我找到本机 WorkBuddy.app 的实际安装位置，并为 dsh-workbuddy-bridge 配置 WORKBUDDY_ELECTRON_BIN。
+> 请帮我找到本机 WorkBuddy.app 的实际安装位置，并为 dsh-workbuddy-connect 配置 WORKBUDDY_ELECTRON_BIN。
 
 **「配置 `WORKBUDDY_ELECTRON_BIN`」在 DSH 里是个坑**：
 
@@ -508,11 +508,11 @@ spawnPayload() 抛 Error
 
 **中文模板**（`{appName}` 由卡片 variant 提供，国内版为 WorkBuddy，国际版为 WorkBuddy AI；`{failureSummary}` 由已知错误码对应的本地化文案提供）：
 
-> DSH 的 dsh-workbuddy-bridge 无法使用我的 {appName}：{failureSummary}。请帮我检查实际安装位置和已有路径配置，让插件能正确使用它，并验证恢复结果；如果需要修改 DSH 的启动环境或重启，请给我明确的操作步骤，不要只在当前 shell 临时设置环境变量。
+> DSH 的 dsh-workbuddy-connect 无法使用我的 {appName}：{failureSummary}。请帮我检查实际安装位置和已有路径配置，让插件能正确使用它，并验证恢复结果；如果需要修改 DSH 的启动环境或重启，请给我明确的操作步骤，不要只在当前 shell 临时设置环境变量。
 
 **英文模板**：
 
-> DSH's dsh-workbuddy-bridge cannot use my {appName}: {failureSummary}. Please check the actual installation location and any existing path configuration, help the plugin use it correctly, and verify recovery. If the DSH launch environment must be changed or DSH restarted, give me clear steps; do not only set an environment variable temporarily in the current shell.
+> DSH's dsh-workbuddy-connect cannot use my {appName}: {failureSummary}. Please check the actual installation location and any existing path configuration, help the plugin use it correctly, and verify recovery. If the DSH launch environment must be changed or DSH restarted, give me clear steps; do not only set an environment variable temporarily in the current shell.
 
 失败摘要分别说明：未找到可用程序、发现多个副本无法选择、自动定位未完成、已有显式路径不可用、尚未配置该产品的解密程序。不得推断“安装位置非标准”。Agent 应根据实际 DSH 启动方式协助完成配置、重启和验证；插件本身不执行这些修复。
 

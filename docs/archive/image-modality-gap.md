@@ -2,7 +2,7 @@
 
 日期：2026-08-29
 状态：**已实施并验证，已随 v0.2.5 发布**（2026-08-29；65 个离线测试全过 + 真机只读验证 `glm-5.3-flash`/`auto` 解析出 `["text","image"]`、`glm-5.1` 保持 `["text"]`；DSH web 端 GLM-5.3-Flash 粘贴图片发送成功）
-适用范围：`dsh-workbuddy-bridge` v0.2.4（工作区未发布改动）
+适用范围：`dsh-workbuddy-connect` v0.2.4（工作区未发布改动）
 
 ---
 
@@ -221,7 +221,7 @@ input: info.supportsImages === true ? ['text', 'image'] : ['text'],
 ## 8. 验证与落地
 
 ```sh
-cd dsh-workbuddy-bridge
+cd dsh-workbuddy-connect
 pnpm run check        # typecheck + vitest + build（AGENTS.md 规定的顺序）
 ```
 

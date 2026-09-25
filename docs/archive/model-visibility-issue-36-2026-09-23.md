@@ -90,7 +90,7 @@ listModels() override（adapter.ts）：super 结果 - hidden(account) → 选�
 
 ## 8. UI wiring
 
-- 复用共享 `WorkBuddyPluginCard`：0.1.5（Settings → Plugins 两张卡）与 0.1.6+（Plugins → workbuddy-bridge → 配置页）自动同享，零版本分支。
+- 复用共享 `WorkBuddyPluginCard`：0.1.5（Settings → Plugins 两张卡）与 0.1.6+（Plugins → workbuddy-connect → 配置页）自动同享，零版本分支。
 - **布局（2026-09-23 二次修订）**：visibility checkbox 已与 `ContextTable`（「上下文窗口」标签页）**合并为单一模型列表**——每个模型只渲染一行，checkbox 在左、模型名+费率居左、context window 靠右；不再有独立的「模型显示」长列表（首版实现曾上下两份列表，页面高度近翻倍，已按 review 修掉）。列表以**完整当前 catalog** 驱动（显隐针对全 catalog，与 context 元数据无关）：无 `contextWindow` 的模型照常渲染 checkbox，右侧显示 `—`；context 元数据只是行的附加信息。排序沿用原 ContextTable 规则——有窗口的模型按窗口从大到小，无窗口的稳定排在末尾（组内保持 catalog 顺序）。国际版「使用上游声明的最大上下文窗口」偏好保持在列表上方，与逐模型 checkbox 分属两个语义层级。Host 逻辑（store/adapter/路由/guard）在此轮 UI 重构中完全未改。
 - 数据流：卡片 GET status（携带非敏感的 `visibility: { account, disabled }` + 全量 models）→ 渲染勾选态；切换 POST probe 路由新动作 `{action:'set-model-visibility', model, visible, account}`（X-Workbuddy-Probe-Key 鉴权，与其余控制动作同 guards）；成功（`state:'updated'`）后卡片重读 status。**无乐观翻转**：勾选态永远来自 host 真相，保存失败时原因显示在旁、勾选不变（测试 G 组）。
 - **expected-account guard（review 修订，2026-09-23）**：动作里的 `account` 是卡片渲染勾选态时所在的账号键（来自 `visibility.account`），且为**必填**（缺失即 400，无兜底账号可假设）。宿主与当前 `runtime.account()` 不符 → 拒绝并返回 `state:'stale-account'`，不落盘。这堵住了账号切换窗口的竞态：卡片还显示 A 的列表、桌面已切到 B 时，A 的开关不会写进 B 的桶。卡片收到 `stale-account` 后立即重读（收敛到新账号的勾选态）并以本地化文案提示"登录账号已切换——本次修改未保存"。
@@ -116,7 +116,7 @@ listModels() override（adapter.ts）：super 结果 - hidden(account) → 选�
 
 **浏览器冒烟（2026-09-23，均通过；两轮——首版独立列表 + 合并布局）**：
 
-- **0.1.6-alpha.2**（9001，真实配置副本，合并布局复验）：Plugins → workbuddy-bridge → CN 卡片「上下文窗口」标签为**单一合并列表**——「模型显示」独立标题已不存在，每个模型一行（checkbox + 名称 + 费率 + 窗口数值同行，Kimi-K3 全页只出现一次）；取消勾选 MiniMax-M3 → 磁盘记录（0600）→ 刷新按钮保持空闲文案 → 模型选择器 WorkBuddy 组 16→15、MiniMax-M3 消失（AI 组 22 不变）；恢复勾选 → picker 回 16。逐行锁定复验：写入在途期间采样禁用数恒为 1（只有被点行）。
+- **0.1.6-alpha.2**（9001，真实配置副本，合并布局复验）：Plugins → workbuddy-connect → CN 卡片「上下文窗口」标签为**单一合并列表**——「模型显示」独立标题已不存在，每个模型一行（checkbox + 名称 + 费率 + 窗口数值同行，Kimi-K3 全页只出现一次）；取消勾选 MiniMax-M3 → 磁盘记录（0600）→ 刷新按钮保持空闲文案 → 模型选择器 WorkBuddy 组 16→15、MiniMax-M3 消失（AI 组 22 不变）；恢复勾选 → picker 回 16。逐行锁定复验：写入在途期间采样禁用数恒为 1（只有被点行）。
 - **0.1.5-rc.1**（9002，core15 + 同一副本）：设置 → 插件 → 两张卡原位 → CN 卡同一合并列表自动生效（checkbox+context 同行）；取消勾选 Kimi-K2.6 → picker 相应变化 → 恢复。
 - README 已补两张实拍截图：`assets/6.png`（0.1.6 配置页合并列表）、`assets/7.png`（0.1.5 设置卡片同视图）。
 

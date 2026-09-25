@@ -1,7 +1,7 @@
 # 带图请求报 `Image request maxPixels must be a positive integer.` 的原因与修复
 
 日期：2026-09-23
-影响：**link 方式安装**（`dsh plugin add <本地仓库路径>`）的 dsh-workbuddy-bridge，跑在 **DSH 0.1.5-rc 系内核**的宿主上（社区桌面 2.0.9、core15 web）——任何带图片的消息在发送前的图片预处理阶段即失败，切换模型无效。纯文本请求不受影响。
+影响：**link 方式安装**（`dsh plugin add <本地仓库路径>`）的 dsh-workbuddy-connect，跑在 **DSH 0.1.5-rc 系内核**的宿主上（社区桌面 2.0.9、core15 web）——任何带图片的消息在发送前的图片预处理阶段即失败，切换模型无效。纯文本请求不受影响。
 发现渠道：用户在社区桌面旧会话中复现（新会话发图同样必现）；随后在 core15 web（9002）用 1×1 PNG 独立复现，排除桌面特有因素。
 
 ## 1. 症状
