@@ -1,0 +1,52 @@
+# 日常 CI：每次推 main 与每个 PR 都跑类型检查、构建与全量测试。
+#
+# 与另两仓的差异只有一条：本仓用 **pnpm**（唯一锁文件 pnpm-lock.yaml），它们用 npm。
+# 安装方式固定加 `--config.node-linker=hoisted`：本机 pnpm 11 的 symlink 链接器会卡死，
+# CI 用同一种布局，两边装出来的才是同一棵树。
+#
+# `--frozen-lockfile` 就是那条「锁文件与清单必须同步」的守卫：对不上直接失败，
+# 不必像 npm 那样再比一次版本号（pnpm 的锁文件里没有自引用版本号）。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      # v7 的 action 自带 node24 运行时；v4 声明 node20，该运行时已被 GitHub 弃用。
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v7
+        with:
+          # 版本基线以 .node-version 为唯一来源，避免 CI 与本机漂移。
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile --config.node-linker=hoisted
+
+      - name: Typecheck (host + client)
+        run: pnpm run typecheck
+
+      # 顺序是死的：tests/version.spec.ts 断言 lib/ 产物里的版本与包一致，先跑测试必红。
+      - name: Build (produces lib/)
+        run: pnpm run build
+
+      - name: Test
+        run: pnpm run test
+
+      # 发布态不变量：bundle patch / engines.dsh / files 覆盖 / locale 与 icon 那几条。
+      - name: Release invariants
+        run: pnpm run check:release
