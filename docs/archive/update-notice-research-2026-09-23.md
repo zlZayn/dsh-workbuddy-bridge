@@ -16,7 +16,7 @@
 
 ## 1. 为什么值得考虑
 
-workbuddy-connect 已经踩过两次「用户不知道自己在用旧版」的坑：
+workbuddy-bridge 已经踩过两次「用户不知道自己在用旧版」的坑：
 
 - **issue #25 的教训**：「Already up to date」不等于拿到最新发布版。用户重装后 npm 说已是最新，实际仍是旧版。
 - **v0.6.0 那轮**：跨代兼容（0.1.5 / 0.1.6+ 双 UI）上线后，用户不知道需要升级才能拿到。
@@ -101,7 +101,7 @@ if (overlay && !pendingRecheck
 - **URL 白名单**：链接只允许 `https://github.com`，其他一律不渲染成 `<a>`；
 - **host 路由响应再校验一遍**：浏览器侧 `parseOpenAICodexUpdateResult` 会把 host 返回的 JSON 重新验一次（版本号可解析、`releaseUrl` 必须等于按版本号拼出的期望值、`versionsBehind` 必须正整数），不信任同源 host。
 
-这套「不信任上游、不信任 host、不信任缓存」的三层校验，与 workbuddy-connect 对待 WorkBuddy 私有接口的原则一致，可以直接沿用。
+这套「不信任上游、不信任 host、不信任缓存」的三层校验，与 workbuddy-bridge 对待 WorkBuddy 私有接口的原则一致，可以直接沿用。
 
 ### 2.5 用户体验设计：把「怎么做」交给 Agent
 
@@ -109,15 +109,15 @@ if (overlay && !pendingRecheck
 
 界面不给用户 npm 命令，而是给一段可直接复制的 prompt（`agentUpgradePrompt`，内含仓库地址），由 Agent 去读项目说明自行决定安装方式。理由是：插件安装命令随 profile 不同而不同（web / desktop / dsh-tui 三个 profile 命令各异），让用户自己对照文档选是最容易出错的环节。
 
-workbuddy-connect 的 README 目前有**整整一节**在讲这件事（版本对应表 + 三个 profile 各自的安装命令 + 旧版本用户该停在哪一版）。这段说明天然适合交给 Agent 处理。
+workbuddy-bridge 的 README 目前有**整整一节**在讲这件事（版本对应表 + 三个 profile 各自的安装命令 + 旧版本用户该停在哪一版）。这段说明天然适合交给 Agent 处理。
 
 ---
 
-## 3. 关键差异：workbuddy-connect 与 codex-connect 不一样的地方
+## 3. 关键差异：workbuddy-bridge 与 codex-connect 不一样的地方
 
 ### 3.1 版本号形态（**最重要的差异**）
 
-| | codex-connect | workbuddy-connect |
+| | codex-connect | workbuddy-bridge |
 |---|---|---|
 | 版本号 | `0.1.0-alpha.4.39` | `0.6.0`（标准 SemVer） |
 | 发布节奏 | 极快，alpha 线密集（连续 4.5→4.39） | 慢，v0.3→v0.6 跨度数月，十几个版本 |
@@ -125,12 +125,12 @@ workbuddy-connect 的 README 目前有**整整一节**在讲这件事（版本�
 
 影响：
 
-- codex-connect 的 `parseVersionParts` 和 `compareAlphaVersions` 是**为 4 段式 alpha 版本号专门写的**（`isAlphaReleaseVersion`）。workbuddy-connect 用标准 SemVer，**可以直接用成熟的 semver 比较**，不需要自己写解析器；
-- 取 dist-tag 的策略要改：codex-connect 取 `latest` ∪ `alpha` 里较高者。workbuddy-connect 的 alpha 线不是主发布线，**只取 `latest` 更合理**（否则会给用户推荐 alpha 版）。
+- codex-connect 的 `parseVersionParts` 和 `compareAlphaVersions` 是**为 4 段式 alpha 版本号专门写的**（`isAlphaReleaseVersion`）。workbuddy-bridge 用标准 SemVer，**可以直接用成熟的 semver 比较**，不需要自己写解析器；
+- 取 dist-tag 的策略要改：codex-connect 取 `latest` ∪ `alpha` 里较高者。workbuddy-bridge 的 alpha 线不是主发布线，**只取 `latest` 更合理**（否则会给用户推荐 alpha 版）。
 
 ### 3.2 双 provider（已定论）
 
-workbuddy-connect 是**单包双 provider**（`workbuddy` / `workbuddy-ai`），共享同一个 `package.json` 版本号。
+workbuddy-bridge 是**单包双 provider**（`workbuddy` / `workbuddy-ai`），共享同一个 `package.json` 版本号。
 
 **结论（2026-09-23 用户确认）**：更新提醒**按版本号触发，有更新就弹一条**，不做 provider 区分。因为：
 
@@ -166,13 +166,13 @@ workbuddy-connect 是**单包双 provider**（`workbuddy` / `workbuddy-ai`），
 2. **枚举是封闭的**：新增一种功能类型，要同时改三处——JSON 里的 kind、`src/update.ts` 的 `HIGHLIGHT_KINDS` 数组、前端 `highlightKeys` 映射，**外加中英两套文案**。少改一处，lint 或运行时校验就会拦下（`release-metadata.mjs:45` 校验未知 kind）；
 3. **有发布校验兜底**：`scripts/release-metadata.mjs` 会检查 JSON 版本号递增、唯一、不得高于 `package.json`、kind 必须已知、同版本内不得重复。`scripts/lint.mjs` 也会校验文件是合法 JSON。
 
-**判断**：这是一笔**持续的、每版都要付**的成本，不是一次性代码成本。对 workbuddy-connect 而言要权衡：我们的发布节奏慢（几个月一发），维护负担不高；但我们的「对用户有什么用」本来就是 README 里精炼过的中文段落（如「企业账号积分走企业专用接口」、「Linux XDG 双 base」），把它复制一份成标签 + 中英文案，收益是否抵得上三处同步的复杂度，**需要单独决定**。
+**判断**：这是一笔**持续的、每版都要付**的成本，不是一次性代码成本。对 workbuddy-bridge 而言要权衡：我们的发布节奏慢（几个月一发），维护负担不高；但我们的「对用户有什么用」本来就是 README 里精炼过的中文段落（如「企业账号积分走企业专用接口」、「Linux XDG 双 base」），把它复制一份成标签 + 中英文案，收益是否抵得上三处同步的复杂度，**需要单独决定**。
 
-**替代方案（未评估）**：直接复用 GitHub Release notes。workbuddy-connect 的 Release notes 本来就是双语、面向用户写的（AGENTS.md 记录「Release notes 措辞按用户修正」），与"技术细节"不是一回事，所以可能不需要 highlights 这层。这条待验证。
+**替代方案（未评估）**：直接复用 GitHub Release notes。workbuddy-bridge 的 Release notes 本来就是双语、面向用户写的（AGENTS.md 记录「Release notes 措辞按用户修正」），与"技术细节"不是一回事，所以可能不需要 highlights 这层。这条待验证。
 
 ---
 
-## 4. 移植到 workbuddy-connect 需要动的地方（粗粒度，非实现方案）
+## 4. 移植到 workbuddy-bridge 需要动的地方（粗粒度，非实现方案）
 
 | 模块 | 说明 |
 |---|---|
@@ -193,5 +193,5 @@ workbuddy-connect 是**单包双 provider**（`workbuddy` / `workbuddy-ai`），
 ## 5. 与现有约束的关系
 
 - **发布规矩**：本机制只做「检查 + 提示」，不自动升级、不自动安装。与现有「未经明确指令不得 publish」的规矩不冲突。
-- **网络请求**：新增对 `registry.npmjs.org` 和 `github.com` 的请求。codex-connect 全部走 host 侧（浏览器不直连），workbuddy-connect 应沿用同一形态，避免浏览器直连外网。
+- **网络请求**：新增对 `registry.npmjs.org` 和 `github.com` 的请求。codex-connect 全部走 host 侧（浏览器不直连），workbuddy-bridge 应沿用同一形态，避免浏览器直连外网。
 - **隐私**：请求不含账号信息，只是查公开的包元数据。不涉及凭据。

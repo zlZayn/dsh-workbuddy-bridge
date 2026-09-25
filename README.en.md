@@ -20,7 +20,7 @@ Both the CN **WorkBuddy** and the international **WorkBuddy AI** apps are suppor
 
 - **Reasoning levels**: levels explicitly declared by WorkBuddy appear directly — for example, GLM-5.3 and GLM-5.3-Flash offer low / high / max. For some models that do not declare selectable levels, Web and Desktop provide a **Reasoning levels** control in the model picker for a manual check. It sends a few requests and may consume credit. Models without a check result or selectable levels continue to use WorkBuddy's default.
 
-- **Status and detection**: main UI → Plugins → workbuddy-connect → View shows the account, token validity, remaining credit, and model offers. It also lets you refresh the model list manually and shows whether the current list came from the upstream or from the built-in fallback, and provides manual reasoning-level detection for eligible models.
+- **Status and detection**: main UI → Plugins → workbuddy-bridge → View shows the account, token validity, remaining credit, and model offers. It also lets you refresh the model list manually and shows whether the current list came from the upstream or from the built-in fallback, and provides manual reasoning-level detection for eligible models.
 
 - **Model visibility**: both WorkBuddy and WorkBuddy AI cards (Context window tab) let you check which models appear in the model picker. Hidden lists are **saved per signed-in account**: switching accounts switches to that account's own list, switching back restores it; new accounts and newly added models are visible by default. Hiding only affects pickability — **existing chats using a hidden model keep working**.
 
@@ -69,12 +69,12 @@ Prerequisite: the WorkBuddy desktop app is installed and signed in. The plugin r
 
   ```text
   DSH 0.1.7 + this plugin 0.7.0
-  ├─ main UI → Plugins → workbuddy-connect → View
+  ├─ main UI → Plugins → workbuddy-bridge → View
   │   ├─ config form   ✅ authFile / authFileAI / detection consent / max context window
   │   ├─ WorkBuddy card      ✅ CN account, credit, catalog, visibility, detection
   │   └─ WorkBuddy AI card   ✅ international, same as above
   ├─ Settings → Built-in Plugins
-  │   └─ workbuddy-connect   ← read-only inventory (runtime status), no config entry
+  │   └─ workbuddy-bridge   ← read-only inventory (runtime status), no config entry
   └─ chat model picker
       └─ WorkBuddy / WorkBuddy AI groups ✅
   ```

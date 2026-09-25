@@ -84,8 +84,8 @@ export function apply(ctx: ClientContext): void {
   // the session's current selection through `modelDirectories`, which is why it
   // waits for that service rather than registering eagerly.
   ctx.inject(['modelDirectories'], scope => {
-    scope.slots.inject('conversation.input.right', () => scope.slots.register({
-      name: 'conversation.input.right',
+    scope.slots.inject('conversation.input.model', () => scope.slots.register({
+      name: 'conversation.input.model',
       id: PROBE_SEAT_ID,
       order: 10,
       inject: (sessionId: string) => ({

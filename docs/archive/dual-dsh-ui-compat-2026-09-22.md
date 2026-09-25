@@ -176,12 +176,12 @@ review 指出本文件 §4/§9 残留 3 处第一轮旧陈述与代码不符，�
 
 - **模型选择器分组齐全**：DeepSeek、Antigravity (agy CLI)、**WorkBuddy（16 模型）**、**WorkBuddy AI（22 模型）**、zai-coding-cn、minimax-token-plan、zen；徽章与倍率正常（`Hy3 · x0.00 · 限时免费`、`GLM-5.2 · x0.79 · 夜间折扣` 等）；当前默认模型即 WorkBuddy 的 `Deepseek-V4.1-Flash · x0.03 · 独家优惠`（来自用户 settings.yaml 的 agent-default-model）。
 - **推理等级按钮**（`conversation.input.right` seat）渲染正常，aria-label「检测 deepseek-v4.1-flash 可用的推理档位」。
-- **新 seam 配置页渲染正常**：左侧栏「插件」面板 → 已安装 → workbuddy-connect → 查看进入，`WorkBuddyConfigPage`（`plugins.bundle.config`）展示两个分区（DSH WorkBuddy Bridge / DSH WorkBuddy AI Connect）；CN 卡片展开后含：账号状态（signed-in，昵称实时取自桌面 App）、令牌有效期（自动续期）、模型列表更新时间、状态/上下文窗口/积分详情三个标签、剩余积分合计（5,293）、12 个模型的推理档位检测按钮。版本显示 v0.5.4，组件 llm-workbuddy 运行中。
+- **新 seam 配置页渲染正常**：左侧栏「插件」面板 → 已安装 → workbuddy-bridge → 查看进入，`WorkBuddyConfigPage`（`plugins.bundle.config`）展示两个分区（DSH WorkBuddy Bridge / DSH WorkBuddy AI Connect）；CN 卡片展开后含：账号状态（signed-in，昵称实时取自桌面 App）、令牌有效期（自动续期）、模型列表更新时间、状态/上下文窗口/积分详情三个标签、剩余积分合计（5,293）、12 个模型的推理档位检测按钮。版本显示 v0.5.4，组件 llm-workbuddy 运行中。
 - **host 侧**：两条 status 路由均 `signed-in` + `catalog.source: live`。
 
 ### 11.2 实测发现的一个 UX 事实（已回写 README）
 
-0.1.6+ 的配置入口在**左侧栏「插件」面板 → 已安装 → workbuddy-connect → 查看**；设置弹窗里的「内置插件」页是只读部署清单（只有名称/启用状态/include 项，无配置入口），「模型」页则因目录卡片删除而不显示 WorkBuddy（§5，设计内）。用户实测时先后在「模型」页和「内置插件」页找不到入口，属于导航位置变化导致的误认，不是缺陷——但值得在 README 里写明，已更新 README.md / README.en.md：「信息查看与检测」加 0.1.6+ 入口提示；「配置入口随 DSH 版本不同」改为**双版本入口对照树**（ASCII tree，逐入口标注 0.1.5 / 0.1.6+ 的差异，含「≤0.5.4 旧版插件才在 Models 页显示旧 configurable-provider 两行」的澄清）。
+0.1.6+ 的配置入口在**左侧栏「插件」面板 → 已安装 → workbuddy-bridge → 查看**；设置弹窗里的「内置插件」页是只读部署清单（只有名称/启用状态/include 项，无配置入口），「模型」页则因目录卡片删除而不显示 WorkBuddy（§5，设计内）。用户实测时先后在「模型」页和「内置插件」页找不到入口，属于导航位置变化导致的误认，不是缺陷——但值得在 README 里写明，已更新 README.md / README.en.md：「信息查看与检测」加 0.1.6+ 入口提示；「配置入口随 DSH 版本不同」改为**双版本入口对照树**（ASCII tree，逐入口标注 0.1.5 / 0.1.6+ 的差异，含「≤0.5.4 旧版插件才在 Models 页显示旧 configurable-provider 两行」的澄清）。
 
 ### 11.3 0.1.5-rc.1 社区桌面确认（用户实查，2026-09-23）
 
