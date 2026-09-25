@@ -8,6 +8,7 @@
 
   <p>
     <a href="https://github.com/deepseek-ai/deepseek-harness"><img src="https://img.shields.io/badge/DeepSeek%20Harness-Plugin-4176E6?style=flat" alt="DeepSeek Harness Plugin"></a>
+    <a href="https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml"><img src="https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   </p>
 

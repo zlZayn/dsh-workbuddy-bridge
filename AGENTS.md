@@ -35,20 +35,18 @@
 - 测试数量与类型检查结果 → 现跑 `vitest run` / `tsc --noEmit`（CI 落地后改指 CI 运行记录）
 - 产物清单与体积 → `Get-ChildItem lib` 现查
 - 宿主槽名与 `kind`、客户端服务名 → 实装宿主包：`<DSH 安装目录>/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-*/**`
-- 发布态该有什么 → 断言集合（`scripts/check-release.mjs`，待补）
+- 发布态该有什么 → [scripts/check-release.mjs](scripts/check-release.mjs) 的断言集合
 
-## 验证快照（2026-09-25 本机实跑）
+## 验证快照
 
-- `tsc --noEmit` rc=0
-- `vitest` 28 files passed / 374 passed | 8 skipped (382)
+- **CI 已跑通**（Linux，[ci.yml](.github/workflows/ci.yml)）：install → typecheck（两半体）→ build → test → check:release 九步全绿。
+  数字不抄，看 [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)。
+- 本机（Windows）实跑：`vitest` 29 files / 395 passed | 8 skipped —— 那 8 条是 Windows 与 POSIX 的语义差
+  （权限位、EACCES 注入、XDG/WSL 路径、跨进程启动时间），**不是缺陷**：CI 上它们真的执行并通过
 - 链接校验 0 errors（文件与链接计数随文档增删变，不抄）；warning 只来自门面的 HTML 语言切换链接，与另两仓同形
-- 8 条 skipped 是 Windows 与 POSIX 的语义差（权限位、EACCES 注入、XDG/WSL 路径、跨进程启动时间），非逻辑缺陷
 
 ## 待办
 
-- [ ] **CI 首次跑通**：`.github/workflows/ci.yml` 已入库，但第一次运行失败在 install ——
-  pnpm 11 的供应链门禁（`minimumReleaseAge`）拒收发布不足 24 小时的宿主 rc 包。
-  处置写进 [pnpm-workspace.yaml](pnpm-workspace.yaml)；推送后确认 CI 真的绿，**绿了再把 CI 徽章加进门面**
 - [ ] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态（键名与插值形态已核，剩余为文案语义）
 - [ ] 首次发布 `0.1.0` 并回填发布态（含 README 的 npm 徽章）
 
