@@ -1,66 +1,154 @@
-/* WorkBuddy cards and their panels. Every colour comes from a --dsw-alias-*
-   token so the cards follow the host theme without a plugin-owned palette. */
+/* WorkBuddy cards and the panels inside them.
 
-.body {
+   Every value here is taken from the host's own settings surfaces rather than
+   invented, so the page reads as part of the Plugins page instead of as a
+   plugin that styled itself:
+
+   - typography and spacing: `ui-primitives/lib/settings-form/fields.module.css`
+     (label 13/1.5 w500 primary, hint 12/1.5 tertiary, invalid 12/1.5 error).
+   - the card shell is the host's `DisclosureRow`; this file only fills its body.
+   - radius via `--dsw-radius-*`, focus rings via `--dsw-focus-ring-*`.
+
+   Every value below is therefore either a number copied from those files or a
+   `--dsw-*` token; the stylesheet declares no font family, no colour literal,
+   and no line-height outside `1.5` / `1.6`.
+
+   Two conventions worth stating because breaking them is invisible:
+   ① **neutral solid borders are 0.5px**; only state colours keep 1px.
+   ② no literal colour: the palette is `--dsw-alias-*`, so light and dark themes
+      follow from the tokens rather than from a second set of rules.
+   (`--dsw-alias-label-error` is used by the host's own form CSS but is **never
+   defined** — this file uses `--dsw-alias-state-error-primary` instead.) */
+
+/* ---- Configuration page ------------------------------------------------- */
+
+/* The plugin's page: its settings form, then one live card per variant.
+   The host's `SettingsForm` owns the form's internal rhythm — its footer's
+   `padding-top: 16px` is the form's last word — so this only separates the
+   form from the cards beneath it. */
+.page {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding-top: 4px;
+  gap: 16px;
 }
 
-.section {
+/* A boolean setting: label and hint on the left, the switch on the right — the
+   shape the host uses for a setting whose control is one control.
+   The top rule is unconditional: every one of these rows follows either a text
+   field or another of these, and the text fields are rendered by the host's
+   `SettingsValueField`, which draws its own separator only between two of
+   *its* fields. */
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* The label and its hint, stacked. `flex: 1` keeps the switch off the text when
+   the label wraps. */
+.fieldText {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
 }
 
-.title {
-  margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
+/* The label tier, identical to the host's `fields.module.css` `.label`. */
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
   color: var(--dsw-alias-label-primary);
 }
 
+/* ---- Card body ---------------------------------------------------------- */
+
+/* The body of one card: the sections inside a single disclosure. DisclosureRow
+   supplies the header row, so this is only the vertical rhythm beneath it. */
+.body {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 12px;
+}
+
+/* One labelled block inside a card. Separated from its sibling by the same
+   0.5px rule the host's fields use between two fields. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+}
+
+.section + .section {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* A section heading. The host's own cards put the label at 13/1.5 w500 primary
+   and describe it as `label-secondary` only in a row header, so a heading over
+   a block of values takes the primary ink and the label tier. */
+.title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* A row: text on the left, its control on the right. Layout follows the host's
+   `fields.module.css` `.head` (gap 8); the padding is the field rhythm. */
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
+/* The account line: a state dot and a name. Same label tier as .title, but it
+   is not a heading — it is the value the card exists to report. */
 .accountRow {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 15px;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
   font-weight: 500;
+  line-height: 1.5;
   color: var(--dsw-alias-label-primary);
 }
 
+/* Secondary body text. */
 .text {
   margin: 0;
-  font-size: 14px;
-  line-height: 22px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--dsw-alias-label-secondary);
 }
 
+/* The hint tier: smaller and dimmer than the value it explains. */
 .dim {
   margin: 0;
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* A failed read. Same geometry as .dim so a message replacing a line cannot
+   move the layout, and only its colour changes. */
 .error {
   margin: 0;
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* One billing package: label row, track, and the exact figure. */
+/* ---- Credits ------------------------------------------------------------ */
+
+/* One billing package: label row, track, then the exact figure. */
 .package {
   display: flex;
   flex-direction: column;
@@ -70,37 +158,43 @@
 .packageLabel {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   font-size: 13px;
-  line-height: 20px;
+  line-height: 1.5;
   color: var(--dsw-alias-label-secondary);
 }
 
+/* The quota track. It is a proportion, not a value, so it takes the neutral
+   border ink rather than a state colour — states are reported by the figure
+   beside it. */
 .track {
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, 0.08));
+  corner-shape: round;
+  background: var(--dsw-alias-border-l3);
 }
 
 .fill {
   height: 100%;
   border-radius: inherit;
-  background: var(--dsw-alias-brand-primary, #1677ff);
+  background: var(--dsw-alias-brand-primary);
 }
 
-/* One model row: name and badges on the left, capacity or rate on the right. */
+/* ---- Model rows --------------------------------------------------------- */
+
+/* One model: name and badges on the left, capacity or rate on the right. */
 .modelRow {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .modelMain {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -125,16 +219,18 @@
   flex-wrap: wrap;
 }
 
-/* Inline confirmation for a paid action: one line plus two buttons, placed in
-   the row it guards rather than in a modal. */
+/* ---- Inline confirmation ------------------------------------------------ */
+
+/* A paid action's confirmation: one line plus two small buttons, placed in the
+   row it guards rather than in a modal. */
 .confirm {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding: 10px 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-3);
 }
 
 .confirmRow {
@@ -143,11 +239,13 @@
   gap: 8px;
 }
 
+/* ---- Probe row ---------------------------------------------------------- */
+
 .probeRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .probeEnd {
@@ -157,36 +255,41 @@
   flex: 0 0 auto;
 }
 
-/* The Agent assist block: the diagnosis stays the headline, this adds the way
-   out — a copyable request and a re-check. */
+/* ---- Agent assist ------------------------------------------------------- */
+
+/* The way out of a failure: the diagnosis stays the headline, this block adds
+   the copyable request and the re-check. It is a distinct surface, so it gets
+   the module fill rather than the page background. */
 .assist {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 10px;
-  background: var(--dsw-alias-bg-layer-2, rgba(0, 0, 0, 0.04));
+  gap: 8px;
+  padding: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-module-platform);
 }
 
 .prompt {
   flex: 1 1 220px;
   min-width: 0;
   margin: 0;
-  color: var(--dsw-alias-label-primary);
   font-size: 12px;
-  line-height: 19px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-secondary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
 }
 
+/* The request the user copies: an inset well inside .assist. */
 .promptRow {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 8px;
   padding: 8px 9px 8px 11px;
-  border-radius: 7px;
-  background: var(--dsw-alias-bg-layer-1);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-layer-3);
 }

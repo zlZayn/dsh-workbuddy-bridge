@@ -230,6 +230,80 @@ describe('浏览器半体产物不内联宿主运行时', () => {
   })
 })
 
+/**
+ * 插件页的样式纪律。
+ *
+ * 这一页长在宿主的 Plugins 页里，所以它的字号、间距、圆角、焦点环都应当是**宿主的**，
+ * 不是本插件自己的一档。抄错的表现是「看起来像外来的」，而且是和昨天比出来的 ——
+ * 所以判据放在源码上，不靠眼睛。
+ *
+ * 取值真源：宿主 `ui-primitives/lib/settings-form/fields.module.css` 与
+ * `SettingsForm.module.css`（label 13/1.5 w500 primary、hint 12/1.5 tertiary、
+ * invalid 12/1.5 error；中性边框 0.5px；圆角与焦点环走 token）。
+ */
+describe('插件页样式跟着宿主走', () => {
+  const sheets = ['src/client/workbuddy.module.css', 'src/client/probe-control.module.css']
+
+  it('不写字面色值', () => {
+    let checked = 0
+    for (const file of sheets) {
+      const css = read(file)
+      // 先把注释剥掉：说明文字里提到某个 token 名不算使用它。
+      const body = css.replace(/\/\*[\s\S]*?\*\//g, '')
+      const literals = body.match(/#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsl\(/g) ?? []
+      expect(literals, `${file} 里有字面色值`).toEqual([])
+      checked += body.length
+    }
+    // 自检：真的读到了样式内容。
+    expect(checked).toBeGreaterThan(2000)
+  })
+
+  it('字号只用宿主的两档：13（标签/正文）与 12（说明）', () => {
+    for (const file of sheets) {
+      const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
+      const sizes = [...body.matchAll(/font-size:\s*([^;]+);/g)].map(m => (m[1] ?? '').trim())
+      expect(sizes.length, `${file} 里一个 font-size 都没有 —— 扫描失效了？`).toBeGreaterThan(0)
+      const offScale = [...new Set(sizes)].filter(size => size !== '13px' && size !== '12px')
+      expect(offScale, `${file} 出现了宿主没有的字号档`).toEqual([])
+    }
+  })
+
+  it('line-height 只用 1.5 / 1.6（宿主那两档）', () => {
+    for (const file of sheets) {
+      const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
+      const heights = [...body.matchAll(/line-height:\s*([^;]+);/g)].map(m => (m[1] ?? '').trim())
+      const offScale = [...new Set(heights)].filter(value => value !== '1.5' && value !== '1.6')
+      expect(offScale, `${file} 出现了非宿主档的 line-height`).toEqual([])
+    }
+  })
+
+  it('中性描边一律 0.5px（状态色才允许 1px）', () => {
+    for (const file of sheets) {
+      const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
+      for (const [, width, rest] of body.matchAll(/border(?:-top|-bottom)?:\s*([\d.]+)px\s+solid\s+([^;]+);/g)) {
+        const ink = rest ?? ''
+        // 1px 只留给状态色；其余中性描边一律 0.5px。
+        if (width === '1px') expect(ink, `${file} 的中性描边写成了 1px`).toMatch(/state-/)
+        else expect(width, `${file} 的描边宽度不在 {0.5px, 1px} 里`).toBe('0.5')
+      }
+    }
+  })
+
+  it('焦点环走宿主的 --dsw-focus-ring-* token，而不是自己写一圈', () => {
+    const rings = ['src/client/probe-control.module.css']
+    let found = 0
+    for (const file of rings) {
+      const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
+      for (const [, rule] of body.matchAll(/:focus-visible[^{]*\{([^}]*)\}/g)) {
+        found += 1
+        expect(rule, `${file} 的焦点环没走宿主 token`).toContain('--dsw-focus-ring-width')
+        expect(rule, `${file} 的焦点环还带了字面色`).not.toMatch(/#[0-9a-fA-F]{3,8}/)
+      }
+    }
+    expect(found, '没扫到任何 :focus-visible 规则 —— 扫描失效了？').toBeGreaterThan(0)
+  })
+})
+
 describe('客户端接缝', () => {
   it('推理等级控件注在 list 槽上，绝不注 single 槽', () => {
     const source = read('src/client/index.tsx')

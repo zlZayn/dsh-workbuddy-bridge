@@ -40,7 +40,7 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
   const state = props.useWorkbuddyConfig(snapshot => snapshot)
   const disabled = !state.writable
   return (
-    <div className={css.body}>
+    <div className={css.page}>
       <h4 className={css.title}>{t('settingsHeading')}</h4>
       <SettingsForm labels={formLabels(t)} state={state} onSave={props.save} onDiscard={props.discard}>
         <SettingsValueField
@@ -67,9 +67,9 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
           onEdit={text => { props.edit('authFileAI', text) }}
           onReset={() => { props.resetField('authFileAI') }}
         />
-        <div className={css.row}>
-          <span className={css.modelStack}>
-            <span>{t('probeConsent')}</span>
+        <div className={css.fieldRow}>
+          <span className={css.fieldText}>
+            <span className={css.fieldLabel}>{t('probeConsent')}</span>
             <span className={css.dim}>{t('probeConsentHint')}</span>
           </span>
           <Switch
@@ -79,9 +79,9 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
             onChange={next => { props.edit('probeConsent', next ? 'true' : 'false') }}
           />
         </div>
-        <div className={css.row}>
-          <span className={css.modelStack}>
-            <span>{t('maximumContextWindow')}</span>
+        <div className={css.fieldRow}>
+          <span className={css.fieldText}>
+            <span className={css.fieldLabel}>{t('maximumContextWindow')}</span>
             <span className={css.dim}>{t('maximumContextWindowHint')}</span>
           </span>
           <Switch
