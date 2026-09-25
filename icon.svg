@@ -1,0 +1,23 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    dsh-workbuddy-bridge 的插件页图标：就是输入区那个「推理档位检测」控件的图形
+    （src/client/probe-control.tsx 的 ProbeIcon），等比搬进官方 36 格。
+
+    几何照 ProbeIcon（viewBox 24 / 笔画 1.6）：外环 r=9、内环 r=4、一条从圆心指向右上
+    的斜线、圆心一点 r=1。原始墨迹外接框是 3–21（18 格），整组用 translate(6 6) 搬进 36 格：
+    外接框落到 9–27，四周各留 9（官方配方 8–9），缩放比 1:1，笔画 1.6 原样保留。
+
+    选色：图标是宿主直读的静态资源，**不跟随主题**，所以颜色只能烘死。
+    外环 / 内环 / 斜线用 #7F8287（宿主中性色附近的那个值，亮暗两块主题下都落在它附近）；
+    圆心那一点用 #F59E0B（宿主 warn 档语义色，亮暗同值）—— 语义是「正在检测的那一档」。
+    与 dsh-ds-balance 的 icon.svg 同一套取色判据（见其 .agents/notes/2026-09-22-plugin-icon.md）。
+
+    形状真源是组件，改 ProbeIcon 的几何要同批改这里。
+  -->
+  <g transform="translate(6 6)" stroke="#7F8287" stroke-width="1.6" stroke-linecap="round">
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 12 20 4" />
+  </g>
+  <circle cx="18" cy="18" r="1" fill="#F59E0B" />
+</svg>

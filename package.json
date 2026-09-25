@@ -7,18 +7,21 @@
   "keywords": ["dsh","deepseek-harness","dsh-plugin","workbuddy","models","llm","bridge"],
   "type": "module",
   "engines": {
-    "node": "^22.19.0 || >=24.0.0"
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.1.7-alpha.1"
   },
+  "icon": "./icon.svg",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
   "bin": {
     "dsh-workbuddy-bridge": "lib/bin.js"
   },
   "scripts": {
-    "prepack": "npm run build",
+    "prepack": "node node_modules/tsdown/dist/run.mjs",
     "build": "tsdown",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json",
+    "check:release": "node scripts/check-release.mjs",
     "check": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "exports": {
@@ -31,11 +34,15 @@
       "default": "./lib/client.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
+    "!lib/**/*.map",
     "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json",
     "README.md",
     "README_en.md",
     "LICENSE",

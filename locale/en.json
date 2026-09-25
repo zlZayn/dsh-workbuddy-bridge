@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DSH WorkBuddy Bridge",
+    "description": "Bring the WorkBuddy desktop app's models into DSH: whichever app you have shows up as its own model group, usable with no configuration."
+  }
+}

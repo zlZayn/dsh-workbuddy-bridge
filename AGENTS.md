@@ -46,7 +46,9 @@
 
 ## 待办
 
-- [ ] 补发布态不变量：`engines.dsh`、`scripts/check-release.mjs` + `check:release` 脚本
+- [ ] **声明面同形**：peer 现在写 `^0.1.7-alpha.1 || ^0.1.7-rc.1`（并集，第二段被第一段包含），
+  `engines.dsh` 写 `>=0.1.7-alpha.1` —— 下限一致但**形状不同**。收不收成另两仓那种 `>=<下限>` 由维护者拍
+  （`check:release` 只判下限，不判形状）
 - [ ] 移植红线用例（含「活文档不抄实测值」守卫）
 - [ ] 补仓内基建：`.github/workflows/ci.yml`、`.gitattributes`、`icon.svg` + `locale/*.json`
 - [ ] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态
