@@ -81,7 +81,7 @@ dsh plugin --profile web add "$PWD"
 
 ## The plugin page
 
-Sidebar **Plugins** → installed → click the plugin name. The configuration area sits right under the
+Sidebar **Plugins** → installed → click **DSH WorkBuddy Bridge**. The configuration area sits right under the
 description, editable in place, saved immediately:
 
 - **Sign-in file paths** (CN / international) — leave blank to use the app's own location; usually unnecessary.
