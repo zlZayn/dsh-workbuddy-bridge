@@ -27,10 +27,9 @@
 各自用自己的账号与积分。模型直接出现在 DSH 的模型选择器里，不必为它单独配一个 provider。
 
 <p align="center">
-  <img src="assets/1.png" alt="WorkBuddy 模型出现在 DSH 模型选择器中" width="430">
-  <img src="assets/5.png" alt="WorkBuddy AI 模型出现在 DSH 模型选择器中" width="430">
+  <img src="assets/1.png" alt="WorkBuddy 模型出现在 DSH 模型选择器中" width="330">
   <br>
-  <em>国内版与国际版各成一个分组，与 DSH 自带的分组并排；只装一版就只出现那一组。</em>
+  <em>国内版在模型选择器中自成一组（含积分倍率与促销徽章），与 DSH 自带分组并排；装国际版则出现「WorkBuddy AI」组。</em>
 </p>
 
 ## 能力
@@ -127,14 +126,15 @@ dsh --profile dsh-tui
   - **检测**：推理档位检测，一模型一行；没有可检测的模型时这一页为空。
 
 <p align="center">
-  <img src="assets/6.png" alt="插件配置页：配置表单与模型标签里的模型显隐" width="480">
+  <img src="assets/2.png" alt="插件详情页：配置表单与两张状态卡片" width="480">
   <br>
-  <em>配置表单与两张卡片上下排列；「模型」标签里勾选哪些模型出现在选择器里。</em>
+  <em>配置表单与两张卡片上下排列；国内版与国际版各一张，各自跟随自己 App 的登录状态。</em>
 </p>
 
 <p align="center">
-  <img src="assets/2.png" alt="卡片展开后的三个标签" width="420">
-  <img src="assets/3.png" alt="卡片显示账号与剩余积分" width="420">
+  <img src="assets/3.png" alt="积分标签：合计与套餐余量" width="420">
+  <img src="assets/6.png" alt="模型标签：显隐、窗口、倍率" width="420">
+  <img src="assets/7.png" alt="检测标签：推理档位检测" width="420">
   <br>
   <em>卡片展开分三个标签：积分（合计与套餐余量）、模型（显隐、窗口、倍率）、检测（推理档位）。</em>
 </p>

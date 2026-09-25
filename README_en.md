@@ -29,10 +29,10 @@ have installed shows up as its own model group, and both installed shows both gr
 own account and credit. The models appear directly in the DSH model picker — no separate provider to configure.
 
 <p align="center">
-  <img src="assets/1.png" alt="WorkBuddy models in the DSH model picker" width="430">
-  <img src="assets/5.png" alt="WorkBuddy AI models in the DSH model picker" width="430">
+  <img src="assets/1.png" alt="WorkBuddy models in the DSH model picker" width="330">
   <br>
-  <em>Each version forms its own group beside DSH's own; install just one and only that group appears.</em>
+  <em>The CN version forms its own group in the model picker (with credit rates and promo badges), beside DSH's
+  own groups; installing the international version adds a "WorkBuddy AI" group the same way.</em>
 </p>
 
 ## Capabilities
@@ -135,14 +135,15 @@ under the description and is editable in place**, with no second Configure step 
   - **Detection**: reasoning-level detection, one row per model; empty when nothing needs detecting.
 
 <p align="center">
-  <img src="assets/6.png" alt="Plugin page: the configuration form and model visibility in the Models tab" width="480">
+  <img src="assets/2.png" alt="Plugin detail page: the configuration form and the two status cards" width="480">
   <br>
-  <em>The configuration form sits above the two cards; the "Models" tab selects which models the picker shows.</em>
+  <em>The configuration form sits above the two cards — one per version, each following its own app's sign-in.</em>
 </p>
 
 <p align="center">
-  <img src="assets/2.png" alt="The card's three tabs" width="420">
-  <img src="assets/3.png" alt="The card showing account and remaining credit" width="420">
+  <img src="assets/3.png" alt="Credits tab: total and per-package allowances" width="420">
+  <img src="assets/6.png" alt="Models tab: visibility, windows, rates" width="420">
+  <img src="assets/7.png" alt="Detection tab: reasoning-level detection" width="420">
   <br>
   <em>Expanding a card shows three tabs: Credits (total and per-package), Models (visibility, windows, rates), and Detection (reasoning levels).</em>
 </p>
