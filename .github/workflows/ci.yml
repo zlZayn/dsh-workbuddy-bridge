@@ -20,6 +20,10 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # 整轮上限。默认是 6 小时：一旦有测试挂住（不是失败，是不返回），
+    # 这里不设限就等于让它白占一个 runner 半天。15 分钟对本仓绰绰有余 ——
+    # 本机全量 5.5 秒，CI 上 install + typecheck + build + test 实测约 2 分钟。
+    timeout-minutes: 15
     steps:
       # v7 的 action 自带 node24 运行时；v4 声明 node20，该运行时已被 GitHub 弃用。
       - uses: actions/checkout@v7
@@ -44,7 +48,9 @@ jobs:
       - name: Build (produces lib/)
         run: pnpm run build
 
+      # 测试步骤单独再给一道上限：整轮上限是兜底，这一步的失败信息更贴题。
       - name: Test
+        timeout-minutes: 8
         run: pnpm run test
 
       # 发布态不变量：bundle patch / engines.dsh / files 覆盖 / locale 与 icon 那几条。

@@ -1,6 +1,6 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WorkBuddyCatalogStore, workbuddyCatalogPath } from '../src/catalog/store.ts'
 import type { WorkBuddyUpstreamModel } from '../src/protocol/client.ts'
@@ -107,7 +107,13 @@ describe('WorkBuddyCatalogStore', () => {
   })
 
   it('survives an unwritable path without throwing', () => {
-    const store = new WorkBuddyCatalogStore({ path: '/proc/definitely-not-writable/catalog.json' })
+    // A path under a *file* cannot be created on any platform, and unlike
+    // `/proc/...` it fails immediately everywhere: writing into /proc on Linux
+    // can block uninterruptibly, which hung CI's Test step rather than failing it.
+    const blocker = join(mkdtempSync(join(tmpdir(), 'wb-unwritable-')), 'not-a-dir')
+    CLEANUP.push(dirname(blocker))
+    writeFileSync(blocker, 'x')
+    const store = new WorkBuddyCatalogStore({ path: join(blocker, 'catalog.json') })
     // Saving is best-effort: the plugin has already served these models, and a
     // failed write must not surface as a crash.
     expect(() => store.set('uid-1:ent-1', { source: 's', fetchedAtMs: 1, models: [model('a')] })).not.toThrow()
