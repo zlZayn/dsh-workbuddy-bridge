@@ -252,6 +252,7 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
           a bare checkbox column with no explanation reads as selection, not
           visibility. */}
       {visibility === undefined ? null : <p className={css.text}>{t('visibilityIntro')}</p>}
+      <div className={css.list}>
       {rows.map(model => {
         const capacity = model.contextWindow
         // Only shown when the upstream declared a larger alternative, so the
@@ -270,12 +271,12 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
                   onChange={visible => { onToggle(model.id, visible, visibility.account) }}
                 />
               )}
-              {visibility === undefined ? <span>{model.name}</span> : null}
+              {visibility === undefined ? <span className={css.name}>{model.name}</span> : null}
               <ModelBadges model={model} t={t} />
             </span>
             <span className={css.modelEnd}>
               {capacity === undefined
-                ? <span className={css.dim} aria-label={t('contextUnknown')}>—</span>
+                ? <span className={css.meta} aria-label={t('contextUnknown')}>—</span>
                 : <span>{formatTokens(capacity)}</span>}
               {alternative !== undefined
                 ? <span className={css.dim}>{t('contextUpTo', { size: formatTokens(alternative) })}</span>
@@ -286,6 +287,7 @@ export function ContextPanel({ models, visibility, maximumContextWindow, togglin
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
@@ -350,6 +352,7 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
         * action together, and the order is fixed by the catalog, so nothing
         * moves when a detection lands.
         */}
+      <div className={css.list}>
       {probe.candidates.map(id => {
         const result = probe.results.find(entry => entry.id === id)
         // Display name: the catalog's own label first, then whatever the
@@ -359,7 +362,7 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
         return (
           <div key={id} className={css.modelStack}>
             <div className={css.probeRow}>
-              <span>{name}</span>
+              <span className={css.name}>{name}</span>
               <span className={css.probeEnd}>
                 {result === undefined ? null : (
                   <Tag tone={result.validation === 'validating' ? 'success' : 'neutral'}>
@@ -385,11 +388,12 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
               </span>
             </div>
             {result === undefined ? null
-              : <span className={css.dim}>{t('probeResultAt', { time: formatTime(result.probedAt) })}</span>}
+              : <span className={css.meta}>{t('probeResultAt', { time: formatTime(result.probedAt) })}</span>}
 
           </div>
         )
       })}
+      </div>
       {probe.results.length === 0
         ? null
         : <Button size="sm" disabled={busy} onClick={onClear}>{t('probeClear')}</Button>}

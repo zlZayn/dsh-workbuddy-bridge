@@ -198,6 +198,35 @@
 
 /* ---- Model rows --------------------------------------------------------- */
 
+/* The container for a list of models. Same object as the host's
+   SubagentModelSelectionCard `.models`: a bordered box with its own radius and
+   internal padding, so a list of rows reads as one control rather than as rows
+   loose on the page. `max-height` + `overflow` is theirs too, for a catalog
+   long enough to need it. */
+.list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  max-height: 280px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-lg);
+}
+
+/* One row inside that box: the host gives each 6px of breathing room. */
+.list > * {
+  padding: 6px;
+  border-radius: var(--dsw-radius-md);
+}
+
+/* Consecutive rows are separated by the host's hairline at a lighter tier than
+   the box's own border, so the container still reads as one object. */
+.list > * + * {
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
+}
+
 /* One model: name and badges on the left, capacity or rate on the right. */
 .modelRow {
   display: flex;
@@ -220,11 +249,29 @@
   min-width: 0;
 }
 
+/* The model's own name, at the label tier — the host's list rows set it apart
+   from the metadata a step below. */
+.name {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
 .modelEnd {
   display: flex;
   flex-direction: column;
   gap: 2px;
   text-align: right;
+  /* Figures stay column-aligned down a list of capacities. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Metadata under a name or beside a figure: one step smaller, tertiary. The
+   host's list rows use exactly this tier for the line under a model name. */
+.meta {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .badges {

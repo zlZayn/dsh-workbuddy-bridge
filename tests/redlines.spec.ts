@@ -281,12 +281,15 @@ describe('插件页样式跟着宿主走', () => {
     expect(checked).toBeGreaterThan(2000)
   })
 
-  it('字号只用宿主的两档：13（标签/正文）与 12（说明）', () => {
+  it('字号只用宿主那几档', () => {
+    // 官方 settings-subagent 的列表行同时用到 13（名字）、12（说明）、11（元数据），
+    // 原语自己的 SegmentedTabs 用 14 —— 这四档就是这页允许的全部。
+    const OFFICIAL = new Set(['11px', '12px', '13px', '14px'])
     for (const file of sheets) {
       const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
       const sizes = [...body.matchAll(/font-size:\s*([^;]+);/g)].map(m => (m[1] ?? '').trim())
       expect(sizes.length, `${file} 里一个 font-size 都没有 —— 扫描失效了？`).toBeGreaterThan(0)
-      const offScale = [...new Set(sizes)].filter(size => size !== '13px' && size !== '12px')
+      const offScale = [...new Set(sizes)].filter(size => !OFFICIAL.has(size))
       expect(offScale, `${file} 出现了宿主没有的字号档`).toEqual([])
     }
   })
