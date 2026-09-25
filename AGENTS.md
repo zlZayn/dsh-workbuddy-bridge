@@ -2,7 +2,9 @@
 
 ## 状态
 
-- 版本 `0.1.0`；**尚未发布到 npm** —— 新包名的首次发布是待办，发布态回填前本行不写 npm 侧事实。
+- 版本 `0.1.0`，**已发布**（npm `latest` = 0.1.0，现查 <https://www.npmjs.com/package/dsh-workbuddy-bridge>）。
+  发布是维护者本地 `npm publish` 完成的 —— **git 侧产物（tag `v0.1.0` + GitHub Release）还没建**，
+  发布手册说这两样由流程产出、不靠人记得；补建动作见待办。
 - 装法只有一条：`dsh plugin --profile <profile> add <包名或仓库路径>`。包内声明了 `dsh.bundle.patch`，
   安装器自己会把它写进该 profile 的 `dsh.profile.bundles`；**不要再往 profile 的 `cordis.patch.yml` 手写 patch 行**，
   两者并存就是双挂载。
@@ -48,7 +50,9 @@
 ## 待办
 
 - [x] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态；文案语义 2026-09-26 全量过一遍（标签按读者任务重排同批）
-- [ ] 首次发布 `0.1.0` 并回填发布态（含 README 的 npm 徽章）
+- [x] 首次发布 `0.1.0`（维护者本地 publish + Trusted Publisher 已配）；README 门面已按发布态重写（npm 徽章已加）
+- [ ] **补 git 侧发布产物**：tag `v0.1.0`（指向 3721cc3 或发布时那棵树）+ GitHub Release —— 发布时 workflow 未用上，
+      两样按 [docs/PUBLISHING.md](docs/PUBLISHING.md) 手工补，之后 release.yml 的守卫才有基线
 
 ## 活跃坑
 
