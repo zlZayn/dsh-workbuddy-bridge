@@ -18,16 +18,36 @@
  *
  * - a **hover/focus tooltip** carries the state and the click's purpose, and is
  *   also the button's `aria-label`.
- * - the **confirmation** is a small bubble anchored to the control, not a
+ * - the **confirmation** is a popover anchored to the control, not a
  *   `window.confirm`. Probing spends real credit, so a confirmation stays — but
- *   it belongs next to the thing it acts on, sized to one line plus two small
- *   buttons.
+ *   it belongs next to the thing it acts on.
+ *
+ * The popover surface follows `dsh-ds-balance`'s balance popover, which itself
+ * copies the host's own stat dialog: a portal to `document.body`, positioned by
+ * the host's `useAnchoredPosition`, dismissed by the host's
+ * `useDismissOnOutsidePointer`, skinned with `--dsw-specific-menu` plus
+ * `--dsw-menu-backdrop-filter` (the pair the host requires together — fill
+ * alone is "translucent but not frosted").
+ *
+ * **The filter must not sit on the panel itself**: a non-`none`
+ * `backdrop-filter` makes the element the containing block for its fixed
+ * descendants, and this panel contains non-portal `Tooltip` bubbles. The fill
+ * and the filter therefore live on an isolated `::before`, exactly as the host
+ * does it.
  *
  * @module dsh-workbuddy-bridge/client/probe-control
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { Button, IconThinkOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  Button,
+  IconCloseOutlineRegular,
+  IconThinkOutlineRegular,
+  Tooltip,
+  useAnchoredPosition,
+  useDismissOnOutsidePointer,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ModelDirectory } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import { cardVariantFor } from './variants.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
@@ -44,6 +64,17 @@ export interface WorkBuddyProbeControlProps {
 
 /** How often the control re-checks state when the window regains focus. */
 const RECONCILE_MS = 60_000
+
+/**
+ * What the popover renders on its first frame: positioned but invisible, so the
+ * anchor hook can measure it before deciding where it really goes. Copied
+ * verbatim from the host's stat dialog via `dsh-ds-balance`.
+ */
+const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
+
+/** Gap between the control and the popover, and the viewport margin it keeps. */
+const POPOVER_GAP = 8
+const POPOVER_MARGIN = 12
 
 /** Pick the model's recorded observation out of the probe section. */
 function resultFor(status: WorkBuddyWebStatus, model: string): WorkBuddyWebProbeModel | undefined {
@@ -116,6 +147,14 @@ function ModelProbe({ model, card, t }: {
   const inFlight = useRef(false)
   const mounted = useRef(false)
   const readSeq = useRef(0)
+  /** The control itself: the popover's anchor and the "inside" test for dismissal. */
+  const rootRef = useRef<HTMLSpanElement>(null)
+  /**
+   * The panel, portalled to `document.body` so it is not clipped by the composer
+   * row. It is measured by the anchor hook and passed to the outside-pointer test,
+   * which would otherwise read a click on the panel as a click outside it.
+   */
+  const panelRef = useRef<HTMLElement>(null)
 
   const refresh = useCallback(async (signal?: AbortSignal): Promise<void> => {
     const seq = ++readSeq.current
@@ -212,6 +251,29 @@ function ModelProbe({ model, card, t }: {
     }
   }
 
+  const open = confirming || note !== undefined
+
+  // Both hooks live above the `visible` early return: hooks may not be skipped,
+  // and a control that comes and goes with the selection must keep a stable
+  // hook order across renders.
+  const position = useAnchoredPosition({
+    open,
+    anchorRef: rootRef,
+    panelRef,
+    side: 'top',
+    gap: POPOVER_GAP,
+    margin: POPOVER_MARGIN,
+  })
+  // The panel is portalled, so it is no longer a DOM descendant of the anchor:
+  // without `panelRef` a click inside the panel would count as "outside" and
+  // close it.
+  useDismissOnOutsidePointer(
+    rootRef,
+    open,
+    () => { setConfirming(false); setNote(undefined) },
+    panelRef,
+  )
+
   if (!visible) return null
 
   const text = tooltipText(t, model, { busy, result, failed })
@@ -219,7 +281,7 @@ function ModelProbe({ model, card, t }: {
   // The confirmation and the result note both suppress the tooltip: leaving it
   // visible would overlap them, and the note already states the same outcome.
   return (
-    <span className={css.wrapper}>
+    <span className={css.wrapper} ref={rootRef}>
       <Tooltip label={text} side="top" portal disabled={confirming || note !== undefined}>
         <button
           type="button"
@@ -234,26 +296,55 @@ function ModelProbe({ model, card, t }: {
         </button>
       </Tooltip>
 
-      {confirming
-        ? (
-          <span className={css.bubble}>
-            <span>{t('probeBubbleBody')}</span>
-            <span className={css.noteActions}>
-              <Button size="sm" onClick={() => { setConfirming(false) }}>{t('cancel')}</Button>
-              <Button size="sm" variant="primary" onClick={() => { void detect() }}>
-                {t('probeConfirmAction')}
-              </Button>
-            </span>
-          </span>
+      {/* Closed means unmounted: a panel left in the DOM is a `position: fixed`
+          hit-testing box that would sit over the composer after it closed. */}
+      {open
+        ? createPortal(
+          <section
+            ref={panelRef}
+            className={css.panel}
+            style={position ?? MEASURE_STYLE}
+            role="dialog"
+            aria-label={confirming ? t('probeLabel') : t('probeNoteTitle')}
+          >
+            <div className={css.panelTitle}>
+              <span className={css.panelTitleIcon}><ProbeIcon /></span>
+              <span className={css.panelTitleText}>{model}</span>
+              <button
+                type="button"
+                className={css.iconButton}
+                aria-label={t('probeNoteDismiss')}
+                onClick={() => { setConfirming(false); setNote(undefined) }}
+              >
+                <IconCloseOutlineRegular size={16} />
+              </button>
+            </div>
+
+            <div className={css.titleRule} aria-hidden />
+
+            {confirming
+              ? (
+                <>
+                  <p className={css.body}>{t('probeBubbleBody')}</p>
+                  <div className={css.panelActions}>
+                    <Button size="sm" variant="outline" onClick={() => { setConfirming(false) }}>
+                      {t('cancel')}
+                    </Button>
+                    <Button size="sm" variant="primary" onClick={() => { void detect() }}>
+                      {t('probeConfirmAction')}
+                    </Button>
+                  </div>
+                </>
+              )
+              : (
+                <p className={css.body} role="status" aria-live="polite">
+                  {note === undefined ? '' : noteText(t, note)}
+                </p>
+              )}
+          </section>,
+          document.body,
         )
         : null}
-
-      {note === undefined ? null : (
-        <span className={css.note} role="status" aria-live="polite">
-          <span>{noteText(t, note)}</span>
-          <Button size="sm" onClick={() => { setNote(undefined) }}>{t('probeNoteDismiss')}</Button>
-        </span>
-      )}
     </span>
   )
 }

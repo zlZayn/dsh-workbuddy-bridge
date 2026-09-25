@@ -153,6 +153,34 @@ describe('插件图标', () => {
   })
 })
 
+/**
+ * 菜单材质成对：凡用 `--dsw-specific-menu` 画背景的表面，必须在**同一条规则**里带
+ * `--dsw-menu-backdrop-filter`。宿主把菜单材质拆成了这两条 token，只写填充就是
+ * 「透光但不磨砂」；而宿主自己的门禁只扫官方包，插件侧没有任何自动保护。
+ *
+ * 判据抄 dsh-ds-balance 的同形红线。
+ */
+describe('菜单材质成对', () => {
+  it('画了 --dsw-specific-menu 的规则，同一条里必有 backdrop-filter', () => {
+    const files = ['src/client/probe-control.module.css', 'src/client/workbuddy.module.css']
+    let checked = 0
+    for (const file of files) {
+      const css = read(file)
+      // 按规则块切：选择器 { ... }，花括号不嵌套（本仓的 CSS 没有 @media 嵌这些 token）。
+      for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        if (!(body ?? '').includes('--dsw-specific-menu')) continue
+        checked += 1
+        expect(
+          body,
+          `${file} 的 ${(selector ?? '').trim()} 画了菜单填充却没有 backdrop-filter`,
+        ).toContain('--dsw-menu-backdrop-filter')
+      }
+    }
+    // 自检：真的扫到了那条规则，否则这个断言永不触发。
+    expect(checked, '没有扫到任何菜单填充规则 —— 判据是不是失效了？').toBeGreaterThan(0)
+  })
+})
+
 describe('客户端接缝', () => {
   it('推理等级控件注在 list 槽上，绝不注 single 槽', () => {
     const source = read('src/client/index.tsx')

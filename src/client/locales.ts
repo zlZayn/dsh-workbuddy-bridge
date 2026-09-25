@@ -34,7 +34,7 @@ export type WorkBuddyLocaleKey =
   | 'probeResultEmpty' | 'probeResultNoLevels' | 'probeFailed'
   | 'probeLabel' | 'probeTooltipIdle' | 'probeTooltipVerified' | 'probeTooltipNotValidating'
   | 'probeTooltipRetry' | 'probeBubbleBody' | 'probeNoteVerified' | 'probeNoteNotValidating'
-  | 'probeNoteUnknown' | 'probeNoteDismiss'
+  | 'probeNoteUnknown' | 'probeNoteDismiss' | 'probeNoteTitle'
   // Settings form
   | 'settingsHeading' | 'authFile' | 'authFileHint' | 'authFileAI' | 'authFileAIHint'
   | 'probeConsent' | 'maximumContextWindow' | 'maximumContextWindowHint' | 'on' | 'off'
@@ -128,6 +128,7 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeNoteNotValidating: 'This model does not check the effort parameter',
   probeNoteUnknown: 'Detection did not complete',
   probeNoteDismiss: 'Got it',
+  probeNoteTitle: 'Reasoning-level detection',
   settingsHeading: 'Configuration',
   authFile: 'WorkBuddy auth file',
   authFileHint: 'Path to the WorkBuddy desktop auth file. Leave blank to use the app’s own location.',
@@ -250,6 +251,7 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probeNoteNotValidating: '该模型不校验该参数',
   probeNoteUnknown: '检测未完成',
   probeNoteDismiss: '知道了',
+  probeNoteTitle: '推理档位检测',
   settingsHeading: '配置',
   authFile: 'WorkBuddy 登录文件',
   authFileHint: 'WorkBuddy 桌面 App 登录文件的路径。留空表示使用应用自身的位置。',

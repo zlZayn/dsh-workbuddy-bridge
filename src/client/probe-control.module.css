@@ -71,44 +71,120 @@
   }
 }
 
-/* Confirmation bubble: one line plus two small buttons, anchored to the
-   control it acts on rather than centred in a modal. */
-.bubble {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 1001;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 260px;
-  padding: 10px 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1, #fff);
-  box-shadow: var(--dsw-shadow-lv2);
-  color: var(--dsw-alias-label-primary);
+/* ---- The popover ------------------------------------------------------- */
+
+/* Skin copied from the host's stat dialog via `dsh-ds-balance`'s balance
+   popover. Two layers, and the split is load-bearing:
+
+   ① The fill and the frosted filter must be written **together**
+      (`--dsw-specific-menu` + `--dsw-menu-backdrop-filter`). The host requires
+      the pair for any translucent menu surface; fill alone is "translucent but
+      not frosted". The host's own gate only scans the host's packages, so a
+      plugin that writes one without the other is never told.
+   ② They must not sit on `.panel` itself: a non-`none` `backdrop-filter` makes
+      an element the containing block for its fixed descendants, and this panel
+      holds non-portal `Tooltip` bubbles — their viewport coordinates would be
+      reinterpreted as offsets from this box and the bubbles would leave the
+      screen. `isolation: isolate` keeps the `z-index: -1` layer inside this
+      panel's own stacking context. */
+.panel {
+  position: fixed;
+  isolation: isolate;
+  z-index: 1100;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: min(280px, calc(100vw - 24px));
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
   font-size: 12px;
   line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: default;
 }
 
-/* Result note: smaller than the confirmation bubble because it carries an
-   outcome, not a decision — the work is done, the user only reads and dismisses. */
-.note {
+.panel::before {
   position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 1001;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--dsw-specific-menu);
+  backdrop-filter: var(--dsw-menu-backdrop-filter);
+  content: '';
+  pointer-events: none;
+}
+
+/* Title row: the glyph, the model it belongs to, and a close button. Naming the
+   model matters here — the popover is portalled to the body and can sit far from
+   the control, so it has to say which model it is talking about. */
+.panelTitle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
-  background: var(--dsw-alias-bg-layer-1);
-  box-shadow: var(--dsw-shadow-lv2);
+  gap: 6px;
   color: var(--dsw-alias-label-primary);
-  font-size: 12px;
-  line-height: 18px;
+  font-weight: 500;
+}
+
+.panelTitleIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.panelTitleText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The close button is the same 28px circle as the trigger, pushed to the right
+   end by the auto margin. */
+.iconButton {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  corner-shape: round;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.iconButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: -2px;
+}
+
+/* The one line between the title and what it has to say. */
+.titleRule {
+  margin: 8px 0 10px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.body {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.panelActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
