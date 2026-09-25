@@ -1,0 +1,15 @@
+# dsh-workbuddy-bridge — 来源与版权归属
+
+本仓是 [corrinehu/dsh-workbuddy-connect](https://github.com/corrinehu/dsh-workbuddy-connect) 的重做版本。
+目录结构、命名与提交历史按本仓维护者规范重建，代码在原有基础上继续维护。
+
+## 原始作者与版权
+
+- Copyright (c) 2026 Corrine Hu
+- 原始分支与提交：`refactor/official-ui-architecture` @ `3dad637`
+- 原 MIT 许可证与版权声明**完整保留**于 [LICENSE](LICENSE)
+
+## 本仓维护者
+
+- Copyright (c) 2026 zlZayn
+- 仓库：<https://github.com/zlZayn/dsh-workbuddy-bridge>
