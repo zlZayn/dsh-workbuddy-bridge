@@ -73,6 +73,10 @@
 - **pnpm 11 的 symlink 链接器在本机会卡死**（343 个包已就位却搭不出 `node_modules`）→ 一律加 `--config.node-linker=hoisted`
 - `node_modules/.bin` 可能为空 → 按上面的直接路径调用工具
 - `Rename-Item` 对正在被 install/build 占用的目录会失败 → 改名前先确认无相关进程
+- **测试断言里不许出现 locale 相关字面量**（「11月19日」这类 `Intl` 产物）：本机系统 locale 是中文
+  所以绿，ubuntu runner 默认 en，同一 `Intl` 调用产出 "Nov 19"，断言必红 —— 平台差被本机掩盖
+  （2026-09-25 CI 实踩，3eb0098 起两轮红）。日期/数字断言一律走 `format.ts` 的格式化器或
+  `t(key)`，断言字面量只允许平台无关的（如 "Status"）
 - **`.gitignore` 里一行裸 `AGENTS.md` 曾把整张文档网络吞掉**（13 份都不入库）：新增忽略规则时用具体路径，
   别用会匹配到文档名的裸文件名
 
