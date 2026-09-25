@@ -1,0 +1,172 @@
+# 发布：唯一入口是手动触发（Actions → Release → Run workflow，或 gh workflow run release.yml）。
+# **没有输入参数**（force 除外）—— 版本号来自 package.json，档位在本地 bump 时定。
+#
+# 改本文件后**必须手动 dispatch 实跑一次**：PR 上的 CI 只跑 ci.yml，动 release.yml 的 PR
+# 就算绿勾也不代表发布链路验过。
+#
+# 为什么单入口、且不由 tag 触发：档位由人按 docs/PUBLISHING.md 的问题链定档（major 必须人类确认），
+# 不适合由 commit 类型自动推断。顺序是全有或全无：先发布成功，才建 tag 与 GitHub Release；
+# 发布失败时远端零残留，不会留下「有 tag 没版本」的半成品。手工推 tag 不触发任何发布。
+#
+# 幂等：重跑不会重复发布 —— 目标版本已在 npm 上时跳过 publish，只补齐 git 侧（tag / Release）。
+#
+# **版本驱动：本 workflow 不 bump 版本。** 发布的就是 package.json 里那个号 ——
+# 版本号是发布**之前**的独立一步（bump → 提交 → 再拍截图 → 最后发布），
+# 界面上的版本号就是 package.json 里那个号，workflow 自己 bump 会让截图必然拍出旧号。
+#
+# **tag 名 = v + package.json 里的版本号**（v0.1.0）。前缀在这里**显式补**，不从值里推 ——
+# npm version 的输出自带 v，而 package.json 里没有；换来源时形状变了会把 tag 名带歪，
+# 且守卫靠 git describe --match 'v[0-9]*' 看 tag，看不见不带 v 的 tag。
+#
+# 防噪音：上个 tag 以来若只剩非产物改动（文档 / 测试 / CI / 工具脚本），守卫直接红。
+# 首次发布没有任何 tag，守卫自动跳过。确需为文档类改动发版用 force 输入越过。
+#
+# 认证：npm Trusted Publishing（OIDC），全程不传任何 token；代价是在 npmjs.com 上为本包
+# 配一次 Trusted Publisher（仓库 / workflow 文件名 / environment 三者要对上），见 docs/PUBLISHING.md。
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '越过「无行为变更不发版」守卫（仅在确需为文档/工具类改动发版时勾选）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # 推提交、建 tag 与 GitHub Release
+  id-token: write # npm Trusted Publishing 与 provenance 需要 OIDC
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release # npm 侧 Trusted Publisher 配的 environment 名必须与这里一致
+    steps:
+      - name: Verify this dispatch came from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::发版只能从 main 触发，当前 ref 是 ${{ github.ref }}"
+          exit 1
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # gh release create --generate-notes 需要完整历史；守卫要 diff 上个 tag..HEAD
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Guard against release noise
+        if: inputs.force != true
+        run: |
+          base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+          if [ -z "$base" ]; then
+            echo "没有历史 tag：首次发布不受守卫约束。"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$base..HEAD")
+          if [ -z "$changed" ]; then
+            echo "::error::自 $base 以来没有任何改动，没有可发布的内容。"
+            exit 1
+          fi
+          echo "区间 $base..HEAD 的改动："
+          printf '%s\n' "$changed" | node scripts/release-guard.mjs
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile --config.node-linker=hoisted
+
+      - name: Typecheck (host + client)
+        run: pnpm run typecheck
+
+      # 顺序是死的：tests/version.spec.ts 断言 lib/ 产物里的版本与包一致，先跑测试必红。
+      - name: Build (produces lib/)
+        run: pnpm run build
+
+      - name: Test
+        timeout-minutes: 8
+        run: pnpm run test
+
+      # 发布态不变量：bundle patch / 展示元数据 / 声明面自洽那几条。
+      - name: Release preconditions
+        run: pnpm run check:release
+
+      # pnpm-lock v9 不记录根包自身的版本，npm 仓那种「lockfile 版本 == package.json 版本」的
+      # 交叉核对在本仓不存在对应物；--frozen-lockfile 已保证依赖树一致。「忘了 bump」由下面
+      # 「该版本已在 npm 上」的幂等判据兜住（报的是已存在，而不是发重复版本）。
+
+      - name: Read the version to publish
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag=$(node -p "const v=require('./package.json').version; const m=/^[0-9]+\.[0-9]+\.[0-9]+-([A-Za-z][0-9A-Za-z-]*)(?:\.[0-9A-Za-z-]+)*$/.exec(v); m ? m[1] : ''")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "准备发布 $version（dist-tag: ${tag:-默认 latest}）"
+
+      # 幂等：这个版本已在 npm 上就跳过 publish，只补齐 git 侧（重跑一次即可修复「已发布但推送失败」）。
+      # 忘 bump 的症状就是这里说出「已在 npm 上」—— 先本地 bump 再重跑。
+      - name: Check whether that version is already on npm
+        id: check
+        run: |
+          if npm view "dsh-workbuddy-bridge@${{ steps.version.outputs.version }}" version > /dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ steps.version.outputs.version }} 已在 npm 上：跳过 publish，只补齐 git 侧"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # bump 已发生在本地提交里；这里只在有残留改动时兜一次底（版本驱动下没有改动，跳过是常态）。
+      - name: Commit any remaining manifest changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "工作树没有改动（版本驱动：bump 已在本地提交里），跳过提交"
+          else
+            git add -A
+            git commit -m "chore: commit manifest state for release ${{ steps.version.outputs.version }}"
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.published == 'false'
+        # 认证靠 OIDC：npm CLI 自行换取短期凭据，全程无 token。缺 id-token: write，
+        # 或 npmjs.com 上的 Trusted Publisher 与本 workflow 的仓库 / 文件名 / environment 对不上时失败。
+        # --provenance 留作哨兵：环境产不出 provenance 就红。
+        # 预发布走独立 dist-tag（如 alpha），latest 留在上一个稳定版；dist-tag 由版本自己的预发布段给出。
+        run: |
+          if [ -n "${{ steps.version.outputs.dist_tag }}" ]; then
+            pnpm publish --provenance --access public --no-git-checks --tag "${{ steps.version.outputs.dist_tag }}"
+          else
+            pnpm publish --provenance --access public --no-git-checks
+          fi
+
+      - name: Create the tag and the GitHub Release
+        if: steps.check.outputs.published == 'false' && !inputs.force || steps.check.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 与 publish 同一判据（版本带预发布段即预发布），不按任何输入参数判。
+          extra=""
+          if [ -n "${{ steps.version.outputs.dist_tag }}" ]; then extra="--prerelease"; fi
+          tag="v${{ steps.version.outputs.version }}"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "$tag 已存在，跳过打 tag。"
+          else
+            git tag "$tag"
+            git push origin "$tag"
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag 的 Release 已存在，跳过。"
+          else
+            gh release create "$tag" --target "$(git rev-parse HEAD)" --title "$tag" --generate-notes $extra
+          fi

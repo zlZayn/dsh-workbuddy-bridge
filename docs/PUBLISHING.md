@@ -14,26 +14,22 @@
 
 ## 发版
 
-本仓**没有 CI**（仓内无 `.github/`），所以验证只有本地这一道：`pnpm check` 是发布闸。
+发布入口只有一个：[release.yml](../.github/workflows/release.yml)（Actions → Release → Run workflow，
+或 `gh workflow run release.yml`）。它做完整条链：守卫 → 安装 → typecheck → build → test →
+check:release → publish（npm Trusted Publishing，OIDC，无长期 token）→ tag `v<版本>` → GitHub Release。
 
-```sh
-# 1) 定档并 bump（--no-git-tag-version：tag 由下面第 3 步显式建）
-npm version <patch|minor|major> --no-git-tag-version
-git add package.json pnpm-lock.yaml
-git commit -m "chore(release): bump <旧> -> <新>"
+- **版本驱动**：workflow 只发 `package.json` 里那个号，**它不 bump**。bump 是发布前的本地一步：
+  `pnpm version <patch|minor|major> --no-git-tag-version` → 提交 → （渲染面改动则先重截图）→ 最后 dispatch。
+- **dist-tag 由版本自己推**：带预发布段（如 `0.2.0-alpha.1`）发到同名 dist-tag（`alpha`），`latest` 不动；稳定版发 `latest`。
+- **守卫**：上个 tag 以来只有文档 / 测试 / CI / 工具脚本改动时红（[scripts/release-guard.mjs](../scripts/release-guard.mjs)）；
+  首次发布没有历史 tag，守卫自动跳过。确需越过用 force 输入。
+- **幂等**：版本已在 npm 上时跳过 publish、只补齐 git 侧 —— 「忘了 bump」的症状就是它报已存在。
+- **前置（一次性，人工配置）**：npmjs.com 上为本包配 **Trusted Publisher**——
+  registry 指向 `registry.npmjs.org`，GitHub 仓库名 / workflow 文件名（`release.yml`）/ environment 名（`release`）三处一致。
+- **改了 release.yml 必须手动 dispatch 实跑一次**：PR 上的 CI 只跑 ci.yml，绿勾不代表发布链路验过。
 
-# 2) 发布（prepack 会自动 build，因此不必手动 build）
-npm publish
-
-# 3) 建 tag 与 Release（同一次操作里做完）
-git tag v<新>
-git push origin main --tags
-gh release create v<新> --title v<新> --notes-from-tag
-```
-
-- **dist-tag**：正常版本发到 `latest`；预发布（版本号带 `-alpha.N` / `-rc.N` 之类）会自带同名 dist-tag，不会动 `latest`。
-- **包名与旧包的关系**：本仓是从 `dsh-workbuddy-connect` 重做而来，npm 上那是**另一个包名**（归原作者）。本仓的包名 `dsh-workbuddy-bridge` 需要**首次发布**后才会在 npm 上出现 —— 在那之前，README 里的 `dsh plugin --profile web add dsh-workbuddy-bridge` 指向的是一个**尚未发布**的包名。
-- **源码安装**（不依赖 npm 发布）：`dsh plugin --profile web add github:zlZayn/dsh-workbuddy-bridge`，或本地路径 `dsh plugin --profile web add <本仓路径>`。
+发布前的本地确认（顺序即依赖）见上一节「发版前确认」；发布后核对：
+`npm view dsh-workbuddy-bridge dist-tags`（latest 或预发布 tag 指向新版本）与 GitHub Releases 页。
 
 ## 版本号
 
