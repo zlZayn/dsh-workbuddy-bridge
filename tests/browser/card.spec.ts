@@ -47,11 +47,13 @@ describe('WorkBuddy card', () => {
     stub.call.mockImplementation(async () => ({ ok: false, status: 500, json: async () => ({}) }))
     await clickText(box.view!, t('refresh'))
     const text = textOf(box.view!)
-    // The account is still named, and the failure is stated beside it — not in
-    // place of it. Blanking the card over one transient error loses the
-    // account, credits and model list the reader was looking at.
-    expect(text).toContain('阿七')
+    // The account is still named (in the collapsed status), and the failure is
+    // stated beside the document — not in place of it. Blanking the card over one
+    // transient error loses the credits and model list the reader was looking at.
     expect(text).toContain(t('statusRefreshFailed', { message: 'HTTP 500' }))
+    // And the document's other lines are still on screen — only the failed read
+    // is reported, nothing is blanked.
+    expect(text).toContain('Access token expires')
   })
 
   it('lets the newest read win over a slower one started earlier', async () => {
@@ -62,17 +64,19 @@ describe('WorkBuddy card', () => {
       // The FIRST read is slow; the second answers immediately. If the slow one
       // were allowed to settle last it would restore the older document.
       if (call === 1) return new Promise(resolve => { resolvers.push(resolve) })
-      return { ok: true, json: async () => signedIn({ nickname: '后来' }) }
+      return { ok: true, json: async () => signedIn({ nickname: '后来', expiresAt: Date.parse('2026-11-19T00:00:00Z') }) }
     })
     await mount(true)
     // A manual refresh starts read #2 while read #1 is still in flight.
     await clickText(box.view!, t('refresh'))
     await act(async () => {
-      for (const resolve of resolvers) resolve({ ok: true, json: async () => signedIn({ nickname: '先前' }) })
+      for (const resolve of resolvers) resolve({ ok: true, json: async () => signedIn({ nickname: '先前', expiresAt: Date.parse('2026-01-01T00:00:00Z') }) })
     })
     const text = textOf(box.view!)
-    expect(text).toContain('后来')
-    expect(text).not.toContain('先前')
+    // The nickname lives in the collapsed status only; the expiry line is what
+    // the expanded body renders, and it is what proves which read won.
+    expect(text).toContain('11月19日')
+    expect(text).not.toContain('1月1日')
   })
 
   it('keeps polling after a failed read', async () => {

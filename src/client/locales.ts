@@ -50,10 +50,10 @@ export type WorkBuddyLocaleKey =
 
 /** English copy. */
 export const en: Record<WorkBuddyLocaleKey, string> = {
-  title: 'DSH WorkBuddy Bridge',
-  intro: 'Use the models in the WorkBuddy desktop app directly in DSH — zero configuration, ready out of the box.',
-  titleAI: 'DSH WorkBuddy AI Connect',
-  introAI: 'Use the models in the WorkBuddy AI international desktop app directly in DSH — zero configuration, ready out of the box.',
+  title: 'WorkBuddy (CN)',
+  intro: 'Follows the sign-in of the WorkBuddy desktop app and serves its models here.',
+  titleAI: 'WorkBuddy AI (Global)',
+  introAI: 'Follows the sign-in of the WorkBuddy AI desktop app and serves its models here.',
   loading: 'Loading account…',
   signedOut: 'Not signed in',
   signedOutHint: 'Sign in once in the WorkBuddy desktop app; this plugin follows that sign-in automatically.',
@@ -172,10 +172,10 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
 
 /** Simplified Chinese copy. */
 export const zh: Record<WorkBuddyLocaleKey, string> = {
-  title: 'DSH WorkBuddy Bridge',
-  intro: '在 DSH 中直接使用 WorkBuddy 桌面 App 包含的模型，开箱即用，无需额外配置。',
-  titleAI: 'DSH WorkBuddy AI Connect',
-  introAI: '在 DSH 中直接使用 WorkBuddy AI 国际版桌面 App 包含的模型，开箱即用，无需额外配置。',
+  title: 'WorkBuddy（国内版）',
+  intro: '跟随 WorkBuddy 桌面 App 的登录状态，在此直接使用它的模型。',
+  titleAI: 'WorkBuddy AI（国际版）',
+  introAI: '跟随 WorkBuddy AI 桌面 App 的登录状态，在此直接使用它的模型。',
   loading: '正在读取账号…',
   signedOut: '未登录',
   signedOutHint: '在 WorkBuddy 桌面 App 里登录一次即可，插件会自动跟随当前登录的账号。',

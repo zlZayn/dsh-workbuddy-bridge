@@ -113,7 +113,6 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
           <div className={css.row}>
             {/* The header line already says who is signed in; this row carries the
                 action that belongs to that fact. */}
-            {assistCode === undefined ? <span className={css.dim}>{accountLabel(status, t)}</span> : null}
             {/* The assist block carries the re-check in its state, so the
                 refresh button steps aside rather than duplicating it. */}
             {assistCode === undefined
