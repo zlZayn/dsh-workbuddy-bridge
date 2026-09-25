@@ -1,0 +1,65 @@
+# dsh-workbuddy-bridge — 发布手册
+
+面向维护者。用户视角见 [README.md](../README.md)；设计决策见 [ARCHITECTURE.md](ARCHITECTURE.md)；维护规则见根 [AGENTS.md](../AGENTS.md)。
+
+## 发版前确认
+
+按顺序做完，任何一条不过就不发：
+
+1. **版本线一致**：[package.json](../package.json) 的 `version`、`src/version.ts` 的 `PLUGIN_VERSION`、`lib/` 产物的内置版本三者必须一致。
+   - 前两者由 `tests/version.spec.ts` 兜底；第三者要求**先 `build` 再 `test`**（顺序反了会红，这是刻意的）。
+2. **全量检查**：`pnpm check`（= `typecheck` + `vitest run` + `build`，命令原文见 [package.json](../package.json) 的 `scripts`）。
+3. **文档同步**：改了对外可见行为（配置项、工具/模型面、安装命令、版本对应表）→ 同一次改动内同步 [README.md](../README.md) 与 [README.en.md](../README.en.md)（**两份必同改**）。
+4. **链接与格式**：跑一次链接校验（见 [AGENTS.md](../AGENTS.md) 的常用命令），确保 `docs/` 与子树双件没有断链。
+
+## 发版
+
+本仓**没有 CI**（仓内无 `.github/`），所以验证只有本地这一道：`pnpm check` 是发布闸。
+
+```sh
+# 1) 定档并 bump（--no-git-tag-version：tag 由下面第 3 步显式建）
+npm version <patch|minor|major> --no-git-tag-version
+git add package.json pnpm-lock.yaml
+git commit -m "chore(release): bump <旧> -> <新>"
+
+# 2) 发布（prepack 会自动 build，因此不必手动 build）
+npm publish
+
+# 3) 建 tag 与 Release（同一次操作里做完）
+git tag v<新>
+git push origin main --tags
+gh release create v<新> --title v<新> --notes-from-tag
+```
+
+- **dist-tag**：正常版本发到 `latest`；预发布（版本号带 `-alpha.N` / `-rc.N` 之类）会自带同名 dist-tag，不会动 `latest`。
+- **包名与旧包的关系**：本仓是从 `dsh-workbuddy-connect` 重做而来，npm 上那是**另一个包名**（归原作者）。本仓的包名 `dsh-workbuddy-bridge` 需要**首次发布**后才会在 npm 上出现 —— 在那之前，README 里的 `dsh plugin --profile web add dsh-workbuddy-bridge` 指向的是一个**尚未发布**的包名。
+- **源码安装**（不依赖 npm 发布）：`dsh plugin --profile web add github:zlZayn/dsh-workbuddy-bridge`，或本地路径 `dsh plugin --profile web add <本仓路径>`。
+
+## 版本号
+
+- **patch**：修缺陷、等价重构、文档与元数据修正，使用者旧用法全部仍然正确。
+- **minor**：新增可选能力、新增配置项、界面新增入口 —— 旧用法仍正确且能观察到新能力。
+- **major**：旧用法升级后会出错或失败（删/改配置项、改输出契约、抬宿主核下限）。
+- **使用者观察不到变化的改动不发版**（纯文档、测试、注释、工具脚本）：搭下一次发布的车。
+- 判定按「旧用法是否仍然正确 + 是否可观察到新能力」推，不按改动文件多少。
+
+## 与 DSH 核心的版本对应
+
+**每个插件版本只支持一段 DSH 核心**，不匹配的组合会让 DSH 启动失败 —— 对应表写在 [README.md](../README.md) 的「安装」一节，那是唯一真源（本页不复制表格）。
+
+维护规则：
+
+- 抬插件支持的核心版本时 → 同一次改动内更新 README 的对应表（中英两份）+ [package.json](../package.json) 的 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 声明的下限，形状保持一致。
+- 跨代支持（同时支持两代核心）的成本很高，历史上靠一层兼容层扛过（见 [docs/archive/dual-dsh-ui-compat-2026-09-22.md](archive/dual-dsh-ui-compat-2026-09-22.md)）；**默认不做**，要做就单独一轮并写决策记录。
+
+## 平台契约的取真源方式
+
+宿主平台契约（客户端槽名、客户端服务的名字与形状）只能从**实装宿主包**里读，不从记忆或旧文档推断：
+
+- 槽名与类型：`<DSH 安装目录>/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-*/**/*.d.ts`
+- 先例：`conversation.input.right` 这个槽在 `0.1.7-rc.2` 里**并不存在**，注册它会渲染出 `undefined` 组件并抛 React #130；真实槽是 `conversation.input.left` / `.model` / `.dock` / `.activity` / `.attachments`。
+
+## 出事之后
+
+- **发布后才发现缺陷**：不删版本、不重发同号（npm 版本号不可覆盖）。修好 → 按上面流程发下一个 patch，并在 Release notes 里写明影响面。
+- **发布流程本身出问题**（bump 漏改三处之一、产物没重建）：先 `pnpm check` 复现，再按 [docs/archive/](archive/) 里同类记录的方式补一条决策记录。
