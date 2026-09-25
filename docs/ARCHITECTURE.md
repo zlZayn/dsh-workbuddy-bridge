@@ -32,11 +32,12 @@ src/
 
 ## 浏览器半（src/client）
 
-三条官方契约，全部按宿主声明走，没有宿主版本探测、没有防御性包装：
+官方契约按宿主声明走，没有宿主版本探测、没有防御性包装：
 
 | 契约 | 用法 |
 |---|---|
 | `plugins.bundle.config` | 本插件在插件页的配置入口，key = 包名 |
+| `conversation.input.right` | 输入区紧凑控件行的推理等级控件。**必须选 `kind: 'list'` 的槽**——`conversation.input.model` 是 `single`，已被宿主自带的 `ModelSelect` 占用，同 priority 再注册会抛错并顶掉宿主的模型选择器（判据见 [PUBLISHING.md](PUBLISHING.md) 的「平台契约的取真源方式」，经过见 [.agents/notes/2026-09-25-composer-seat-single-occupancy.md](../.agents/notes/2026-09-25-composer-seat-single-occupancy.md)） |
 | `ctx.configForms.whileServed` | 宿主真正在服务本条目时才注册页面——不可写的部署上不会出现一个存不了的表单 |
 | `SettingsForm` / `SettingsFormModel` | 与官方设置页同一套表单栈，一次 revision 封装的 mutation 保存全部字段 |
 | `ctx.locale` | `settings.workbuddy` 命名空间，zh/en 双语 |

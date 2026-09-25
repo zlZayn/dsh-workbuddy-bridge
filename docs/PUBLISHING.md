@@ -57,7 +57,16 @@ gh release create v<新> --title v<新> --notes-from-tag
 宿主平台契约（客户端槽名、客户端服务的名字与形状）只能从**实装宿主包**里读，不从记忆或旧文档推断：
 
 - 槽名与类型：`<DSH 安装目录>/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-*/**/*.d.ts`
-- 先例：`conversation.input.right` 这个槽在 `0.1.7-rc.2` 里**并不存在**，注册它会渲染出 `undefined` 组件并抛 React #130；真实槽是 `conversation.input.left` / `.model` / `.dock` / `.activity` / `.attachments`。
+- **槽存在 ≠ 能注册**。每个槽在 `SlotMap` 里带一个 `kind`，三个判据依次看：
+  1. `kind` 与 `scope`（`dsh-client-ui-*/**/*.d.ts` 的 `SlotMap`）。
+  2. 已有哪些占用者（`dsh-client-ui-*/lib/client.js` 里搜 `slots.register({ name: '<槽名>'`）。
+  3. `kind: 'single'` 的槽**一格只能有一个占用者**：同一 priority 再注册会抛
+     `single slot "..." already has a registration at priority 0`，而**抛出方是后注册的那一个**。
+     低 priority 会顶掉原占用者，高 priority 只是被遮蔽 —— 两种都不是「并排」。
+     要并排就选 `kind: 'list'` 的槽（自带 `id` 即一格，互不冲突）。
+- 先例（2026-09-25）：本仓曾把 `conversation.input.right` 误判为不存在，改注册到 `conversation.input.model`（提交 `219a7ff`）。
+  实装宿主 `0.1.7-rc.2` 里**两者都存在**：`.right` 是 `kind: 'list'` 且无占用者，`.model` 是 `kind: 'single'` 且已被宿主自带的 `ModelSelect` 占用。
+  占 `.model` 的后果不是「多一个控件」，而是**宿主的模型选择器消失**；本仓的推理等级控件因此注回 `.right`。
 
 ## 出事之后
 

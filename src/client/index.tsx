@@ -1,6 +1,6 @@
 /**
  * Browser half: the plugin's configuration page on the Plugins page, and the
- * reasoning-effort control in the conversation composer.
+ * reasoning-effort control in the composer's compact-controls row.
  *
  * Both are ordinary DSH slot registrations over the contracts their owners
  * declare — no host-version checks and no defensive wrappers. `ctx.slots.inject`
@@ -57,7 +57,18 @@ export const BUNDLE_NAME = 'dsh-workbuddy-bridge'
  */
 export const inject = ['slots', 'locale', 'remote', 'remote.session', 'configForms']
 
-/** Slot id of the composer control, so it is named in exactly one place. */
+/**
+ * The host seat this control occupies: the composer's compact-controls row,
+ * which the host renders immediately left of its own model selector.
+ *
+ * Deliberately not `conversation.input.model`: that seat is `single`, the
+ * shipped ModelSelect already occupies it at priority 0, and a second
+ * registration at that priority throws — the seat's own fail-loud rule. A
+ * `list` seat adds an entry beside the shipped one instead of fighting it.
+ */
+const PROBE_SEAT = 'conversation.input.right'
+
+/** Entry id within that seat, so the registration is named in exactly one place. */
 const PROBE_SEAT_ID = 'workbuddy-probe'
 
 export function apply(ctx: ClientContext): void {
@@ -80,16 +91,15 @@ export function apply(ctx: ClientContext): void {
     'dsh-workbuddy-bridge: configuration page',
   )
 
-  // The reasoning-effort seat beside the composer's model selector. It reads
-  // the session's current selection through `modelDirectories`, which is why it
-  // waits for that service rather than registering eagerly.
+  // The reasoning-effort seat itself. It reads the session's current selection
+  // through `modelDirectories`, which is why it waits for that service rather
+  // than registering eagerly.
   ctx.inject(['modelDirectories'], scope => {
-    scope.slots.inject('conversation.input.model', () => scope.slots.register({
-      name: 'conversation.input.model',
+    scope.slots.inject(PROBE_SEAT, () => scope.slots.register({
+      name: PROBE_SEAT,
       id: PROBE_SEAT_ID,
-      order: 10,
-      inject: (sessionId: string) => ({
-        directory: scope.modelDirectories.directoryFor(sessionId as never).store,
+      inject: sessionId => ({
+        directory: scope.modelDirectories.directoryFor(sessionId).store,
         t,
       }),
     }, WorkBuddyProbeControl))
