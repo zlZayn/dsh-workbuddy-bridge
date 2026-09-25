@@ -50,4 +50,25 @@ describe('package version sync', () => {
       `no built bundle declares WORKBUDDY_BRIDGE_VERSION as "${pkg.version}" — rebuild before committing or publishing`,
     ).not.toHaveLength(0)
   })
+
+  /**
+   * `lib/` is tracked in this repository, so the emitted class map must be in a
+   * stable order: an unstable build turns every rebuild into a diff and makes
+   * "did the artifact change?" unanswerable. The map is emitted as
+   * `"<local>": "<hash>_<local>"` pairs — assert those keys come out sorted.
+   *
+   * Guards tsdown.config.ts's cssModulesPlugin, which sorts the keys before
+   * emitting them (lightningcss returns `exports` in a non-deterministic order).
+   */
+  it('emits the CSS class map in a stable, sorted order', () => {
+    const libDir = new URL('../lib/', import.meta.url)
+    if (!existsSync(libDir)) return
+    const bundle = readdirSync(libDir).find(name => name === 'client.js')
+    if (bundle === undefined) return
+    const text = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
+    const keys = [...text.matchAll(/"([A-Za-z][\w]*)": "[0-9a-zA-Z]+_\1"/g)].map(match => match[1] as string)
+    // Self-check: the scan must actually see the class map.
+    expect(keys.length, 'no CSS class map found in lib/client.js — is the scan still right?').toBeGreaterThan(0)
+    expect(keys, 'CSS class map is not sorted — the build is non-deterministic').toEqual([...keys].sort())
+  })
 })

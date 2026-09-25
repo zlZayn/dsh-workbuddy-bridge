@@ -92,8 +92,15 @@ function cssModulesPlugin(id: string): Plugin {
         cssModules: { pattern: '[hash]_[local]' },
         minify: true,
       })
+      // Sort the keys: `cssExports` comes back in a non-deterministic order, and
+      // the emitted JSON preserves insertion order — so without this, identical
+      // source produces a different `lib/client.js` on every build. That matters
+      // here because `lib/` is tracked: an unstable build shows up as a diff on
+      // every rebuild and makes "did the artifact change?" unanswerable.
       const classMap: Record<string, string> = {}
-      for (const [local, exp] of Object.entries(cssExports ?? {})) classMap[local] = exp.name
+      for (const local of Object.keys(cssExports ?? {}).sort()) {
+        classMap[local] = (cssExports as Record<string, { name: string }>)[local]!.name
+      }
       return styleInjectionModule(id, fileId, code.toString(), classMap)
     },
   } as Plugin
