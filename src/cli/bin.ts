@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { WorkBuddyCredentialStore } from '../credential/store.ts'
 import { WorkBuddyUpstreamClient } from '../protocol/client.ts'
 import { FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS } from '../catalog/index.ts'
-import { WORKBUDDY_CONNECT_VERSION } from '../version.ts'
+import { WORKBUDDY_BRIDGE_VERSION } from '../version.ts'
 import { isHeartbeatProcessAlive, readHostHeartbeat, workbuddyHostHeartbeatPath } from '../web/heartbeat.ts'
 import { WorkBuddyAtRestKeyProvider } from '../credential/at-rest.ts'
 import { CN_VARIANT, variantFor, WORKBUDDY_VARIANTS, type WorkBuddyVariant } from '../variants.ts'
@@ -97,7 +97,7 @@ async function doctor(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
   const report = {
     schemaVersion: JSON_SCHEMA_VERSION,
     package: 'dsh-workbuddy-bridge',
-    version: WORKBUDDY_CONNECT_VERSION,
+    version: WORKBUDDY_BRIDGE_VERSION,
     node: process.version,
     provider: variant.id,
     displayName: variant.displayName,
@@ -137,7 +137,7 @@ async function doctor(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
     printJson({ ...report, ...decryptionNote === undefined ? {} : { decryptionNote } })
   } else {
     process.stdout.write([
-      `${variant.displayName} Connect ${WORKBUDDY_CONNECT_VERSION} on ${process.version}`,
+      `${variant.displayName} Connect ${WORKBUDDY_BRIDGE_VERSION} on ${process.version}`,
       `Desktop auth file: ${report.desktopAuthFile.present ? 'present' : 'missing'} — ${desktopFormat} (${report.desktopAuthFile.path})`,
       `Host bundle: ${hostAlive ? `running (pid ${heartbeat!.pid})` : heartbeat !== undefined ? 'stale heartbeat (process exited)' : 'not started'}`,
       `Sign-in state: ${report.signIn}`,
@@ -159,7 +159,7 @@ async function status(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
   const hostState = hostAlive ? 'running' : heartbeat !== undefined ? 'stale' : 'not-started'
   if (authStatus.state !== 'signed-in') {
     if (jsonOutput) {
-      printJson({ schemaVersion: JSON_SCHEMA_VERSION, package: 'dsh-workbuddy-bridge', version: WORKBUDDY_CONNECT_VERSION, provider: variant.id, status: 'signed-out', hostBundle: hostState })
+      printJson({ schemaVersion: JSON_SCHEMA_VERSION, package: 'dsh-workbuddy-bridge', version: WORKBUDDY_BRIDGE_VERSION, provider: variant.id, status: 'signed-out', hostBundle: hostState })
     } else {
       process.stdout.write(`${variant.displayName} Connect: signed out\nHost bundle: ${hostState}\n`)
     }
@@ -183,7 +183,7 @@ async function status(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
     printJson({
       schemaVersion: JSON_SCHEMA_VERSION,
       package: 'dsh-workbuddy-bridge',
-      version: WORKBUDDY_CONNECT_VERSION,
+      version: WORKBUDDY_BRIDGE_VERSION,
       provider: variant.id,
       status: 'signed-in',
       ...expiresAt === undefined ? {} : { accessTokenExpires: expiresAt },

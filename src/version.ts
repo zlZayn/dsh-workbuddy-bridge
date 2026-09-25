@@ -11,5 +11,5 @@
  */
 declare const __DSH_WORKBUDDY_VERSION__: string
 
-export const WORKBUDDY_CONNECT_VERSION: string =
+export const WORKBUDDY_BRIDGE_VERSION: string =
   typeof __DSH_WORKBUDDY_VERSION__ === 'string' ? __DSH_WORKBUDDY_VERSION__ : '0.0.0-dev'

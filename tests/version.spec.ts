@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { WORKBUDDY_CONNECT_VERSION } from '../src/version.ts'
+import { WORKBUDDY_BRIDGE_VERSION } from '../src/version.ts'
 
 /**
  * Guard the single-source-of-truth version contract:
@@ -10,15 +10,15 @@ import { WORKBUDDY_CONNECT_VERSION } from '../src/version.ts'
  *   in heartbeat / CLI output).
  */
 describe('package version sync', () => {
-  it('WORKBUDDY_CONNECT_VERSION matches package.json', () => {
+  it('WORKBUDDY_BRIDGE_VERSION matches package.json', () => {
     const pkg = JSON.parse(
       readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
     ) as { version: string }
-    expect(WORKBUDDY_CONNECT_VERSION).toBe(pkg.version)
+    expect(WORKBUDDY_BRIDGE_VERSION).toBe(pkg.version)
   })
 
   it('never leaks a build-define fallback marker', () => {
-    expect(WORKBUDDY_CONNECT_VERSION).not.toBe('0.0.0-dev')
+    expect(WORKBUDDY_BRIDGE_VERSION).not.toBe('0.0.0-dev')
   })
 
   /**
@@ -43,11 +43,11 @@ describe('package version sync', () => {
     expect(bundles.length, 'no built bundles in lib/ — run the build before this test').toBeGreaterThan(0)
     const declaring = bundles.filter(bundle =>
       readFileSync(new URL(`../lib/${bundle}`, import.meta.url), 'utf8')
-        .includes(`WORKBUDDY_CONNECT_VERSION = "${pkg.version}"`),
+        .includes(`WORKBUDDY_BRIDGE_VERSION = "${pkg.version}"`),
     )
     expect(
       declaring,
-      `no built bundle declares WORKBUDDY_CONNECT_VERSION as "${pkg.version}" — rebuild before committing or publishing`,
+      `no built bundle declares WORKBUDDY_BRIDGE_VERSION as "${pkg.version}" — rebuild before committing or publishing`,
     ).not.toHaveLength(0)
   })
 })

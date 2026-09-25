@@ -31,7 +31,7 @@ import {
   writeHostHeartbeat,
   WORKBUDDY_HOST_HEARTBEAT_FILENAME,
 } from '../src/web/heartbeat.ts'
-import { WORKBUDDY_CONNECT_VERSION } from '../src/version.ts'
+import { WORKBUDDY_BRIDGE_VERSION } from '../src/version.ts'
 
 let root: string | undefined
 
@@ -59,7 +59,7 @@ describe('host heartbeat', () => {
     expect(heartbeat!.package).toBe('dsh-workbuddy-bridge')
     expect(heartbeat!.pid).toBe(process.pid)
     expect(typeof heartbeat!.registeredAt).toBe('number')
-    expect(heartbeat!.pluginVersion).toBe(WORKBUDDY_CONNECT_VERSION)
+    expect(heartbeat!.pluginVersion).toBe(WORKBUDDY_BRIDGE_VERSION)
 
     // The file lives at the expected path.
     expect(workbuddyHostHeartbeatPath()).toBe(join(root, WORKBUDDY_HOST_HEARTBEAT_FILENAME))

@@ -31,7 +31,7 @@ import { createProbeKey, registerWorkBuddyProbeRoute } from './web/probe-route.t
 import type { WorkBuddyModelInfo } from './catalog/index.ts'
 import type { WorkBuddyWebCatalog, WorkBuddyWebProbeSection } from './shared/paths.ts'
 import { clearHostHeartbeat, writeHostHeartbeat } from './web/heartbeat.ts'
-import { WORKBUDDY_CONNECT_VERSION } from './version.ts'
+import { WORKBUDDY_BRIDGE_VERSION } from './version.ts'
 import { CN_VARIANT, WORKBUDDY_VARIANTS, type WorkBuddyVariant } from './variants.ts'
 
 export { WORKBUDDY_PROVIDER, WORKBUDDY_STREAM_IDLE_TIMEOUT_MS, createWorkBuddyAdapter, type WorkBuddyAdapter } from './llm/adapter.ts'
@@ -354,7 +354,7 @@ function createVariantRuntime(
   // if the pre-adoption state is already hidden.
   catalog.setVisible(false)
   const probeStore = new WorkBuddyProbeStore({
-    pluginVersion: WORKBUDDY_CONNECT_VERSION,
+    pluginVersion: WORKBUDDY_BRIDGE_VERSION,
     path: workbuddyProbePath(variant.probeFilename),
   })
   // One file per variant, for the same reason the probe records are split: the
