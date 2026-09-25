@@ -1,12 +1,20 @@
 /**
- * The bundle's page on the Plugins page: the plugin's own configuration form
- * first, then one live status card per WorkBuddy variant.
+ * The bundle's page on the Plugins page: the plugin's configuration, then one
+ * live status card per WorkBuddy variant.
  *
- * The split is the point. Configuration is static deployment state — where the
- * auth files live, whether detection is authorized, which context window to
- * select — and it belongs in the shared settings form, saved as one
- * revision-fenced mutation. Everything below it is live, per-account, and only
- * readable from the desktop app, so it is reported rather than edited.
+ * The split is the point, and it is also why the page has two parts with
+ * different verbs. **Configuration is static deployment state** — where the auth
+ * files live, whether detection is authorized, which context window to select —
+ * and it goes through the host's own `SettingsForm`: staged edits, one
+ * revision-fenced save, the host's footer. **Everything below is live and
+ * per-account**, readable only from the desktop app, so it is reported rather
+ * than edited, and none of it is ever staged.
+ *
+ * Neither part carries a heading of its own. The page already draws the plugin's
+ * title and one-liner above this one (the host's `SettingsForm` says so in its
+ * own docs), so a "Configuration" heading here would be the title said twice;
+ * and each card is its own disclosure, which titles itself. What separates the
+ * two parts is that one has a save button and the other does not.
  */
 
 import type { ReactNode } from 'react'
@@ -41,7 +49,6 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
   const disabled = !state.writable
   return (
     <div className={css.page}>
-      <h4 className={css.title}>{t('settingsHeading')}</h4>
       <SettingsForm labels={formLabels(t)} state={state} onSave={props.save} onDiscard={props.discard}>
         <SettingsValueField
           id={FIELD_IDS.authFile}
@@ -67,10 +74,10 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
           onEdit={text => { props.edit('authFileAI', text) }}
           onReset={() => { props.resetField('authFileAI') }}
         />
-        <div className={css.fieldRow}>
-          <span className={css.fieldText}>
-            <span className={css.fieldLabel}>{t('probeConsent')}</span>
-            <span className={css.dim}>{t('probeConsentHint')}</span>
+        <div className={css.toggleRow}>
+          <span className={css.toggleLabel}>
+            <span>{t('probeConsent')}</span>
+            <span className={css.toggleHint}>{t('probeConsentHint')}</span>
           </span>
           <Switch
             checked={state.probeConsent.text === 'true'}
@@ -79,10 +86,10 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
             onChange={next => { props.edit('probeConsent', next ? 'true' : 'false') }}
           />
         </div>
-        <div className={css.fieldRow}>
-          <span className={css.fieldText}>
-            <span className={css.fieldLabel}>{t('maximumContextWindow')}</span>
-            <span className={css.dim}>{t('maximumContextWindowHint')}</span>
+        <div className={css.toggleRow}>
+          <span className={css.toggleLabel}>
+            <span>{t('maximumContextWindow')}</span>
+            <span className={css.toggleHint}>{t('maximumContextWindowHint')}</span>
           </span>
           <Switch
             checked={state.useMaximumContextWindow.text === 'true'}
@@ -92,7 +99,12 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
           />
         </div>
       </SettingsForm>
-      {CARD_VARIANTS.map(variant => <WorkBuddyCard key={variant.id} variant={variant} t={t} />)}
+      {/* The live half. It sits under the form rather than beside it because the
+          form is the page's first question ("is this plugin wired up?") and these
+          answer what it is currently reading. */}
+      <div className={css.cards}>
+        {CARD_VARIANTS.map(variant => <WorkBuddyCard key={variant.id} variant={variant} t={t} />)}
+      </div>
     </div>
   )
 }

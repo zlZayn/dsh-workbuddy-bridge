@@ -39,7 +39,7 @@ export type WorkBuddyLocaleKey =
   | 'probeLabel' | 'probeTooltipIdle' | 'probeTooltipLevels' | 'probeTooltipNotValidating'
   | 'probeTooltipFailed'
   // Settings form
-  | 'settingsHeading' | 'authFile' | 'authFileHint' | 'authFileAI' | 'authFileAIHint'
+  | 'authFile' | 'authFileHint' | 'authFileAI' | 'authFileAIHint'
   | 'probeConsent' | 'maximumContextWindow' | 'maximumContextWindowHint' | 'on' | 'off'
   | 'overridden' | 'reset' | 'readOnly' | 'unavailable' | 'save' | 'saving' | 'saveFailed'
   // Agent assist
@@ -132,7 +132,6 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeTooltipLevels: 'Supported levels: {levels}',
   probeTooltipNotValidating: 'This model ignores the reasoning-level parameter',
   probeTooltipFailed: 'Detection did not finish · click to run it again',
-  settingsHeading: 'Configuration',
   authFile: 'WorkBuddy auth file',
   authFileHint: 'Path to the WorkBuddy desktop auth file. Leave blank to use the app’s own location.',
   authFileAI: 'WorkBuddy AI auth file',
@@ -255,7 +254,6 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probeTooltipLevels: '支持的档位：{levels}',
   probeTooltipNotValidating: '该模型忽略推理档位参数',
   probeTooltipFailed: '检测未完成 · 点击可再检测一次',
-  settingsHeading: '配置',
   authFile: 'WorkBuddy 登录文件',
   authFileHint: 'WorkBuddy 桌面 App 登录文件的路径。留空表示使用应用自身的位置。',
   authFileAI: 'WorkBuddy AI 登录文件',

@@ -22,33 +22,49 @@
 
 /* ---- Configuration page ------------------------------------------------- */
 
-/* The plugin's page: its settings form, then one live card per variant.
+/* The plugin's page: its settings form, then the live cards.
    The host's `SettingsForm` owns the form's internal rhythm — its footer's
-   `padding-top: 16px` is the form's last word — so this only separates the
-   form from the cards beneath it. */
+   `padding-top: 16px` is the form's last word — so this only carries the gap
+   between the two parts. 24px rather than the 12px used *within* a part: the
+   page has exactly one such seam, and it has to read as a change of verb. */
 .page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
-/* A boolean setting: label and hint on the left, the switch on the right — the
-   shape the host uses for a setting whose control is one control.
-   The top rule is unconditional: every one of these rows follows either a text
-   field or another of these, and the text fields are rendered by the host's
-   `SettingsValueField`, which draws its own separator only between two of
-   *its* fields. */
-.fieldRow {
+/* The live half's own rhythm. The cards are separate disclosures, so they take
+   the same 12px the host uses between two fields. */
+.cards {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* A boolean setting. Copied value-for-value from the host's own toggle row
+   (`@deepseek-ai/dsh-client-ui-settings-subagent`'s SubagentModelSelectionCard
+   — the same module `dsh-zhihu-search` cites), so a switch on this page is the
+   same object as a switch anywhere else in Settings. `align-items: flex-start`
+   is theirs, and it is what keeps the switch on the first line when the hint
+   wraps to a second.
+
+   The top rule is unconditional: every one of these rows follows a text field,
+   and those are the host's `SettingsValueField`, which draws a separator only
+   between two of *its* own fields. */
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
   padding: 12px 0;
   border-top: 0.5px solid var(--dsw-alias-border-l2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
 }
 
-/* The label and its hint, stacked. `flex: 1` keeps the switch off the text when
-   the label wraps. */
-.fieldText {
+/* The label block: the setting's name and, when it has one, its hint. */
+.toggleLabel {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -56,12 +72,11 @@
   gap: 2px;
 }
 
-/* The label tier, identical to the host's `fields.module.css` `.label`. */
-.fieldLabel {
-  font-size: 13px;
-  font-weight: 500;
+/* The hint tier, exactly as the host's `fields.module.css` `.hint`. */
+.toggleHint {
+  font-size: 12px;
   line-height: 1.5;
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 /* ---- Card body ---------------------------------------------------------- */
