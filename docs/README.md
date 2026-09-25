@@ -1,11 +1,6 @@
-# docs
+# docs/ — 文档层索引
 
-按职责分层，层层递进，不重复：
-
-| 文件 | 职责 |
-|---|---|
-| [../README.md](../README.md) | 用户视角：功能、安装、命令行、已知限制 |
-| [architecture.md](architecture.md) | 结构与契约：目录分层、官方接口依赖、兼容性契约、测试分层 |
-| `*-2026-*.md`、`issue-*.md`、`image-*.md` | 按日期归档的专项调查（当时的问题、结论与证据），不随代码同步更新 |
-
-读代码前先看 architecture.md；调查文档只在追某个历史决定时才需要。
+- [ARCHITECTURE.md](ARCHITECTURE.md)：设计决策、数据流、契约与防错清单（"为什么"）
+- [archive/](archive/)：已完成的一次性记录（交接文档、按日期命名的排查与实现计划）—— **只读，不再维护**
+- 维护规则与工作约束 → 根 [AGENTS.md](../AGENTS.md)
+- 决策记录（为什么这样设计、替代方案）→ [.agents/notes/](../.agents/notes/)
