@@ -1,0 +1,130 @@
+/**
+ * The variant card: what it shows before the first answer, and what a failed
+ * read may and may not do to what is already on screen.
+ *
+ * These rules were each a real defect before they were written down: a failed
+ * read used to blank the card, the newest read used to lose to a slow older
+ * one, and a failed read used to disarm the poll that would have fixed it.
+ */
+
+import { createElement } from 'react'
+import { act } from 'react-test-renderer'
+import { describe, expect, it } from 'vitest'
+import { WorkBuddyCard } from '../../src/client/WorkBuddyCard.tsx'
+import { AI_CARD_VARIANT, CN_CARD_VARIANT, type WorkBuddyCardVariant } from '../../src/client/variants.ts'
+import { buttonLabels, clickText, signedIn, t, textOf, useBrowserStubs, useTree } from './harness.ts'
+
+const stub = useBrowserStubs()
+const box = useTree()
+
+/** Mount a card, optionally expanded. */
+async function mount(expanded: boolean, variant: WorkBuddyCardVariant = CN_CARD_VARIANT): Promise<void> {
+  await act(async () => { box.view = (await import('react-test-renderer')).create(createElement(WorkBuddyCard, { variant, t })) })
+  // The disclosure's leading button is the chevron: the official row keeps its
+  // title outside the control, so "the first button" is the row's toggle.
+  if (expanded) await clickText(box.view!, '')
+}
+
+describe('WorkBuddy card', () => {
+  it('reads on mount and names the signed-in account', async () => {
+    stub.body = signedIn({ nickname: '阿七' })
+    await mount(false)
+    expect(textOf(box.view!)).toContain('阿七')
+  })
+
+  it('says it is still loading before the first answer, not that nobody is signed in', async () => {
+    stub.call.mockImplementation(() => new Promise(() => { /* never settles */ }))
+    await mount(false)
+    const text = textOf(box.view!)
+    expect(text).toContain(t('loading'))
+    expect(text).not.toContain(t('signedOut'))
+  })
+
+  it('keeps the document on screen when a later read fails', async () => {
+    stub.body = signedIn({ nickname: '阿七' })
+    await mount(true)
+    // Make every subsequent read fail, then ask for one.
+    stub.call.mockImplementation(async () => ({ ok: false, status: 500, json: async () => ({}) }))
+    await clickText(box.view!, t('refresh'))
+    const text = textOf(box.view!)
+    // The account is still named, and the failure is stated beside it — not in
+    // place of it. Blanking the card over one transient error loses the
+    // account, credits and model list the reader was looking at.
+    expect(text).toContain('阿七')
+    expect(text).toContain(t('statusRefreshFailed', { message: 'HTTP 500' }))
+  })
+
+  it('lets the newest read win over a slower one started earlier', async () => {
+    const resolvers: ((value: unknown) => void)[] = []
+    let call = 0
+    stub.call.mockImplementation(async () => {
+      call += 1
+      // The FIRST read is slow; the second answers immediately. If the slow one
+      // were allowed to settle last it would restore the older document.
+      if (call === 1) return new Promise(resolve => { resolvers.push(resolve) })
+      return { ok: true, json: async () => signedIn({ nickname: '后来' }) }
+    })
+    await mount(true)
+    // A manual refresh starts read #2 while read #1 is still in flight.
+    await clickText(box.view!, t('refresh'))
+    await act(async () => {
+      for (const resolve of resolvers) resolve({ ok: true, json: async () => signedIn({ nickname: '先前' }) })
+    })
+    const text = textOf(box.view!)
+    expect(text).toContain('后来')
+    expect(text).not.toContain('先前')
+  })
+
+  it('keeps polling after a failed read', async () => {
+    let calls = 0
+    stub.call.mockImplementation(async () => {
+      calls += 1
+      return calls === 1
+        ? { ok: false, status: 500, json: async () => ({}) }
+        : { ok: true, json: async () => signedIn({ nickname: '阿七' }) }
+    })
+    await mount(false)
+    expect(calls).toBe(1)
+    // The poll's liveness follows the last SUCCESSFUL read, so a failure must
+    // not disarm it — otherwise one blip leaves the card wrong until a restart.
+    expect(stub.intervals).toBe(1)
+    await stub.tick()
+    expect(calls).toBe(2)
+    expect(textOf(box.view!)).toContain('阿七')
+  })
+
+  it('stops asking once the account really is signed out', async () => {
+    stub.body = { status: 'signed-out' }
+    await mount(false)
+    await stub.tick()
+    // Signed-out is an answer, not a failure: there is nothing to retry, and
+    // retrying a missing credential every minute is noise. The interval stays
+    // armed so a later sign-in on the desktop is still picked up.
+    expect(stub.call).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the AI variant against its own routes', async () => {
+    await mount(false, AI_CARD_VARIANT)
+    expect(stub.call.mock.calls[0]?.[0]).toBe(AI_CARD_VARIANT.statusPath)
+  })
+
+  it('offers a model-list refresh that posts to this variant’s control route', async () => {
+    stub.body = signedIn({ catalog: { source: 'live', fetchedAt: Date.now() } })
+    await mount(true)
+    await clickText(box.view!, t('refreshModels'))
+    expect(stub.posts).toHaveLength(1)
+    expect(stub.posts[0]?.url).toBe(CN_CARD_VARIANT.probePath)
+    expect(stub.posts[0]?.body).toContain('"refresh"')
+  })
+
+  it('exposes the three panels as real tabs', async () => {
+    stub.body = signedIn({ models: [{ id: 'hy3', name: 'HY3', contextWindow: 200_000 }] })
+    await mount(true)
+    const labels = buttonLabels(box.view!)
+    expect(labels).toContain(t('tabStatus'))
+    expect(labels).toContain(t('tabContext'))
+    expect(labels).toContain(t('tabDetails'))
+    await clickText(box.view!, t('tabContext'))
+    expect(box.view!.root.findAll(node => node.type === 'div' && node.props.role === 'tabpanel')).toHaveLength(1)
+  })
+})

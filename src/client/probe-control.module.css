@@ -1,0 +1,67 @@
+/* The composer's reasoning-level control: an icon, its annotation label, and
+   the bubble anchored above it. */
+
+.wrapper {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  /* The host slot's baseline sits a touch high and leaves a full inter-control
+     gap before the model picker. Nudge only this annotation down and inward so
+     it reads as part of the selected model rather than a separate toolbar item. */
+  transform: translateY(2px);
+  margin-right: -8px;
+}
+
+.trigger {
+  /* Tight gap: the label is an annotation on the icon, not a peer of the model
+     name it sits beside. */
+  gap: 2px;
+}
+
+.label {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Confirmation bubble: one line plus two small buttons, anchored to the
+   control it acts on rather than centred in a modal. */
+.bubble {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 260px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  box-shadow: var(--dsw-shadow-lv2);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* Result note: smaller than the confirmation bubble because it carries an
+   outcome, not a decision — the work is done, the user only reads and dismisses. */
+.note {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-shadow-lv2);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
