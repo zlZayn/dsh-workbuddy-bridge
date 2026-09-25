@@ -76,9 +76,12 @@ describe('WorkBuddy card', () => {
     })
     const text = textOf(box.view!)
     // The nickname lives in the collapsed status only; the expiry line is what
-    // the expanded body renders, and it is what proves which read won.
-    expect(text).toContain('11月19日')
-    expect(text).not.toContain('1月1日')
+    // the expanded body renders, and it is what proves which read won. The date
+    // is formatted with the card's own formatter, not a locale literal: a
+    // hard-coded "11月19日" passed on a zh-CN workstation and failed on an
+    // English CI runner, where the same Intl call yields "Nov 19".
+    expect(text).toContain(formatCardTime(Date.parse('2026-11-19T00:00:00Z')))
+    expect(text).not.toContain(formatCardTime(Date.parse('2026-01-01T00:00:00Z')))
   })
 
   it('keeps polling after a failed read', async () => {
