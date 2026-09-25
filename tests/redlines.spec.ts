@@ -132,24 +132,47 @@ describe('插件图标', () => {
    * currentColor）。所以控件直接渲染宿主的 IconThinkOutlineRegular，本仓不再维护一份
    * 私有墨迹；插件页的 icon.svg 是它放大后的副本。
    *
-   * 两处都要核：控件**不许**再出现自绘 svg，icon.svg 的路径必须与宿主逐字相同。
+   * 三处都要核：控件**不许**再出现自绘 svg，icon.svg 的路径必须与宿主逐字相同，
+   * 而且**边距必须与官方图标同档** —— 「太大、周围太空」是量出来的，不是看出来的。
    */
-  it('控件用宿主的字形，icon.svg 是它的等比放大', () => {
+  it('控件用宿主的字形，icon.svg 是它的等比放大且边距与官方同档', () => {
     const svg = read('icon.svg')
     const control = read('src/client/probe-control.tsx')
     // 控件渲染宿主的图标组件。
     expect(control).toContain('IconThinkOutlineRegular')
     expect(control).not.toContain('<svg')
-    // 36 画布 + 16 格 × scale(2)：整组落到 2–34，四周各留 2，笔画 1 → 2。
     expect(svg).toContain('viewBox="0 0 36 36"')
-    expect(svg).toContain('translate(2 2) scale(2)')
-    // 自检：真源里确实取到了两条路径，免得下面的循环空转成假绿。
+
+    // 自检：真源里确实取到了三条路径，免得下面的循环空转成假绿。
     const hostPaths = [
       'M10.7554 5.24466C13.9891 8.4783 15.3769 12.3333 13.8552 13.8551C12.3335 15.3768 8.4785 13.989 5.24478 10.7553C2.01111 7.52165 0.623307 3.66664 2.14504 2.14491C3.66676 0.623189 7.52178 2.01099 10.7554 5.24466Z',
       'M10.7554 10.7553C7.52178 13.989 3.66676 15.3768 2.14504 13.8551C0.623307 12.3333 2.01111 8.4783 5.24478 5.24466C8.4785 2.01099 12.3335 0.623189 13.8552 2.14491C15.3769 3.66664 13.9891 7.52165 10.7554 10.7553Z',
+      'M8.9587 8.00025C8.9587 8.52835 8.5306 8.95655 8.0024 8.95655C7.47429 8.95655 7.04614 8.52835 7.04614 8.00025C7.04614 7.47209 7.47429 7.04395 8.0024 7.04395C8.5306 7.04395 8.9587 7.47209 8.9587 8.00025Z',
     ]
-    expect(hostPaths.length).toBe(2)
+    expect(hostPaths.length).toBe(3)
     for (const d of hostPaths) expect(svg, '图标里应有宿主那条路径').toContain(d)
+
+    // 边距：把 transform 解出来，算墨迹落在画布上的范围。
+    // 官方的三个图标内容都在离边 6–9 之间，本仓取 7，所以断言 6–9 这个窗口。
+    // 锚在 `<g transform=` 上而不是全文搜 `translate(`：头部的说明文字里也写着
+    // 旧的那组数字（解释它为什么被改掉），全文第一个匹配会命中注释。
+    const m = /<g transform="translate\(([\d.]+) ([\d.]+)\) scale\(([\d.]+)\)"/.exec(svg)
+    expect(m, 'icon.svg 里读不出那个缩放组').not.toBeNull()
+    const [, tx, ty, s] = m as unknown as [string, string, string, string]
+    expect(Number(tx)).toBeCloseTo(Number(ty), 4)
+    // 宿主 IconThinkOutline 的墨迹外接框，在 16 格上。
+    const GLYPH_MIN = 0.6233
+    const GLYPH_MAX = 15.3767
+    const inkLeft = GLYPH_MIN * Number(s) + Number(tx)
+    const inkRight = GLYPH_MAX * Number(s) + Number(tx)
+    // 内容范围换算成边距：36 画布减去墨迹的两端。
+    const margins = [['左', inkLeft], ['右', 36 - inkRight]] as const
+    for (const [edge, margin] of margins) {
+      expect(margin, `图标${edge}边距偏离官方档位`).toBeGreaterThanOrEqual(6)
+      expect(margin, `图标${edge}边距偏离官方档位`).toBeLessThanOrEqual(9)
+    }
+    // 两侧对称：官方三个图标都是居中的。
+    expect(inkLeft + inkRight, '图标没有居中').toBeCloseTo(36, 1)
   })
 })
 
