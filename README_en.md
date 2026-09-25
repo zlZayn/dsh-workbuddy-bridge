@@ -54,7 +54,8 @@ own account and credit. The models appear directly in the DSH model picker — n
   (limited-time free / night discount) in both the `/model` popup and the composer dropdown. The rate is display-only.
 - **Enterprise accounts**: CN enterprise accounts read their cycle quota from the enterprise billing endpoint, and the
   card shows an "enterprise quota" row with the reset time.
-- **Three interfaces**: Web, Desktop, and TUI all work; only TUI has no manual detection.
+- **The plugin page shows a display name**: `DSH WorkBuddy Bridge` (the same in both UI languages), with the
+  package name `dsh-workbuddy-bridge` on the code-style line beneath it.
 
 ## Install
 
@@ -111,9 +112,8 @@ dsh --profile dsh-tui
 
 ## Version compatibility
 
-- This repository (`0.1.0` onward) supports the **DSH `0.1.7` line** only, verified on `0.1.7-rc.2`.
-  **The single source of truth for the floor is [package.json](package.json)** (`engines` and `peerDependencies`);
-  this page does not copy it.
+- This repository (`0.1.0` onward) supports the **DSH `0.1.7` line** only, verified on `0.1.7-rc.2`; the floor
+  lives in [package.json](package.json) (`engines.dsh`) and is not copied here.
 - This repository is a rebuild of [`dsh-workbuddy-connect`](https://github.com/corrinehu/dsh-workbuddy-connect):
   **a different package name on a different version line** — the old `0.2.x`–`0.7.x` releases live under the old name
   and are not published here. Users on older DSH cores should stay on that old line.

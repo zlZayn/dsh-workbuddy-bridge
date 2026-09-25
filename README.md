@@ -50,6 +50,8 @@
   `/model` 弹窗与输入框下拉都能看到。倍率只是显示，不影响请求。
 - **企业账号**：国内版企业账号走企业专用计费接口读周期额度，卡片显示「企业额度」与周期重置时间。
 - **三种界面**：Web / Desktop / TUI 都能跑；只有 TUI 不提供手动检测。
+- **插件页里以显示名出现**：`DSH WorkBuddy Bridge`（中英界面同名），标题下面另有一行代码体写着包名
+  `dsh-workbuddy-bridge` —— 两处都要能对上，才不会在插件列表里认错。
 
 ## 安装
 
@@ -105,8 +107,7 @@ dsh --profile dsh-tui
 
 ## 版本兼容
 
-- 本仓（`0.1.0` 起）只支持 **DSH `0.1.7` 线**，在 `0.1.7-rc.2` 上实测；
-  **下限的唯一真源是 [package.json](package.json) 的 `engines` 与 `peerDependencies`**，本文不重抄。
+- 本仓（`0.1.0` 起）只支持 **DSH `0.1.7` 线**，实测在 `0.1.7-rc.2` 上通过；下限见 [package.json](package.json) 的 `engines.dsh`，本文不重抄。
 - 本仓是 [`dsh-workbuddy-connect`](https://github.com/corrinehu/dsh-workbuddy-connect) 的重做版本：
   **包名不同、版本线也不同** —— 旧线的 `0.2.x`–`0.7.x` 发布在旧包名下，本仓不再发布那些号。
   仍在更早 DSH 核心上的用户，请留在旧包名那条线。

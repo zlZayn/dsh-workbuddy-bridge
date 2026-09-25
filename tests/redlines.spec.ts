@@ -1,0 +1,252 @@
+/**
+ * 红线：这些不是风格偏好，是「错了会静默坏掉」的不变量。
+ *
+ * 每条都尽量写成**可执行**的：读源码 / 读清单 / 读锁文件，而不是复述散文。
+ * 扫描类的断言一律自带「扫描器真的看到了东西」的自检 —— 否则它就是永不触发的假绿。
+ */
+
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+  name: string
+  version: string
+  private?: boolean
+  engines: { node: string; dsh?: string }
+  exports: Record<string, unknown>
+  files: string[]
+  icon?: string
+  dsh: { bundle?: { patch?: string }; client?: { platform?: string; inject?: string[] } }
+  peerDependencies: Record<string, string>
+  devDependencies: Record<string, string>
+}
+
+function read(path: string): string {
+  return readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
+}
+
+describe('依赖分层', () => {
+  it('@deepseek-ai/* 绝不进 dependencies', () => {
+    const deps = (pkg as { dependencies?: Record<string, string> }).dependencies ?? {}
+    expect(Object.keys(deps).filter((name) => name.startsWith('@deepseek-ai/'))).toEqual([])
+  })
+
+  it('每个 peer 都同时在 dev —— 否则本机装不出可编译的树', () => {
+    const missing = Object.keys(pkg.peerDependencies).filter((name) => pkg.devDependencies[name] === undefined)
+    expect(missing).toEqual([])
+  })
+
+  it('dsh 平台包的 peer 与 dev 都必须能读出一个下限', () => {
+    const bounds = Object.keys(pkg.peerDependencies).filter((name) => name.startsWith('@deepseek-ai/dsh'))
+    // 自检：这条断言必须真的有对象可查。
+    expect(bounds.length).toBeGreaterThan(0)
+    for (const name of bounds) expect(pkg.devDependencies[name], name).toBeTruthy()
+  })
+})
+
+describe('插件清单', () => {
+  it('声明宿主兼容范围', () => {
+    expect(typeof pkg.engines.dsh).toBe('string')
+    expect((pkg.engines.dsh ?? '').trim()).not.toBe('')
+  })
+
+  it('客户端入口是 exports["./client"]，且声明了 web 平台', () => {
+    expect(pkg.exports['./client']).toBeTruthy()
+    expect(pkg.dsh.client?.platform).toBe('web')
+  })
+
+  it('dsh.client.inject 只列真实客户端图行（不夹带类型面）', () => {
+    const inject = pkg.dsh.client?.inject ?? []
+    // 自检：扫描器必须看到一份非空清单。
+    expect(inject.length).toBeGreaterThan(0)
+    const suspicious = inject.filter((name) => !name.startsWith('@deepseek-ai/'))
+    expect(suspicious).toEqual([])
+  })
+
+  it('展示元数据与图标都在 files 覆盖里', () => {
+    expect(pkg.files).toContain('icon.svg')
+    expect(pkg.files).toContain('locale/*.json')
+    expect(pkg.exports['./locale/*.json']).toBe('./locale/*.json')
+  })
+
+  it('dsh.bundle 的有无必须与 private 一致（否则被 dsh plugin 回填成双挂载）', () => {
+    const declaresBundle = pkg.dsh.bundle?.patch !== undefined
+    expect(declaresBundle).toBe(pkg.private !== true)
+  })
+})
+
+describe('锁文件与源', () => {
+  it('本仓的 .npmrc 不许把 registry 指到镜像站', () => {
+    if (!existsSync(new URL('../.npmrc', import.meta.url))) return
+    const npmrc = read('.npmrc')
+    // 判据与另两仓一致：仓库级配置不覆盖 registry，跟随使用者/CI 的官方源。
+    expect(npmrc).not.toMatch(/registry\s*=\s*https?:\/\/[^\s]*npmmirror/)
+    expect(npmrc).not.toMatch(/registry\s*=\s*https?:\/\/[^\s]*taobao/)
+  })
+})
+
+describe('插件展示元数据', () => {
+  const localeDir = new URL('../locale/', import.meta.url)
+  const localeFiles = readdirSync(localeDir).filter((name) => name.endsWith('.json')).sort()
+
+  it('en.json 是发现入口，且存在', () => {
+    expect(localeFiles).toContain('en.json')
+  })
+
+  it('中英两份的键集逐字相同，且只有 title / description', () => {
+    expect(localeFiles.length).toBeGreaterThan(1)
+    const shapes = localeFiles.map((name) => {
+      const parsed = JSON.parse(readFileSync(new URL(name, localeDir), 'utf8')) as { meta: Record<string, string> }
+      return { name, keys: Object.keys(parsed.meta).sort() }
+    })
+    for (const shape of shapes) expect(shape.keys, shape.name).toEqual(['description', 'title'])
+    for (const shape of shapes.slice(1)) expect(shape.keys, shape.name).toEqual(shapes[0]!.keys)
+  })
+
+  it('门面点名的插件显示名与 locale 的标题逐字一致', () => {
+    const en = JSON.parse(read('locale/en.json')) as { meta: { title: string } }
+    const readme = read('README.md')
+    const readmeEn = read('README_en.md')
+    // 自检：门面里必须真的点了这个名 —— 否则这条断言查的是一个没人提的名字。
+    expect(readme).toContain(en.meta.title)
+    expect(readmeEn).toContain(en.meta.title)
+  })
+})
+
+describe('插件图标', () => {
+  it('是良构 XML 且声明的路径在包内', () => {
+    expect(pkg.icon).toBe('./icon.svg')
+    const svg = read('icon.svg')
+    expect(svg.startsWith('<svg')).toBe(true)
+    expect(svg.trimEnd().endsWith('</svg>')).toBe(true)
+    // 标签成对：开标签数 == 闭标签数（自闭合的 <circle ... /> 不计）。
+    const opens = (svg.match(/<[a-zA-Z][\w:-]*(?![^>]*\/>)[^>]*>/g) ?? []).length
+    const closes = (svg.match(/<\/[a-zA-Z][\w:-]*>/g) ?? []).length
+    expect(opens).toBe(closes)
+  })
+
+  it('就是检测控件那个图形的等比放大（同一套几何）', () => {
+    const svg = read('icon.svg')
+    const control = read('src/client/probe-control.tsx')
+    for (const shape of ['r="9"', 'r="4"', 'M12 12 20 4']) {
+      expect(control, `控件里应有 ${shape}`).toContain(shape)
+      expect(svg, `图标里应有 ${shape}`).toContain(shape)
+    }
+    // 36 画布 + translate(6 6)：外接框 3–21 落到 9–27，四周各留 9。
+    expect(svg).toContain('viewBox="0 0 36 36"')
+    expect(svg).toContain('translate(6 6)')
+  })
+})
+
+describe('客户端接缝', () => {
+  it('推理等级控件注在 list 槽上，绝不注 single 槽', () => {
+    const source = read('src/client/index.tsx')
+    // 自检：源码里必须真的有这条注册。
+    expect(source).toContain('slots.register(')
+    expect(source).toContain("conversation.input.right")
+    // conversation.input.model 是 single 槽，宿主自带 ModelSelect 已占 priority 0；
+    // 注上去会抛错并顶掉宿主的模型选择器（2026-09-25 的缺陷）。
+    expect(source).not.toContain("'conversation.input.model'")
+  })
+
+  it('配置页注册在 plugins.bundle.config，key 取包名', () => {
+    const source = read('src/client/index.tsx')
+    expect(source).toContain("plugins.bundle.config")
+    expect(source).toContain(`const BUNDLE_NAME = '${pkg.name}'`)
+  })
+
+  it('源码里不再出现宿主已删的旧接缝 conversation.input.right 之外的历史槽名', () => {
+    const source = read('src/client/index.tsx')
+    expect(source).not.toMatch(/conversation\.input\.(left|model|dock|activity|attachments)'/)
+  })
+})
+
+describe('发布流程', () => {
+  const workflows = existsSync(new URL('../.github/workflows', import.meta.url))
+    ? readdirSync(new URL('../.github/workflows', import.meta.url))
+    : []
+
+  it('release.yml 里不得出现改写版本的调用（bump 是发布前的独立一步）', () => {
+    if (!workflows.includes('release.yml')) return
+    const release = read('.github/workflows/release.yml')
+    expect(release).not.toMatch(/npm version (patch|minor|major)/)
+  })
+
+  it('上面那条检测器有牙齿（反向控制）', () => {
+    const detector = (text: string) => /npm version (patch|minor|major)/.test(text)
+    expect(detector('run: npm version patch --no-git-tag-version')).toBe(true)
+    expect(detector('run: npm publish')).toBe(false)
+  })
+})
+
+/**
+ * 这条守卫只管辖**「告诉使用者要哪一版」**的那些话：
+ * 既提到宿主版本、又带着要求口吻（只支持 / 要求 / 及以上 / or newer …），
+ * 却没有在同一段里点出出处（`package.json` / `engines`）或标明是历史（`X 起` / 当时 / 旧线）。
+ *
+ * 不管辖：插件自己的版本号（由 package.json 与 version.spec 兜底）、
+ * 以及纯历史陈述（「0.1.7 起」说的是那件事发生在哪一版，不是要求读者去装哪一版）。
+ */
+function needsSource(paragraph: string): boolean {
+  if (!mentionsHostRequirement(paragraph)) return false
+  if (hasSource(paragraph)) return false
+  if (/\d+\.\d+\.\d+\s*起|当时|历史|旧线|重做|archive/.test(paragraph)) return false
+  return true
+}
+
+/**
+ * 这段话在讲「要哪一版宿主」——不管它有没有给出处。
+ * 自检用它：文档里必须真的存在这类话，上面那个循环才不是空转。
+ */
+function mentionsHostRequirement(paragraph: string): boolean {
+  const mentionsHost = /0\.1\.\d+(-[a-z]+\.\d+)?/.test(paragraph)
+  if (!mentionsHost) return false
+  return /只支持|仅支持|要求|需要|及以上|或更高|不自动覆盖|supports|requires|or newer|only/.test(paragraph)
+}
+
+/** 同段里点出了出处。 */
+function hasSource(paragraph: string): boolean {
+  return /package\.json|engines/.test(paragraph)
+}
+
+describe('文档不抄实测值', () => {
+  /** 活文档：随代码走，所以里面不许抄会漂的宿主版本号。 */
+  const LIVE_DOCS = ['README.md', 'README_en.md', 'AGENTS.md', 'docs/ARCHITECTURE.md', 'docs/PUBLISHING.md', 'docs/README.md']
+
+  it('扫描器真的读到了活文档（否则下面几条是假绿）', () => {
+    expect(LIVE_DOCS.length).toBeGreaterThan(0)
+    for (const doc of LIVE_DOCS) expect(existsSync(new URL(`../${doc}`, import.meta.url)), doc).toBe(true)
+  })
+
+  it('活文档里的宿主版本必须与出处同段（或明确标为历史）', () => {
+    const floor = (pkg.engines.dsh ?? '').replace(/^>=\s*/, '')
+    for (const doc of LIVE_DOCS) {
+      const text = read(doc)
+      // 按**段**判，不按物理行：散文会折行，出处常常落在上一行或下一行。
+      const paragraphs = text.split(/\r?\n\s*\r?\n/)
+      for (const paragraph of paragraphs) {
+        if (!needsSource(paragraph)) continue
+        expect(hasSource(paragraph), `${doc}: ${paragraph.trim().slice(0, 120)}`).toBe(true)
+      }
+    }
+    // 自检：活文档里必须真的有「要哪一版宿主」这类话（带不带出处都算），
+    // 否则上面那个循环扫的是一个空集合 —— 那是永不触发的假绿。
+    const inScope = LIVE_DOCS.flatMap((doc) => read(doc).split(/\r?\n\s*\r?\n/))
+      .filter((paragraph) => mentionsHostRequirement(paragraph))
+    expect(inScope.length, '活文档里没有「要哪一版宿主」这类话 —— 守卫空转了').toBeGreaterThan(0)
+    void floor
+  })
+
+  it('上面那条守卫有牙齿（反向控制）', () => {
+    // 告诉使用者「要哪一版」却不给出处 → 在管辖内（会被抓）。
+    expect(needsSource('本仓只支持 DSH 0.1.7-rc.2 及以上。')).toBe(true)
+    expect(hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上。')).toBe(false)
+    // 同一条话补上出处 → 放行。
+    expect(hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上；下限见 package.json 的 engines.dsh。')).toBe(true)
+    // 历史陈述（“X 起”）与插件自己的版本号都不在管辖内。
+    expect(needsSource('0.1.7 起 Config schema 就是设置文档。')).toBe(false)
+    expect(needsSource('版本 \`0.1.0\`；尚未发布到 npm。')).toBe(false)
+    // 自检用的谓词必须看得到「要求 + 宿主版本」，哪怕那段已经带了出处。
+    expect(mentionsHostRequirement('本仓只支持 DSH 0.1.7-rc.2；下限见 package.json。')).toBe(true)
+  })
+})
