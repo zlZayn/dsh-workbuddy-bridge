@@ -38,7 +38,9 @@
     "cordis.patch.yml",
     "README.md",
     "README.en.md",
-    "LICENSE", "NOTICE"],
+    "LICENSE",
+    "NOTICE"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
