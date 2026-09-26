@@ -1,12 +1,18 @@
-# 发布：唯一入口是手动触发（Actions → Release → Run workflow，或 gh workflow run release.yml）。
+# 发布：两个等价入口。
+#   ① 推 tag —— `git push origin v<版本>`，即「打 tag 就走」。
+#   ② 手动触发 —— Actions → Release → Run workflow（或 `gh workflow run release.yml`）。
+# 两条路进的是同一个 job，全有或全无的顺序也一样。
+#
 # **没有输入参数**（force 除外）—— 版本号来自 package.json，档位在本地 bump 时定。
 #
-# 改本文件后**必须手动 dispatch 实跑一次**：PR 上的 CI 只跑 ci.yml，动 release.yml 的 PR
+# 改本文件后**必须实跑一次**：PR 上的 CI 只跑 ci.yml，动 release.yml 的 PR
 # 就算绿勾也不代表发布链路验过。
 #
-# 为什么单入口、且不由 tag 触发：档位由人按 docs/PUBLISHING.md 的问题链定档（major 必须人类确认），
-# 不适合由 commit 类型自动推断。顺序是全有或全无：先发布成功，才建 tag 与 GitHub Release；
-# 发布失败时远端零残留，不会留下「有 tag 没版本」的半成品。手工推 tag 不触发任何发布。
+# **tag 触发带一道自己的闸**：tag 名必须等于 `v` + package.json 里的版本号，不一致直接红 ——
+# 否则会出现「tag 是 v0.3.0、发出去的是 0.2.0」这种最难查的错位，而 npm 的版本号不可覆盖。
+# 手动触发没有这道闸（它的语义是「发清单里那个号」，tag 由流程补建）。
+#
+# 顺序是全有或全无：先发布成功，才建 tag 与 GitHub Release；发布失败时远端零残留。
 #
 # 幂等：重跑不会重复发布 —— 目标版本已在 npm 上时跳过 publish，只补齐 git 侧（tag / Release）。
 #
@@ -32,6 +38,9 @@ on:
         description: '越过「无行为变更不发版」守卫（仅在确需为文档/工具类改动发版时勾选）'
         type: boolean
         default: false
+  push:
+    tags:
+      - 'v[0-9]*'
 
 permissions:
   contents: write # 推提交、建 tag 与 GitHub Release
@@ -46,8 +55,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: release # npm 侧 Trusted Publisher 配的 environment 名必须与这里一致
     steps:
+      # 手动触发只接受 main；tag 触发天然指向某个提交，由下面那道 tag/版本一致性闸来管。
       - name: Verify this dispatch came from main
-        if: github.ref != 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
         run: |
           echo "::error::发版只能从 main 触发，当前 ref 是 ${{ github.ref }}"
           exit 1
@@ -103,6 +113,19 @@ jobs:
       # pnpm-lock v9 不记录根包自身的版本，npm 仓那种「lockfile 版本 == package.json 版本」的
       # 交叉核对在本仓不存在对应物；--frozen-lockfile 已保证依赖树一致。「忘了 bump」由下面
       # 「该版本已在 npm 上」的幂等判据兜住（报的是已存在，而不是发重复版本）。
+
+      # tag 触发时：tag 名必须就是 v + 清单里的版本号。
+      # 没有这道闸就会出现「tag 是 v0.3.0、实际发的是 0.2.0」，而 npm 的版本号不可覆盖。
+      - name: Verify the pushed tag matches the manifest version
+        if: github.event_name == 'push'
+        run: |
+          want="v$(node -p "require('./package.json').version")"
+          got="${{ github.ref_name }}"
+          if [ "$got" != "$want" ]; then
+            echo "::error::推的是 $got，而 package.json 是 $want —— tag 与清单版本必须一致"
+            exit 1
+          fi
+          echo "$got 与清单一致，继续。"
 
       - name: Read the version to publish
         id: version

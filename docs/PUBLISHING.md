@@ -14,22 +14,22 @@
 
 ## 发版
 
-发布入口只有一个：[release.yml](../.github/workflows/release.yml)（Actions → Release → Run workflow，
-或 `gh workflow run release.yml`）。它做完整条链：守卫 → 安装 → typecheck → build → test →
-check:release → publish（npm Trusted Publishing，OIDC，无长期 token）→ tag `v<版本>` → GitHub Release。
+发布入口有两个，进的是**同一个 job**、同一条链（守卫 → 安装 → typecheck → build → test → check:release → publish → tag → Release）：
+
+- **推 tag**：`git push origin v<版本>` —— 打 tag 就走。带一道自己的闸：**tag 名必须等于 `v` + `package.json` 里的版本号**，不一致直接红（否则会出现「tag 是 v0.3.0、发出去的是 0.2.0」，而 npm 的版本号不可覆盖）。
+- **手动触发**：Actions → Release → Run workflow（或 `gh workflow run release.yml`）。只接受从 main 触发；tag 由流程补建。
 
 - **版本驱动**：workflow 只发 `package.json` 里那个号，**它不 bump**。bump 是发布前的本地一步：
-  `pnpm version <patch|minor|major> --no-git-tag-version` → 提交 → （渲染面改动则先重截图）→ 最后 dispatch。
-- **dist-tag 由版本自己推**：带预发布段（如 `0.2.0-alpha.1`）发到同名 dist-tag（`alpha`），`latest` 不动；稳定版发 `latest`。
+  `pnpm version <patch|minor|major> --no-git-tag-version` → 重建 `lib/` → 提交 → （渲染面改动先重截图）→ 推 main → 打 tag。
+- **dist-tag 由版本自己推**：带预发布段（如 `0.3.0-alpha.1`）发到同名 dist-tag（`alpha`），`latest` 不动；稳定版发 `latest`。
 - **守卫**：上个 tag 以来只有文档 / 测试 / CI / 工具脚本改动时红（[scripts/release-guard.mjs](../scripts/release-guard.mjs)）；
-  首次发布没有历史 tag，守卫自动跳过。确需越过用 force 输入。
+  首次发布没有历史 tag，守卫自动跳过。确需越过用 force 输入（手动触发才有）。
 - **幂等**：版本已在 npm 上时跳过 publish、只补齐 git 侧 —— 「忘了 bump」的症状就是它报已存在。
 - **前置（一次性，人工配置）**：npmjs.com 上为本包配 **Trusted Publisher**——
   registry 指向 `registry.npmjs.org`，GitHub 仓库名 / workflow 文件名（`release.yml`）/ environment 名（`release`）三处一致。
-- **改了 release.yml 必须手动 dispatch 实跑一次**：PR 上的 CI 只跑 ci.yml，绿勾不代表发布链路验过。
+- **改了 release.yml 必须实跑一次**：PR 上的 CI 只跑 ci.yml，绿勾不代表发布链路验过。
 
-发布前的本地确认（顺序即依赖）见上一节「发版前确认」；发布后核对：
-`npm view dsh-workbuddy-bridge dist-tags`（latest 或预发布 tag 指向新版本）与 GitHub Releases 页。
+发布后核对：`npm view dsh-workbuddy-bridge dist-tags`（latest 或预发布 tag 指向新版本）与 GitHub Releases 页。
 
 ## 版本号
 
