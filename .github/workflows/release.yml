@@ -79,9 +79,15 @@ jobs:
       - name: Guard against release noise
         if: inputs.force != true
         run: |
-          base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+          # 基线要**排掉正在发的那个 tag**：
+          #   tag 触发时 HEAD 就是被 tag 的提交，不排除的话 `describe` 解析出它自己，
+          #   `<tag>..HEAD` 恒为空 —— 一次完全正常的发布会被判成「没有可发布的内容」（2026-09-26 实踩）。
+          #   dispatch 触发时 tag 还没建，这个 --exclude 是空操作。
+          exclude=""
+          if [ "${{ github.event_name }}" = "push" ]; then exclude="--exclude=${{ github.ref_name }}"; fi
+          base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' $exclude 2>/dev/null || true)
           if [ -z "$base" ]; then
-            echo "没有历史 tag：首次发布不受守卫约束。"
+            echo "没有更早的 tag：首次发布不受守卫约束。"
             exit 0
           fi
           changed=$(git diff --name-only "$base..HEAD")
