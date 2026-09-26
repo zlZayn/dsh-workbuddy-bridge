@@ -180,7 +180,7 @@ jobs:
           fi
 
       - name: Create the tag and the GitHub Release
-        if: steps.check.outputs.published == 'false' && !inputs.force || steps.check.outputs.published == 'true'
+        if: steps.check.outputs.published == 'false' || steps.check.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -196,6 +196,18 @@ jobs:
           fi
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "$tag 的 Release 已存在，跳过。"
+            exit 0
+          fi
+          # tag 已存在时不能传 --target（GitHub 会拒），所以按「本地有没有这个 tag」分两路。
+          # API 偶发 5xx：^HTTP 5 重试三次，避免一次瞬时故障把整条发布链判死（2026-09-26 实踩过一次 HTTP 500，
+          # 当时 npm 侧已经发成功，只有 Release 没建出来 —— 重跑 workflow 即可自愈，但先重试更省事）。
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            gh release create "$tag" --title "$tag" --generate-notes $extra
           else
             gh release create "$tag" --target "$(git rev-parse HEAD)" --title "$tag" --generate-notes $extra
-          fi
+          fi || {
+            echo "第一次建 Release 失败，等 10 秒重试……"
+            sleep 10
+            gh release create "$tag" --title "$tag" --generate-notes $extra
+          }
+
