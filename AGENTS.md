@@ -2,9 +2,10 @@
 
 ## 状态
 
-- 版本 `0.1.0`，**已发布**（npm `latest` = 0.1.0，现查 <https://www.npmjs.com/package/dsh-workbuddy-bridge>）。
-  发布是维护者本地 `npm publish` 完成的 —— **git 侧产物（tag `v0.1.0` + GitHub Release）还没建**，
-  发布手册说这两样由流程产出、不靠人记得；补建动作见待办。
+- 版本与发布状态**现查**：npm `latest` → <https://www.npmjs.com/package/dsh-workbuddy-bridge>，tag / Release → 仓库 Releases 页。
+  **发布走 [.github/workflows/release.yml](.github/workflows/release.yml)，两个入口**：推 tag（`git push origin v<版本>`）
+  或手动 dispatch；两条进同一个 job，全有或全无（先发成功、再建 tag 与 Release）。流程与判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
+  `0.1.0` 是维护者本地 `npm publish` 发的（当时 workflow 还没用上，git 侧产物缺失）；`0.2.0` 起全部由 workflow 产出。
 - 装法只有一条：`dsh plugin --profile <profile> add <包名或仓库路径>`。包内声明了 `dsh.bundle.patch`，
   安装器自己会把它写进该 profile 的 `dsh.profile.bundles`；**不要再往 profile 的 `cordis.patch.yml` 手写 patch 行**，
   两者并存就是双挂载。
@@ -51,12 +52,16 @@
 
 - [x] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态；文案语义 2026-09-26 全量过一遍（标签按读者任务重排同批）
 - [x] 首次发布 `0.1.0`（维护者本地 publish + Trusted Publisher 已配）；README 门面已按发布态重写（npm 徽章已加）
+- [x] 发布链落地并跑通：`release.yml` 支持推 tag 触发（带 tag/版本一致性闸）、守卫基线排除正在发的 tag、Release 步对 5xx 重试 —— `0.2.0` 全链绿
 - [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
-- [ ] **补 git 侧发布产物**：tag `v0.1.0`（指向 3721cc3 或发布时那棵树）+ GitHub Release —— 发布时 workflow 未用上，
-      两样按 [docs/PUBLISHING.md](docs/PUBLISHING.md) 手工补，之后 release.yml 的守卫才有基线
 
 ## 活跃坑
 
+- **tag 触发的守卫必须排除「正在发的那个 tag」**：`git describe --tags --abbrev=0` 会解析出刚推上去的那个 tag 自己，
+  `<tag>..HEAD` 恒为空 → 一次完全正常的发布被判「没有可发布的内容」（2026-09-26 `v0.2.0` 首发实踩）。
+  判据：守卫那步带 `--exclude=${{ github.ref_name }}`（dispatch 触发时它是空操作）。
+- **发布链分段，前一段绿不等于后一段绿**：`v0.2.0` 那次 npm 已经发成功，只有一个瞬时 HTTP 500 让 GitHub Release 没建出来。
+  重跑靠幂等自愈（版本已在 npm 上 → 跳过 publish，只补 git 侧）；git 侧步骤本身也要对 5xx 重试，别让一次抖动把整条链判死。
 - **设置命名空间 = loader 条目 id，不是包名**：`configForms.get()` 收的是命名空间，
   而宿主按 `ns: entry.options.id` 发布设置文档。喂包名的表现是**静默**的 —— 那个命名空间
   从没被服务过，`whileServed` 永不触发，**配置页根本不出现**（2026-09-25 真机踩过）。
