@@ -40,6 +40,11 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* No spin, no pulse: while a probe runs the icon simply stays the bulb it was.
+   The running state is carried by `aria-busy` (screen readers), the dimmed token
+   below (the control is disabled), and the panel's own "detecting…" label — a
+   rotating glyph said the same thing louder and, at 28px, read as a glitch. */
+
 /* A disabled control still has to be findable and legible: the host dims by
    token rather than by opacity, so the icon keeps its contrast on both themes.
    `--dsw-alias-label-dimmed` is the host's own dimmed label token —
@@ -55,23 +60,6 @@
 .trigger:focus-visible {
   outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
-}
-
-/* While a probe is running the icon pulses. It is the only signal the control
-   can give in a 28px square, and reduced motion turns it off entirely. */
-.trigger[aria-busy='true'] svg {
-  animation: wb-probe-spin 1.2s linear infinite;
-  transform-origin: 50% 50%;
-}
-
-@keyframes wb-probe-spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .trigger[aria-busy='true'] svg {
-    animation: none;
-  }
 }
 
 /* ---- The popover ------------------------------------------------------- */

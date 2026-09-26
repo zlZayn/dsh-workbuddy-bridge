@@ -42,7 +42,6 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CS
 import { createPortal } from 'react-dom'
 import {
   Button,
-  IconThinkOutlineRegular,
   Tooltip,
   useAnchoredPosition,
   useDismissOnOutsidePointer,
@@ -293,6 +292,17 @@ function ModelProbe({ model, card, t }: {
   const shown = fresh ?? result
   const levels = levelsLine(shown)
   const notValidating = shown?.validation === 'non-validating'
+  /*
+   * Whether the bulb is lit: a *recorded* outcome exists for this model.
+   *
+   * Keyed on the record, not on this render's click and not on the levels: a
+   * `non-validating` answer is still an answer the user paid for, and it must
+   * survive a remount, a selection change back to this model, and a status read
+   * that arrives while the panel is closed. A remembered failure and a run in
+   * flight are deliberately excluded — neither is a result, and the tooltip
+   * already reports both.
+   */
+  const lit = shown !== undefined
   // The open panel already says everything the tooltip would, so it steps aside
   // rather than hovering over the thing it describes.
   return (
@@ -307,7 +317,7 @@ function ModelProbe({ model, card, t }: {
           disabled={disabled}
           onClick={() => { setOpen(!open) }}
         >
-          <ProbeIcon />
+          <ProbeIcon lit={lit} />
         </button>
       </Tooltip>
 
@@ -327,7 +337,7 @@ function ModelProbe({ model, card, t }: {
             aria-label={t('probeLabel')}
           >
             <div className={css.panelTitle}>
-              <span className={css.panelTitleIcon}><ProbeIcon /></span>
+              <span className={css.panelTitleIcon}><ProbeIcon lit={lit} /></span>
               <span className={css.panelTitleText}>{model}</span>
             </div>
 
@@ -359,19 +369,46 @@ function ModelProbe({ model, card, t }: {
   )
 }
 
+/** The bulb's body — the maintainer's artwork, one filled path with the base cut out. */
+const BULB_BODY = 'M496 64C681.6 64 832 208.896 832 387.648c0 124.544-73.152 232.704-180.352 286.784v24.256c0 6.912-0.64 13.76-1.856 20.288a56.32 56.32 0 0 1 20.672 20.416 54.848 54.848 0 0 1 7.552 27.712v37.312c0 29.312-23.04 53.312-52.288 55.808l-2.816 0.192h-23.04c0 54.976-46.336 99.584-103.424 99.584-57.024 0-103.296-44.544-103.296-99.584h-19.776l-2.24-0.128h-3.84a58.24 58.24 0 0 1-36.48-18.432 55.808 55.808 0 0 1-14.72-37.44v-37.312c0-20.16 11.008-37.888 27.328-47.744a104.064 104.064 0 0 1-1.984-20.672v-23.744C233.6 621.056 160 512.576 160 387.584 160.064 208.96 310.4 64 496 64z m-45.632 796.288c0 24.064 20.48 43.712 46.08 43.712 25.728 0 46.144-19.712 46.208-43.52v-0.192H450.368z m-76.992-56h247.296l0.064-37.056-0.512-0.32H373.632l-0.256 37.376zM496 120.064c-154.112 0-278.656 120-278.656 267.52 0 100.8 58.624 191.68 150.208 237.44l31.104 15.68 0.064 50.56c0 3.968 0.384 7.552 0.896 10.816l0.576 1.984H467.84V704h70.4v-0.128l55.488-0.32 0.512-1.472c0.64-3.776 0.96-7.552 0.96-11.328l-0.96-50.56 31.04-15.616c91.2-45.952 149.312-136.576 149.312-236.992 0-147.584-124.544-267.648-278.656-267.648v0.128z'
+
+/** The bolt drawn inside the bulb once a detection has landed. */
+const BULB_BOLT = 'M465.536 443.264H396.8c-8.96 0-15.168-8.192-11.968-15.872l68.288-163.84a11.904 11.904 0 0 1 4.672-5.504A13.632 13.632 0 0 1 465.024 256h115.2c9.088 0 15.36 8.448 11.904 16.128L552.32 361.344H627.2c11.008 0 16.832 11.84 9.6 19.456L453.376 571.968c-8.96 9.28-25.472 1.28-22.016-10.752l34.176-117.952z'
+
 /**
- * The control's icon — the host's own reasoning glyph.
+ * The control's icon: a light bulb, and the same bulb lit once a detection landed.
  *
- * Deliberately **not** a hand-drawn shape. Every icon in this chrome is one of
- * the host's, drawn on the same grid (16-unit viewBox, 1px stroke) with the same
- * `currentColor` convention, so borrowing the host's artwork is the only way to
- * land in the same visual language — anything original reads as foreign beside
- * the model picker it sits next to.
+ * Two states carry the whole story without a word:
+ * - **bulb** — nothing verified yet; this is the model whose levels are still unknown.
+ * - **bulb with the bolt** — a recorded result says which levels this model accepts.
  *
- * `IconThinkOutlineRegular` is the host's semantic icon for reasoning, which is
- * exactly what this control acts on. It is exported from a package this plugin
- * already depends on, so it costs no new dependency edge.
+ * That is why the bolt is a second path rather than decoration: the trigger has to answer
+ * "is this model checked?" at a glance, in 28px, next to the host's model picker — and the
+ * panel that opens from it repeats the same glyph, so trigger, panel and result read as one
+ * object. The artwork is the maintainer's bulb, redrawn on the host's 16-unit grid: ink spans
+ * 2..14 vertically and 3.5..12.5 horizontally (the host's own icons keep a 6–9 inset), filled
+ * with `currentColor` so both themes come from the button's colour alone — no literal colour,
+ * no `[data-ds-dark-theme]` selector.
+ *
+ * The bolt appears only for a **successful** detection (`lit`), never while a run is in
+ * flight and never for a failure: a spinner-shaped claim would be answered by the tooltip,
+ * which already says exactly what happened.
  */
-function ProbeIcon(): ReactNode {
-  return <IconThinkOutlineRegular size={16} />
+function ProbeIcon({ lit }: { lit: boolean }): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <g transform="translate(1.35714 1.14286) scale(0.01339286)">
+        <path d={BULB_BODY} fill="currentColor" fillRule="evenodd" />
+        {/* The bolt is cut out of the bulb with the same even-odd rule: one filled path, so
+            the hole is real glass rather than a second colour that would need a token. */}
+        {lit ? <path d={BULB_BOLT} fill="currentColor" fillRule="evenodd" /> : null}
+      </g>
+    </svg>
+  )
 }

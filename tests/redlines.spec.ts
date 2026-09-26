@@ -126,52 +126,47 @@ describe('插件图标', () => {
   })
 
   /**
-   * 控件与插件页图标必须是**同一个字形**，而且那个字形来自宿主。
+   * 控件与插件页图标各自是**一份自绘墨迹**，但都必须落在官方边距档位里。
    *
-   * 自绘图标在这条 chrome 里天然显生：邻居全是宿主自己的图标（16 格 / 1px 笔画 /
-   * currentColor）。所以控件直接渲染宿主的 IconThinkOutlineRegular，本仓不再维护一份
-   * 私有墨迹；插件页的 icon.svg 是它放大后的副本。
+   * 这条守卫的来历值得留着：改版之前，控件渲染的是宿主的 `IconThinkOutlineRegular`，
+   * 本仓一份私有墨迹都不维护，红线因此钉的是「icon.svg 的路径与宿主逐字相同」。
+   * 2026-09-26 维护者改弦更张 —— 控件换成自己给的灯泡（未检测 / 已检测两态），
+   * 插件页图标换成自己给的徽章；**钉字形的断言随之作废**，留下的是仍然成立的两条：
    *
-   * 三处都要核：控件**不许**再出现自绘 svg，icon.svg 的路径必须与宿主逐字相同，
-   * 而且**边距必须与官方图标同档** —— 「太大、周围太空」是量出来的，不是看出来的。
+   * - 控件的 svg 是**两态**的：闪电只在有检测记录时出现（生命周期见 probe-control 的 `lit`）；
+   * - icon.svg 的墨迹**边距必须与官方同档** —— 「太大、周围太空」是量出来的，不是看出来的。
    */
-  it('控件用宿主的字形，icon.svg 是它的等比放大且边距与官方同档', () => {
+  it('控件的灯泡是两态，icon.svg 的边距与官方同档', () => {
     const svg = read('icon.svg')
     const control = read('src/client/probe-control.tsx')
-    // 控件渲染宿主的图标组件。
-    expect(control).toContain('IconThinkOutlineRegular')
-    expect(control).not.toContain('<svg')
+
+    // 控件：自绘灯泡，闪电走条件渲染而不是两套图形。
+    expect(control).not.toContain('IconThinkOutlineRegular')
+    expect(control).toContain('BULB_BODY')
+    expect(control).toContain('BULB_BOLT')
+    expect(control, '闪电必须是条件渲染的').toContain('{lit ?')
+
+    // 插件页图标：仍是 36 格，且那组缩放变换还在（下面按它算边距）。
     expect(svg).toContain('viewBox="0 0 36 36"')
 
-    // 自检：真源里确实取到了三条路径，免得下面的循环空转成假绿。
-    const hostPaths = [
-      'M10.7554 5.24466C13.9891 8.4783 15.3769 12.3333 13.8552 13.8551C12.3335 15.3768 8.4785 13.989 5.24478 10.7553C2.01111 7.52165 0.623307 3.66664 2.14504 2.14491C3.66676 0.623189 7.52178 2.01099 10.7554 5.24466Z',
-      'M10.7554 10.7553C7.52178 13.989 3.66676 15.3768 2.14504 13.8551C0.623307 12.3333 2.01111 8.4783 5.24478 5.24466C8.4785 2.01099 12.3335 0.623189 13.8552 2.14491C15.3769 3.66664 13.9891 7.52165 10.7554 10.7553Z',
-      'M8.9587 8.00025C8.9587 8.52835 8.5306 8.95655 8.0024 8.95655C7.47429 8.95655 7.04614 8.52835 7.04614 8.00025C7.04614 7.47209 7.47429 7.04395 8.0024 7.04395C8.5306 7.04395 8.9587 7.47209 8.9587 8.00025Z',
-    ]
-    expect(hostPaths.length).toBe(3)
-    for (const d of hostPaths) expect(svg, '图标里应有宿主那条路径').toContain(d)
-
-    // 边距：把 transform 解出来，算墨迹落在画布上的范围。
-    // 官方的三个图标内容都在离边 6–9 之间，本仓取 7，所以断言 6–9 这个窗口。
-    // 锚在 `<g transform=` 上而不是全文搜 `translate(`：头部的说明文字里也写着
-    // 旧的那组数字（解释它为什么被改掉），全文第一个匹配会命中注释。
+    /*
+     * 边距：把 transform 解出来，算墨迹落在画布上的范围。
+     * 官方的三个图标内容都在离边 6–9 之间，本仓取 7，所以断言 6–9 这个窗口。
+     * 源徽章是满幅的 0..280（不是 16 格的字形），所以这里用**源图自己的外接框**换算，
+     * 而不是宿主的字形框 —— 换图形时这一点必须跟着换，否则断言量的是别的图形。
+     */
     const m = /<g transform="translate\(([\d.]+) ([\d.]+)\) scale\(([\d.]+)\)"/.exec(svg)
     expect(m, 'icon.svg 里读不出那个缩放组').not.toBeNull()
-    const [, tx, ty, s] = m as unknown as [string, string, string, string]
-    expect(Number(tx)).toBeCloseTo(Number(ty), 4)
-    // 宿主 IconThinkOutline 的墨迹外接框，在 16 格上。
-    const GLYPH_MIN = 0.6233
-    const GLYPH_MAX = 15.3767
-    const inkLeft = GLYPH_MIN * Number(s) + Number(tx)
-    const inkRight = GLYPH_MAX * Number(s) + Number(tx)
-    // 内容范围换算成边距：36 画布减去墨迹的两端。
+    const [, tx, , s] = m as unknown as [string, string, string, string]
+    const SOURCE_MIN = 0
+    const SOURCE_MAX = 280
+    const inkLeft = SOURCE_MIN * Number(s) + Number(tx)
+    const inkRight = SOURCE_MAX * Number(s) + Number(tx)
     const margins = [['左', inkLeft], ['右', 36 - inkRight]] as const
     for (const [edge, margin] of margins) {
       expect(margin, `图标${edge}边距偏离官方档位`).toBeGreaterThanOrEqual(6)
       expect(margin, `图标${edge}边距偏离官方档位`).toBeLessThanOrEqual(9)
     }
-    // 两侧对称：官方三个图标都是居中的。
     expect(inkLeft + inkRight, '图标没有居中').toBeCloseTo(36, 1)
   })
 })

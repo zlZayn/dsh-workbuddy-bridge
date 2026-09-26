@@ -18,9 +18,10 @@
 - **标题**：本目录的 `meta.title` → `package.json` 的 `name` → 完整 Cordis 名。
 - **描述**：本目录的 `meta.description` → `package.json` 的 `description` → 不显示。
 - **图标**：`package.json` 的 `icon`（相对清单目录、必须在包内、自包含、≤256 KiB）。
-  本包声明的是包根的 [icon.svg](../icon.svg) —— 与输入区那个检测控件**同一个图形**
-  （`src/client/probe-control.tsx` 的 `ProbeIcon`）：外环 + 内环 + 一条指向右上的斜线 + 圆心一点。
-  几何与选色依据写在文件头的注释里。
+  本包声明的是包根的 [icon.svg](../icon.svg) —— 维护者给的一枚 280 格徽章（圆角方块 + 青绿渐变 + 白标），
+  整组搬进官方 36 格、四周留 7。**与输入区那个检测控件不是同一个图形了**（控件是灯泡，未检测 / 已检测两态，
+  见 [../src/client/probe-control.tsx](../src/client/probe-control.tsx)）：2026-09-26 维护者分别指定了图形，
+  原先「两处同形」的说法随之作废。边距由 [../tests/redlines.spec.ts](../tests/redlines.spec.ts) 量住。
 
 ## 硬约束
 
