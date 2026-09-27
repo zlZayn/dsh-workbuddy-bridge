@@ -69,13 +69,19 @@ export function useBrowserStubs(): FetchStub {
     releasePosts: async () => {
       const held = pending
       pending = []
-      await act(async () => { for (const resolve of held) resolve() })
+      await act(async () => {
+        for (const resolve of held) resolve()
+      })
     },
     tick: async () => {
       const due = [...armed.values()]
-      await act(async () => { for (const run of due) run() })
+      await act(async () => {
+        for (const run of due) run()
+      })
     },
-    get intervals() { return armed.size },
+    get intervals() {
+      return armed.size
+    },
   }
   beforeEach(() => {
     posts.length = 0
@@ -88,18 +94,28 @@ export function useBrowserStubs(): FetchStub {
       posts.push({ url, body: String(init.body) })
       // Hold the POST open until the test releases it, so "in flight" is
       // observable rather than a race against the microtask queue.
-      await new Promise<void>(resolve => { pending.push(resolve) })
+      await new Promise<void>((resolve) => {
+        pending.push(resolve)
+      })
       return { ok: true, json: async () => stub.postReply }
     })
     vi.stubGlobal('fetch', stub.call)
     vi.stubGlobal('window', {
-      setInterval: (run: () => void) => { const id = armed.size + 1; armed.set(id, run); return id },
-      clearInterval: (id: number) => { armed.delete(id) },
+      setInterval: (run: () => void) => {
+        const id = armed.size + 1
+        armed.set(id, run)
+        return id
+      },
+      clearInterval: (id: number) => {
+        armed.delete(id)
+      },
       addEventListener: () => {},
       removeEventListener: () => {},
     })
   })
-  afterEach(() => { vi.unstubAllGlobals() })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
   return stub
 }
 
@@ -107,7 +123,9 @@ export function useBrowserStubs(): FetchStub {
 export function useTree(): { view: ReactTestRenderer | undefined } {
   const box: { view: ReactTestRenderer | undefined } = { view: undefined }
   afterEach(() => {
-    act(() => { box.view?.unmount() })
+    act(() => {
+      box.view?.unmount()
+    })
     box.view = undefined
   })
   return box
@@ -115,14 +133,15 @@ export function useTree(): { view: ReactTestRenderer | undefined } {
 
 /** Every string the tree renders, joined: what the reader actually sees. */
 export function textOf(view: ReactTestRenderer): string {
-  return view.root.findAll(node => typeof node.type === 'string')
-    .flatMap(node => node.children.filter((child): child is string => typeof child === 'string'))
+  return view.root
+    .findAll((node) => typeof node.type === 'string')
+    .flatMap((node) => node.children.filter((child): child is string => typeof child === 'string'))
     .join(' ')
 }
 
 /** Every rendered `<button>`'s concatenated text. */
 export function buttonLabels(view: ReactTestRenderer): string[] {
-  return view.root.findAllByType('button').map(node => node.children.join(''))
+  return view.root.findAllByType('button').map((node) => node.children.join(''))
 }
 
 /**
@@ -135,17 +154,24 @@ export function buttonLabels(view: ReactTestRenderer): string[] {
  * `findAllByType('button')` deliberately does not see.
  */
 export async function expandDisclosure(view: ReactTestRenderer): Promise<void> {
-  const row = view.root.findAll(node =>
-    node.type === 'div' && node.props['data-disclosure-row'] === true,
+  const row = view.root.findAll(
+    (node) => node.type === 'div' && node.props['data-disclosure-row'] === true,
   )[0]
   if (row === undefined) throw new Error('no disclosure row to expand')
-  await act(async () => { row.props.onClick(SYNTHETIC_EVENT) })
+  await act(async () => {
+    row.props.onClick(SYNTHETIC_EVENT)
+  })
 }
 
-/** Click the first button whose text contains `label`. *//** Click the first button whose text contains `label`. */
+/** Click the first button whose text contains `label`. */ /** Click the first button whose text contains `label`. */
 export async function clickText(view: ReactTestRenderer, label: string, nth = 0): Promise<void> {
-  const matches = view.root.findAllByType('button').filter(node => node.children.join('').includes(label))
+  const matches = view.root
+    .findAllByType('button')
+    .filter((node) => node.children.join('').includes(label))
   const target = matches[nth]
-  if (target === undefined) throw new Error(`no button labelled "${label}" (#${nth} of ${matches.length})`)
-  await act(async () => { target.props.onClick(SYNTHETIC_EVENT) })
+  if (target === undefined)
+    throw new Error(`no button labelled "${label}" (#${nth} of ${matches.length})`)
+  await act(async () => {
+    target.props.onClick(SYNTHETIC_EVENT)
+  })
 }

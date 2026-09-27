@@ -33,14 +33,25 @@ const KEY = deriveProtectorKey(SECRET)
 const KEY_ID = createHash('sha256').update(KEY).digest('hex').slice(0, 16)
 
 /** Verbatim transcription of the reference AAD builder from r3-final.js. */
-function referenceAad(keyId: string, context: { framing: 'file' | 'field', suite: number }): Buffer {
+function referenceAad(
+  keyId: string,
+  context: { framing: 'file' | 'field'; suite: number },
+): Buffer {
   const PREFIX = Buffer.from('WB-AAD\0', 'ascii')
   const FRAMING_NAME = { file: 'WBEF1', field: 'WBEV1' }
   const FRAMING_TAG = { file: 1, field: 2 }
-  const u32 = (n: number): Buffer => { const b = Buffer.allocUnsafe(4); b.writeUInt32BE(n); return b }
-  const lp = (s: string): Buffer => { const b = Buffer.from(s, 'utf8'); return Buffer.concat([u32(b.length), b]) }
+  const u32 = (n: number): Buffer => {
+    const b = Buffer.allocUnsafe(4)
+    b.writeUInt32BE(n)
+    return b
+  }
+  const lp = (s: string): Buffer => {
+    const b = Buffer.from(s, 'utf8')
+    return Buffer.concat([u32(b.length), b])
+  }
   return Buffer.concat([
-    PREFIX, Buffer.from([1]),
+    PREFIX,
+    Buffer.from([1]),
     lp(FRAMING_NAME[context.framing]),
     lp('sym-v1'),
     u32(context.suite),
@@ -56,7 +67,10 @@ function referenceAad(keyId: string, context: { framing: 'file' | 'field', suite
  * this — 5.6.x credential fields are `field`-framed only, and accepting other
  * framings would be guessing at formats the plugin has never seen.
  */
-function sealWithFileFraming(key: Buffer, plaintext: string): { '$wbEncrypted': 1, envelope: string } {
+function sealWithFileFraming(
+  key: Buffer,
+  plaintext: string,
+): { $wbEncrypted: 1; envelope: string } {
   const keyId = createHash('sha256').update(key).digest('hex').slice(0, 16)
   const nonce = Buffer.alloc(12, 3)
   const cipher = createCipheriv('aes-256-gcm', key, nonce, { authTagLength: 16 })
@@ -69,7 +83,10 @@ function sealWithFileFraming(key: Buffer, plaintext: string): { '$wbEncrypted': 
     authTag: cipher.getAuthTag().toString('base64'),
     ciphertext: ciphertext.toString('base64'),
   }
-  return { '$wbEncrypted': 1, envelope: Buffer.from(JSON.stringify(inner), 'utf8').toString('base64') }
+  return {
+    $wbEncrypted: 1,
+    envelope: Buffer.from(JSON.stringify(inner), 'utf8').toString('base64'),
+  }
 }
 
 /** A full 5.6-shaped desktop document with both token fields sealed. */
@@ -92,24 +109,35 @@ describe('desktop auth classification', () => {
     expect(classifyDesktopAuthDocument('   \n')).toEqual({ format: 'absent' })
     expect(classifyDesktopAuthDocument('not json')).toEqual({ format: 'unrecognized' })
     expect(classifyDesktopAuthDocument('[1,2]')).toEqual({ format: 'unrecognized' })
-    expect(classifyDesktopAuthDocument('{"auth":{"accessToken":"at","refreshToken":"rt"}}'))
-      .toEqual({ format: 'plaintext' })
+    expect(
+      classifyDesktopAuthDocument('{"auth":{"accessToken":"at","refreshToken":"rt"}}'),
+    ).toEqual({ format: 'plaintext' })
     const encrypted = classifyDesktopAuthDocument(encryptedDocument())
     expect(encrypted.format).toBe('encrypted')
     if (encrypted.format === 'encrypted') {
       expect(keyIdsOf(encrypted.wrapped.fields)).toEqual([KEY_ID])
-      expect(encrypted.wrapped.fields.map(field => field.field).sort())
-        .toEqual(['accessToken', 'refreshToken'])
+      expect(encrypted.wrapped.fields.map((field) => field.field).sort()).toEqual([
+        'accessToken',
+        'refreshToken',
+      ])
     }
   })
 
   it('treats a wrapper whose envelope will not decode as unrecognized, not encrypted', () => {
     const broken = JSON.stringify({
-      auth: { accessToken: { '$wbEncrypted': 1, envelope: '%%%not-base64%%%' } },
+      auth: { accessToken: { $wbEncrypted: 1, envelope: '%%%not-base64%%%' } },
     })
     expect(classifyDesktopAuthDocument(broken).format).toBe('unrecognized')
     const truncated = JSON.stringify({
-      auth: { refreshToken: { '$wbEncrypted': 1, envelope: Buffer.from(JSON.stringify({ suite: 1, keyId: KEY_ID, nonce: 'AAAA' }), 'utf8').toString('base64') } },
+      auth: {
+        refreshToken: {
+          $wbEncrypted: 1,
+          envelope: Buffer.from(
+            JSON.stringify({ suite: 1, keyId: KEY_ID, nonce: 'AAAA' }),
+            'utf8',
+          ).toString('base64'),
+        },
+      },
     })
     expect(classifyDesktopAuthDocument(truncated).format).toBe('unrecognized')
   })
@@ -122,7 +150,7 @@ describe('desktop auth classification', () => {
     const classified = classifyDesktopAuthDocument(flat)
     expect(classified.format).toBe('encrypted')
     if (classified.format === 'encrypted') {
-      expect(classified.wrapped.fields.map(field => field.field)).toEqual(['accessToken'])
+      expect(classified.wrapped.fields.map((field) => field.field)).toEqual(['accessToken'])
     }
   })
 })
@@ -132,13 +160,16 @@ describe('field decryption', () => {
     // `field` framing is the only one 5.6.2 writes for credential fields; the
     // reference builder's other framings belong to other document kinds and
     // are deliberately not produced here.
-    expect(buildAuthenticatedContextAad('9127dea1b44020a7', 1))
-      .toEqual(referenceAad('9127dea1b44020a7', { framing: 'field', suite: 1 }))
+    expect(buildAuthenticatedContextAad('9127dea1b44020a7', 1)).toEqual(
+      referenceAad('9127dea1b44020a7', { framing: 'field', suite: 1 }),
+    )
   })
 
   it('round-trips a sealed field and rejects wrong keys or tampered tags', () => {
     const sealed = sealAuthFieldForTest(KEY, 'round-trip')
-    const classified = classifyDesktopAuthDocument(JSON.stringify({ auth: { accessToken: sealed } }))
+    const classified = classifyDesktopAuthDocument(
+      JSON.stringify({ auth: { accessToken: sealed } }),
+    )
     if (classified.format !== 'encrypted') throw new Error('fixture misclassified')
     const wrapped = classified.wrapped.fields[0]!
     expect(openAuthField(KEY, wrapped.envelope)).toBe('round-trip')
@@ -153,7 +184,9 @@ describe('field decryption', () => {
     // Production accepts exactly what 5.6.2 writes (field framing); the
     // file-framed envelope of the same family must fail to open.
     const sealed = sealWithFileFraming(KEY, 'file-framed')
-    const classified = classifyDesktopAuthDocument(JSON.stringify({ auth: { refreshToken: sealed } }))
+    const classified = classifyDesktopAuthDocument(
+      JSON.stringify({ auth: { refreshToken: sealed } }),
+    )
     if (classified.format !== 'encrypted') throw new Error('fixture misclassified')
     expect(openAuthField(KEY, classified.wrapped.fields[0]!.envelope)).toBeUndefined()
   })
@@ -162,15 +195,25 @@ describe('field decryption', () => {
     // Suite 1 is the only defined scheme; a future suite must read as a
     // diagnosis, never as an openable envelope.
     const keyId = createHash('sha256').update(KEY).digest('hex').slice(0, 16)
-    const inner = JSON.stringify({ suite: 2, keyId, nonce: Buffer.alloc(12, 1).toString('base64'), authTag: Buffer.alloc(16, 1).toString('base64'), ciphertext: Buffer.alloc(8, 1).toString('base64') })
-    const document = JSON.stringify({ auth: { accessToken: { '$wbEncrypted': 1, envelope: Buffer.from(inner, 'utf8').toString('base64') } } })
+    const inner = JSON.stringify({
+      suite: 2,
+      keyId,
+      nonce: Buffer.alloc(12, 1).toString('base64'),
+      authTag: Buffer.alloc(16, 1).toString('base64'),
+      ciphertext: Buffer.alloc(8, 1).toString('base64'),
+    })
+    const document = JSON.stringify({
+      auth: {
+        accessToken: { $wbEncrypted: 1, envelope: Buffer.from(inner, 'utf8').toString('base64') },
+      },
+    })
     expect(classifyDesktopAuthDocument(document).format).toBe('unrecognized')
   })
 
   it('rebuilt plaintext keeps identity and expiry fields and drops the wrappers', () => {
     const classified = classifyDesktopAuthDocument(encryptedDocument())
     if (classified.format !== 'encrypted') throw new Error('fixture misclassified')
-    const text = unwrapDesktopAuthDocument(classified, field => `opened-${field.field}`)
+    const text = unwrapDesktopAuthDocument(classified, (field) => `opened-${field.field}`)
     const parsed = JSON.parse(text) as { auth: Record<string, unknown> }
     expect(parsed.auth['accessToken']).toBe('opened-accessToken')
     expect(parsed.auth['refreshToken']).toBe('opened-refreshToken')
@@ -186,18 +229,35 @@ describe('at-rest payload validation', () => {
   })
   it('rejects unparsable, wrong-version, non-canonical, wrong-size, and all-zero secrets', () => {
     expect(parseAtRestPayload('garbage')).toBeUndefined()
-    expect(parseAtRestPayload(JSON.stringify({ version: 2, atRestSecretKey: SECRET }))).toBeUndefined()
+    expect(
+      parseAtRestPayload(JSON.stringify({ version: 2, atRestSecretKey: SECRET })),
+    ).toBeUndefined()
     // "short" decodes fine but re-encodes differently: not canonical base64.
-    expect(parseAtRestPayload(JSON.stringify({ version: 1, atRestSecretKey: 'short' }))).toBeUndefined()
-    expect(parseAtRestPayload(JSON.stringify({ version: 1, atRestSecretKey: Buffer.alloc(31, 1).toString('base64') }))).toBeUndefined()
-    expect(parseAtRestPayload(JSON.stringify({ version: 1, atRestSecretKey: Buffer.alloc(32, 0).toString('base64') }))).toBeUndefined()
+    expect(
+      parseAtRestPayload(JSON.stringify({ version: 1, atRestSecretKey: 'short' })),
+    ).toBeUndefined()
+    expect(
+      parseAtRestPayload(
+        JSON.stringify({ version: 1, atRestSecretKey: Buffer.alloc(31, 1).toString('base64') }),
+      ),
+    ).toBeUndefined()
+    expect(
+      parseAtRestPayload(
+        JSON.stringify({ version: 1, atRestSecretKey: Buffer.alloc(32, 0).toString('base64') }),
+      ),
+    ).toBeUndefined()
   })
 })
 
 describe('at-rest key provider', () => {
   it('caches one source resolution per key id', async () => {
     let calls = 0
-    const provider = new WorkBuddyAtRestKeyProvider({ source: async () => { calls += 1; return PAYLOAD_TEXT } })
+    const provider = new WorkBuddyAtRestKeyProvider({
+      source: async () => {
+        calls += 1
+        return PAYLOAD_TEXT
+      },
+    })
     expect(await provider.protectorKeyFor([KEY_ID])).toEqual(KEY)
     expect(await provider.protectorKeyFor([KEY_ID])).toBe(await provider.protectorKeyFor([KEY_ID]))
     expect(calls).toBe(1)
@@ -206,9 +266,15 @@ describe('at-rest key provider', () => {
   it('shares one in-flight resolution between concurrent callers', async () => {
     let calls = 0
     let release!: () => void
-    const gate = new Promise<void>(resolve => { release = resolve })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     const provider = new WorkBuddyAtRestKeyProvider({
-      source: async () => { calls += 1; await gate; return PAYLOAD_TEXT },
+      source: async () => {
+        calls += 1
+        await gate
+        return PAYLOAD_TEXT
+      },
     })
     const first = provider.protectorKeyFor([KEY_ID])
     const second = provider.protectorKeyFor([KEY_ID])
@@ -225,7 +291,12 @@ describe('at-rest key provider', () => {
     const otherId = createHash('sha256').update(otherKey).digest('hex').slice(0, 16)
     const answers = [PAYLOAD_TEXT, otherPayload, PAYLOAD_TEXT]
     let calls = 0
-    const provider = new WorkBuddyAtRestKeyProvider({ source: async () => { calls += 1; return answers[calls - 1] ?? '' } })
+    const provider = new WorkBuddyAtRestKeyProvider({
+      source: async () => {
+        calls += 1
+        return answers[calls - 1] ?? ''
+      },
+    })
     expect(await provider.protectorKeyFor([KEY_ID])).toEqual(KEY)
     expect(await provider.protectorKeyFor([otherId])).toEqual(otherKey)
     // The rotated key is now cached: the old id forces the third resolution.
@@ -235,8 +306,7 @@ describe('at-rest key provider', () => {
 
   it('refuses envelopes sealed by a different installation', async () => {
     const provider = new WorkBuddyAtRestKeyProvider({ source: async () => PAYLOAD_TEXT })
-    await expect(provider.protectorKeyFor(['ffffffffffffffff']))
-      .rejects.toThrow(/does not match/)
+    await expect(provider.protectorKeyFor(['ffffffffffffffff'])).rejects.toThrow(/does not match/)
   })
 
   it('reports an unusable payload without echoing its content', async () => {
@@ -254,8 +324,12 @@ describe('at-rest key provider', () => {
   })
 
   it('fails safely when the configured binary is missing', async () => {
-    const provider = new WorkBuddyAtRestKeyProvider({ electronPath: '/nonexistent/workbuddy-electron' })
-    await expect(provider.protectorKeyFor([KEY_ID])).rejects.toThrow(/not available at \/nonexistent\/workbuddy-electron/)
+    const provider = new WorkBuddyAtRestKeyProvider({
+      electronPath: '/nonexistent/workbuddy-electron',
+    })
+    await expect(provider.protectorKeyFor([KEY_ID])).rejects.toThrow(
+      /not available at \/nonexistent\/workbuddy-electron/,
+    )
   })
 
   it('resolves the helper path from env, then the platform default', () => {
@@ -271,7 +345,9 @@ describe('at-rest key provider', () => {
     // binary belonging to the other product's layout.
     const cn = new WorkBuddyAtRestKeyProvider({ discovery: 'macos-workbuddy' })
     expect(cn.helperPath()).toBe(
-      process.platform === 'darwin' ? '/Applications/WorkBuddy.app/Contents/MacOS/Electron' : undefined,
+      process.platform === 'darwin'
+        ? '/Applications/WorkBuddy.app/Contents/MacOS/Electron'
+        : undefined,
     )
     const win = new WorkBuddyAtRestKeyProvider({ discovery: 'windows-workbuddy' })
     const localAppData = process.env['LOCALAPPDATA']
@@ -288,26 +364,34 @@ describe('credential store with an encrypted desktop file', () => {
   let root: string
   const cleanups: (() => Promise<void>)[] = []
   const stubKeyProvider = (key: Buffer | Error) => ({
-    protectorKeyFor: async () => { if (key instanceof Error) throw key; return key },
+    protectorKeyFor: async () => {
+      if (key instanceof Error) throw key
+      return key
+    },
     helperPath: () => '(stub)',
   })
 
-  const makeStore = (desktopPath: string, keyProvider?: ReturnType<typeof stubKeyProvider>): WorkBuddyCredentialStore =>
+  const makeStore = (
+    desktopPath: string,
+    keyProvider?: ReturnType<typeof stubKeyProvider>,
+  ): WorkBuddyCredentialStore =>
     new WorkBuddyCredentialStore({
       desktopPath,
       ownPath: join(root, 'own.json'),
-      refresh: async credential => ({ accessToken: credential.accessToken }),
+      refresh: async (credential) => ({ accessToken: credential.accessToken }),
       ...(keyProvider === undefined ? {} : { keyProvider }),
     })
 
   afterEach(async () => {
-    await Promise.all(cleanups.splice(0).map(clean => clean()))
+    await Promise.all(cleanups.splice(0).map((clean) => clean()))
     vi.unstubAllEnvs()
   })
 
   it('decrypts the desktop credential, keeping identity and expiry', async () => {
     root = await mkdtemp(join(tmpdir(), 'wb-encrypted-'))
-    cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
+    cleanups.push(async () => {
+      await rm(root, { recursive: true, force: true })
+    })
     const desktopPath = join(root, 'workbuddy-desktop.info')
     await writeFile(desktopPath, encryptedDocument())
     const store = makeStore(desktopPath, stubKeyProvider(KEY))
@@ -326,20 +410,31 @@ describe('credential store with an encrypted desktop file', () => {
 
   it('reports a decryption failure as a diagnosis, never as a silent sign-out or a stale fallback', async () => {
     root = await mkdtemp(join(tmpdir(), 'wb-encrypted-fail-'))
-    cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
+    cleanups.push(async () => {
+      await rm(root, { recursive: true, force: true })
+    })
     const desktopPath = join(root, 'workbuddy-desktop.info')
     await writeFile(desktopPath, encryptedDocument())
     // A stale plugin-owned copy from the previous account: decryption failure
     // must NOT fall back to it.
-    await writeFile(join(root, 'own.json'), JSON.stringify({
-      version: 1,
-      credential: {
-        accessToken: 'stale-access', refreshToken: 'stale-refresh',
-        expiresAtMs: Date.now() + 3_600_000, domain: 'www.workbuddy.ai',
-        uid: 'uid-old', source: 'dsh',
-      },
-    }))
-    const store = makeStore(desktopPath, stubKeyProvider(new Error('the WorkBuddy key helper exited with code 1')))
+    await writeFile(
+      join(root, 'own.json'),
+      JSON.stringify({
+        version: 1,
+        credential: {
+          accessToken: 'stale-access',
+          refreshToken: 'stale-refresh',
+          expiresAtMs: Date.now() + 3_600_000,
+          domain: 'www.workbuddy.ai',
+          uid: 'uid-old',
+          source: 'dsh',
+        },
+      }),
+    )
+    const store = makeStore(
+      desktopPath,
+      stubKeyProvider(new Error('the WorkBuddy key helper exited with code 1')),
+    )
     await expect(store.current()).rejects.toThrow(/key helper exited with code 1/)
     const status = await store.status()
     expect(status.state).toBe('signed-out')
@@ -349,7 +444,9 @@ describe('credential store with an encrypted desktop file', () => {
 
   it('reports a key mismatch between envelope and app as its own diagnosis', async () => {
     root = await mkdtemp(join(tmpdir(), 'wb-encrypted-mismatch-'))
-    cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
+    cleanups.push(async () => {
+      await rm(root, { recursive: true, force: true })
+    })
     const desktopPath = join(root, 'workbuddy-desktop.info')
     await writeFile(desktopPath, encryptedDocument(Buffer.alloc(32, 5)))
     // Envelopes sealed under a key the provider cannot answer (different
@@ -361,13 +458,19 @@ describe('credential store with an encrypted desktop file', () => {
 
   it('never falls back to a valid stale own copy when the desktop file is unreadable', async () => {
     root = await mkdtemp(join(tmpdir(), 'wb-unrecognized-'))
-    cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
+    cleanups.push(async () => {
+      await rm(root, { recursive: true, force: true })
+    })
     const ownDocument = JSON.stringify({
       version: 1,
       credential: {
-        accessToken: 'fresh-own-access', refreshToken: 'fresh-own-refresh',
-        expiresAtMs: Date.now() + 3_600_000, domain: 'www.workbuddy.ai',
-        uid: 'uid-current', nickname: 'Current', source: 'dsh',
+        accessToken: 'fresh-own-access',
+        refreshToken: 'fresh-own-refresh',
+        expiresAtMs: Date.now() + 3_600_000,
+        domain: 'www.workbuddy.ai',
+        uid: 'uid-current',
+        nickname: 'Current',
+        source: 'dsh',
       },
     })
     // Case 1: a malformed (unparsable) desktop document.
@@ -384,7 +487,21 @@ describe('credential store with an encrypted desktop file', () => {
     // claimed by the wrapper format but not a format this plugin accepts.
     const keyId = createHash('sha256').update(KEY).digest('hex').slice(0, 16)
     const unsupported = JSON.stringify({
-      auth: { accessToken: { '$wbEncrypted': 1, envelope: Buffer.from(JSON.stringify({ suite: 2, keyId, nonce: Buffer.alloc(12, 1).toString('base64'), authTag: Buffer.alloc(16, 1).toString('base64'), ciphertext: Buffer.alloc(8, 1).toString('base64') }), 'utf8').toString('base64') } },
+      auth: {
+        accessToken: {
+          $wbEncrypted: 1,
+          envelope: Buffer.from(
+            JSON.stringify({
+              suite: 2,
+              keyId,
+              nonce: Buffer.alloc(12, 1).toString('base64'),
+              authTag: Buffer.alloc(16, 1).toString('base64'),
+              ciphertext: Buffer.alloc(8, 1).toString('base64'),
+            }),
+            'utf8',
+          ).toString('base64'),
+        },
+      },
       account: { uid: 'uid-9' },
     })
     const unsupportedPath = join(root, 'unsupported.info')
@@ -398,25 +515,37 @@ describe('credential store with an encrypted desktop file', () => {
 
   it('lets the desktop file keep identity authority over a newer own copy', async () => {
     root = await mkdtemp(join(tmpdir(), 'wb-encrypted-identity-'))
-    cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
+    cleanups.push(async () => {
+      await rm(root, { recursive: true, force: true })
+    })
     const desktopPath = join(root, 'workbuddy-desktop.info')
     await writeFile(desktopPath, encryptedDocument())
-    await writeFile(join(root, 'own.json'), JSON.stringify({
-      version: 1,
-      credential: {
-        // Same uid as the desktop file, later expiry (the sealed fixture
-        // expires in 2030): expiry would win, and that is unchanged by
-        // encryption.
-        accessToken: 'own-access', refreshToken: 'own-refresh',
-        expiresAtMs: 4102444800000, domain: 'www.workbuddy.ai',
-        uid: 'uid-9', enterpriseId: 'ent-3', nickname: 'Tester', source: 'dsh',
-      },
-    }))
+    await writeFile(
+      join(root, 'own.json'),
+      JSON.stringify({
+        version: 1,
+        credential: {
+          // Same uid as the desktop file, later expiry (the sealed fixture
+          // expires in 2030): expiry would win, and that is unchanged by
+          // encryption.
+          accessToken: 'own-access',
+          refreshToken: 'own-refresh',
+          expiresAtMs: 4102444800000,
+          domain: 'www.workbuddy.ai',
+          uid: 'uid-9',
+          enterpriseId: 'ent-3',
+          nickname: 'Tester',
+          source: 'dsh',
+        },
+      }),
+    )
     const store = makeStore(desktopPath, stubKeyProvider(KEY))
     expect((await store.current())?.source).toBe('dsh')
     // A different uid in the own copy: the desktop file wins regardless of
     // timestamps — encryption changes nothing here either.
-    const switched = JSON.parse(await readFile(join(root, 'own.json'), 'utf8')) as { credential: { uid: string } }
+    const switched = JSON.parse(await readFile(join(root, 'own.json'), 'utf8')) as {
+      credential: { uid: string }
+    }
     switched.credential.uid = 'uid-old'
     await writeFile(join(root, 'own.json'), JSON.stringify(switched))
     expect((await store.current())?.source).toBe('desktop')

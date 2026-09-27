@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WorkBuddyCredentialStore } from '../src/credential/store.ts'
-import { WorkBuddyCatalog, FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS } from '../src/catalog/index.ts'
+import {
+  WorkBuddyCatalog,
+  FALLBACK_WORKBUDDY_AI_MODELS,
+  FALLBACK_WORKBUDDY_MODELS,
+} from '../src/catalog/index.ts'
 import { workBuddyProbeHandler } from '../src/web/probe-route.ts'
 import { workBuddyStatusHandler } from '../src/web/status.ts'
 import { AI_VARIANT, CN_VARIANT, type WorkBuddyVariant } from '../src/variants.ts'
@@ -24,7 +28,7 @@ import type { WorkBuddyUpstreamClient } from '../src/protocol/client.ts'
 const CLEANUP: (() => Promise<void>)[] = []
 
 afterEach(async () => {
-  await Promise.all(CLEANUP.splice(0).map(clean => clean()))
+  await Promise.all(CLEANUP.splice(0).map((clean) => clean()))
   vi.unstubAllEnvs()
 })
 
@@ -42,22 +46,27 @@ function requestOnce(options: {
   path: string
   headers: Record<string, string>
   body?: string
-}): Promise<{ status: number, body: string }> {
+}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
-    const outgoing = request({
-      host: '127.0.0.1',
-      port: options.port,
-      method: options.method,
-      path: options.path,
-      headers: options.headers,
-    }, (res) => {
-      const chunks: Buffer[] = []
-      res.on('data', (chunk: Buffer) => chunks.push(chunk))
-      res.on('end', () => resolve({
-        status: res.statusCode ?? 0,
-        body: Buffer.concat(chunks).toString('utf8'),
-      }))
-    })
+    const outgoing = request(
+      {
+        host: '127.0.0.1',
+        port: options.port,
+        method: options.method,
+        path: options.path,
+        headers: options.headers,
+      },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk: Buffer) => chunks.push(chunk))
+        res.on('end', () =>
+          resolve({
+            status: res.statusCode ?? 0,
+            body: Buffer.concat(chunks).toString('utf8'),
+          }),
+        )
+      },
+    )
     outgoing.on('error', reject)
     if (options.body !== undefined) outgoing.write(options.body)
     outgoing.end()
@@ -70,15 +79,18 @@ interface Mounted {
 }
 
 /** Mount both variants' status and probe routes, as `apply()` does. */
-async function mount(variant: WorkBuddyVariant, options: {
-  catalog: WorkBuddyCatalog
-  probeKey?: string
-  /** Supply a refresh handler, as `apply()` does for a real variant. */
-  refresh?: boolean
-}): Promise<Mounted> {
+async function mount(
+  variant: WorkBuddyVariant,
+  options: {
+    catalog: WorkBuddyCatalog
+    probeKey?: string
+    /** Supply a refresh handler, as `apply()` does for a real variant. */
+    refresh?: boolean
+  },
+): Promise<Mounted> {
   const store = new WorkBuddyCredentialStore({
     variant,
-    refresh: async credential => ({ accessToken: credential.accessToken }),
+    refresh: async (credential) => ({ accessToken: credential.accessToken }),
   })
   const client = {
     fetchCredits: async () => ({ total: variant.id === 'workbuddy-ai' ? 350 : 4663, accounts: [] }),
@@ -90,30 +102,52 @@ async function mount(variant: WorkBuddyVariant, options: {
     models: () => options.catalog.current(),
     catalog: () => ({ source: 'fallback' }),
     probe: () => ({ consent: true, running: false, candidates: [], results: [] }),
-    ...options.probeKey === undefined ? {} : { probeKey: options.probeKey },
+    ...(options.probeKey === undefined ? {} : { probeKey: options.probeKey }),
   })
   const probes = new Map<string, number>()
-  const probeHandler = workBuddyProbeHandler({
-    path: variant.probePath,
-    probe: async modelId => { probes.set(modelId, (probes.get(modelId) ?? 0) + 1); return { state: 'ok' } },
-    clear: () => { probes.clear() },
-    ...options.refresh === true
-      ? { refresh: async () => ({ state: 'refreshed', reason: `${options.catalog.current().length} models` }) }
-      : {},
-  }, options.probeKey ?? '')
+  const probeHandler = workBuddyProbeHandler(
+    {
+      path: variant.probePath,
+      probe: async (modelId) => {
+        probes.set(modelId, (probes.get(modelId) ?? 0) + 1)
+        return { state: 'ok' }
+      },
+      clear: () => {
+        probes.clear()
+      },
+      ...(options.refresh === true
+        ? {
+            refresh: async () => ({
+              state: 'refreshed',
+              reason: `${options.catalog.current().length} models`,
+            }),
+          }
+        : {}),
+    },
+    options.probeKey ?? '',
+  )
   // One server per variant, both routes on it, matching the plugin's layout.
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const path = new URL(req.url ?? '/', 'http://127.0.0.1').pathname
     if (path === variant.statusPath) void handler(req, res)
     else if (path === variant.probePath) void probeHandler(req, res)
-    else { res.writeHead(404, { 'Content-Type': 'application/json' }).end('{"error":"no such route"}') }
+    else {
+      res.writeHead(404, { 'Content-Type': 'application/json' }).end('{"error":"no such route"}')
+    }
   })
-  await new Promise<void>(resolve => { server.listen(0, '127.0.0.1', resolve) })
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', resolve)
+  })
   const address = server.address()
   const port = typeof address === 'object' && address !== null ? address.port : 0
   const mounted: Mounted = {
     port,
-    close: () => new Promise<void>(resolve => { server.close(() => { resolve() }) }),
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => {
+          resolve()
+        })
+      }),
   }
   CLEANUP.push(mounted.close)
   return mounted
@@ -134,14 +168,26 @@ describe('per-variant route mount', () => {
     const cn = await mount(CN_VARIANT, { catalog: cnCatalog, probeKey: 'key-cn' })
     const ai = await mount(AI_VARIANT, { catalog: aiCatalog, probeKey: 'key-ai' })
 
-    const cnBody = JSON.parse((await requestOnce({
-      port: cn.port, method: 'GET', path: CN_VARIANT.statusPath,
-      headers: { host: `127.0.0.1:${cn.port}`, accept: 'application/json' },
-    })).body) as Record<string, unknown>
-    const aiBody = JSON.parse((await requestOnce({
-      port: ai.port, method: 'GET', path: AI_VARIANT.statusPath,
-      headers: { host: `127.0.0.1:${ai.port}`, accept: 'application/json' },
-    })).body) as Record<string, unknown>
+    const cnBody = JSON.parse(
+      (
+        await requestOnce({
+          port: cn.port,
+          method: 'GET',
+          path: CN_VARIANT.statusPath,
+          headers: { host: `127.0.0.1:${cn.port}`, accept: 'application/json' },
+        })
+      ).body,
+    ) as Record<string, unknown>
+    const aiBody = JSON.parse(
+      (
+        await requestOnce({
+          port: ai.port,
+          method: 'GET',
+          path: AI_VARIANT.statusPath,
+          headers: { host: `127.0.0.1:${ai.port}`, accept: 'application/json' },
+        })
+      ).body,
+    ) as Record<string, unknown>
 
     expect(cnBody['status']).toBe('signed-in')
     expect(aiBody['status']).toBe('signed-in')
@@ -152,8 +198,8 @@ describe('per-variant route mount', () => {
     expect(aiBody['credits']).toMatchObject({ total: 350 })
 
     // Disjoint rosters, each served through its own catalog.
-    const cnModels = (cnBody['models'] as { id: string }[]).map(model => model.id)
-    const aiModels = (aiBody['models'] as { id: string }[]).map(model => model.id)
+    const cnModels = (cnBody['models'] as { id: string }[]).map((model) => model.id)
+    const aiModels = (aiBody['models'] as { id: string }[]).map((model) => model.id)
     expect(cnModels).toContain('minimax-m3')
     expect(aiModels).toContain('gpt-5.6-luna')
     expect(cnModels).not.toContain('gpt-5.6-luna')
@@ -166,7 +212,9 @@ describe('per-variant route mount', () => {
     // The AI path is not mounted on this server; a shared path constant would
     // make this succeed and cross the two cards' state.
     const response = await requestOnce({
-      port: cn.port, method: 'GET', path: AI_VARIANT.statusPath,
+      port: cn.port,
+      method: 'GET',
+      path: AI_VARIANT.statusPath,
       headers: { host: `127.0.0.1:${cn.port}` },
     })
     expect(response.status).toBe(404)
@@ -179,10 +227,16 @@ describe('per-variant route mount', () => {
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
     const server = await mount(AI_VARIANT, { catalog })
     catalog.setVisible(false)
-    const signed = JSON.parse((await requestOnce({
-      port: server.port, method: 'GET', path: AI_VARIANT.statusPath,
-      headers: { host: `127.0.0.1:${server.port}` },
-    })).body) as Record<string, unknown>
+    const signed = JSON.parse(
+      (
+        await requestOnce({
+          port: server.port,
+          method: 'GET',
+          path: AI_VARIANT.statusPath,
+          headers: { host: `127.0.0.1:${server.port}` },
+        })
+      ).body,
+    ) as Record<string, unknown>
     // Nothing to pick: the group is hidden even though the card still answers.
     expect(signed['models']).toBeUndefined()
   })
@@ -193,28 +247,36 @@ describe('per-variant route mount', () => {
 
     // A DNS-rebinding page addresses the request to its own domain.
     const rebound = await requestOnce({
-      port: server.port, method: 'GET', path: AI_VARIANT.statusPath,
+      port: server.port,
+      method: 'GET',
+      path: AI_VARIANT.statusPath,
       headers: { host: 'evil.example.com' },
     })
     expect(rebound.status).toBe(403)
 
     // A cross-origin browser Origin is refused too.
     const crossOrigin = await requestOnce({
-      port: server.port, method: 'GET', path: AI_VARIANT.statusPath,
+      port: server.port,
+      method: 'GET',
+      path: AI_VARIANT.statusPath,
       headers: { host: `127.0.0.1:${server.port}`, origin: 'https://evil.example.com' },
     })
     expect(crossOrigin.status).toBe(403)
 
     // And the probe route needs the in-process key, on the AI path as well.
     const noKey = await requestOnce({
-      port: server.port, method: 'POST', path: AI_VARIANT.probePath,
+      port: server.port,
+      method: 'POST',
+      path: AI_VARIANT.probePath,
       headers: { host: `127.0.0.1:${server.port}`, 'content-type': 'application/json' },
       body: JSON.stringify({ action: 'probe', model: 'hy3' }),
     })
     expect(noKey.status).toBe(403)
 
     const wrongKey = await requestOnce({
-      port: server.port, method: 'POST', path: AI_VARIANT.probePath,
+      port: server.port,
+      method: 'POST',
+      path: AI_VARIANT.probePath,
       headers: {
         host: `127.0.0.1:${server.port}`,
         'content-type': 'application/json',
@@ -226,7 +288,9 @@ describe('per-variant route mount', () => {
     expect(wrongKey.status).toBe(403)
 
     const ok = await requestOnce({
-      port: server.port, method: 'POST', path: AI_VARIANT.probePath,
+      port: server.port,
+      method: 'POST',
+      path: AI_VARIANT.probePath,
       headers: {
         host: `127.0.0.1:${server.port}`,
         'content-type': 'application/json',
@@ -244,11 +308,19 @@ describe('per-variant route mount', () => {
     await writeFile(join(root, 'wrong.info'), credentialDocument('copilot.tencent.com'))
     vi.stubEnv('DSH_HOME', root)
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'wrong.info'))
-    const server = await mount(AI_VARIANT, { catalog: new WorkBuddyCatalog(FALLBACK_WORKBUDDY_AI_MODELS) })
-    const body = JSON.parse((await requestOnce({
-      port: server.port, method: 'GET', path: AI_VARIANT.statusPath,
-      headers: { host: `127.0.0.1:${server.port}` },
-    })).body) as Record<string, unknown>
+    const server = await mount(AI_VARIANT, {
+      catalog: new WorkBuddyCatalog(FALLBACK_WORKBUDDY_AI_MODELS),
+    })
+    const body = JSON.parse(
+      (
+        await requestOnce({
+          port: server.port,
+          method: 'GET',
+          path: AI_VARIANT.statusPath,
+          headers: { host: `127.0.0.1:${server.port}` },
+        })
+      ).body,
+    ) as Record<string, unknown>
     // Signed out with an explanation rather than signed in as the wrong product.
     expect(body['status']).toBe('signed-out')
     expect(String(body['reason'])).toMatch(/WORKBUDDY_AI_AUTH_FILE/)
@@ -266,10 +338,16 @@ describe('per-variant route mount', () => {
     vi.stubEnv('DSH_HOME', root)
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'ai.info'))
     const server = await mount(AI_VARIANT, { catalog })
-    const body = JSON.parse((await requestOnce({
-      port: server.port, method: 'GET', path: AI_VARIANT.statusPath,
-      headers: { host: `127.0.0.1:${server.port}` },
-    })).body) as Record<string, unknown>
+    const body = JSON.parse(
+      (
+        await requestOnce({
+          port: server.port,
+          method: 'GET',
+          path: AI_VARIANT.statusPath,
+          headers: { host: `127.0.0.1:${server.port}` },
+        })
+      ).body,
+    ) as Record<string, unknown>
     // Pin that the stubbed credential really signed the card in: `catalog` is
     // omitted entirely on the signed-out branch, so a broken fixture would make
     // the provenance assertion below fail for the wrong reason.
@@ -281,11 +359,18 @@ describe('per-variant route mount', () => {
   it('gates the refresh action behind the same in-process key as probing', async () => {
     const catalog = new WorkBuddyCatalog(FALLBACK_WORKBUDDY_AI_MODELS)
     const server = await mount(AI_VARIANT, { catalog, probeKey: 'key-ai', refresh: true })
-    const post = (headers: Record<string, string>) => requestOnce({
-      port: server.port, method: 'POST', path: AI_VARIANT.probePath,
-      headers: { host: `127.0.0.1:${server.port}`, 'content-type': 'application/json', ...headers },
-      body: JSON.stringify({ action: 'refresh' }),
-    })
+    const post = (headers: Record<string, string>) =>
+      requestOnce({
+        port: server.port,
+        method: 'POST',
+        path: AI_VARIANT.probePath,
+        headers: {
+          host: `127.0.0.1:${server.port}`,
+          'content-type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({ action: 'refresh' }),
+      })
     // A refresh spends an upstream request, so it is a write: unauthenticated
     // callers are refused exactly like an unauthenticated probe.
     expect((await post({})).status).toBe(403)
@@ -302,7 +387,9 @@ describe('per-variant route mount', () => {
       probeKey: 'key-ai',
     })
     const response = await requestOnce({
-      port: server.port, method: 'POST', path: AI_VARIANT.probePath,
+      port: server.port,
+      method: 'POST',
+      path: AI_VARIANT.probePath,
       headers: {
         host: `127.0.0.1:${server.port}`,
         'content-type': 'application/json',

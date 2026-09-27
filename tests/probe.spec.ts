@@ -16,11 +16,15 @@ import {
  */
 
 const ACCEPTED: ProbeAttempt = { status: 200, streamed: true }
-const REJECTED: ProbeAttempt = { status: 400, streamed: false, errorCode: 'invalid_reasoning_effort' }
+const REJECTED: ProbeAttempt = {
+  status: 400,
+  streamed: false,
+  errorCode: 'invalid_reasoning_effort',
+}
 
 /** A sender that answers from a table keyed by effort, with `undefined` = baseline. */
 function tableSender(table: Map<string | undefined, ProbeAttempt>): ProbeSender {
-  return async effort => table.get(effort) ?? REJECTED
+  return async (effort) => table.get(effort) ?? REJECTED
 }
 
 /** Count how many requests a sender saw, to assert the sweep stops early. */
@@ -133,7 +137,9 @@ describe('probeModel', () => {
 
   it('survives a throwing sender by reporting unknown', async () => {
     const outcome = await probeModel({
-      send: async () => { throw new Error('socket hang up') },
+      send: async () => {
+        throw new Error('socket hang up')
+      },
       sentinel: () => SENTINEL,
     })
     expect(outcome.validation).toBe('unknown')

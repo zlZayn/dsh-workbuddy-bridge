@@ -69,14 +69,17 @@ describe('appUserAgent', () => {
 describe('readBundleVersion', () => {
   it('reads CFBundleShortVersionString out of a plist', async () => {
     const plist = await tempPath()
-    await writeFile(plist, [
-      '<?xml version="1.0" encoding="UTF-8"?>',
-      '<plist version="1.0"><dict>',
-      '<key>CFBundleName</key><string>WorkBuddy AI</string>',
-      '<key>CFBundleShortVersionString</key><string>5.5.2</string>',
-      '<key>CFBundleVersion</key><string>9999</string>',
-      '</dict></plist>',
-    ].join('\n'))
+    await writeFile(
+      plist,
+      [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<plist version="1.0"><dict>',
+        '<key>CFBundleName</key><string>WorkBuddy AI</string>',
+        '<key>CFBundleShortVersionString</key><string>5.5.2</string>',
+        '<key>CFBundleVersion</key><string>9999</string>',
+        '</dict></plist>',
+      ].join('\n'),
+    )
     // Reads the requested key, not the first <string> in the file.
     await expect(readBundleVersion(plist)).resolves.toBe('5.5.2')
   })
@@ -89,7 +92,10 @@ describe('readBundleVersion', () => {
     await expect(readBundleVersion(binary)).resolves.toBeUndefined()
 
     const empty = await tempPath()
-    await writeFile(empty, '<plist><dict><key>CFBundleShortVersionString</key><string></string></dict></plist>')
+    await writeFile(
+      empty,
+      '<plist><dict><key>CFBundleShortVersionString</key><string></string></dict></plist>',
+    )
     await expect(readBundleVersion(empty)).resolves.toBeUndefined()
   })
 })
@@ -97,7 +103,10 @@ describe('readBundleVersion', () => {
 describe('resolveAppVersion', () => {
   it('prefers the installed App and caches the value it read', async () => {
     const path = await tempPath()
-    const installed = vi.fn(async () => ({ version: '5.5.9', bundle: '/Applications/WorkBuddy AI.app' }))
+    const installed = vi.fn(async () => ({
+      version: '5.5.9',
+      bundle: '/Applications/WorkBuddy AI.app',
+    }))
     await expect(resolveAppVersion({ installed, path })).resolves.toEqual({
       version: '5.5.9',
       source: 'installed',
@@ -138,11 +147,15 @@ describe('resolveAppVersion', () => {
     // stubbed instead of aiming at an actually-unwritable path: what "cannot
     // be written" looks like on the wire differs per platform and per user
     // (root defeats permission bits), but a rejected promise is the contract.
-    await expect(resolveAppVersion({
-      installed: async () => ({ version: '5.5.2', bundle: '/x' }),
-      path: '/unused/version.json',
-      write: async () => { throw new Error('read-only home') },
-    })).resolves.toMatchObject({ version: '5.5.2', source: 'installed' })
+    await expect(
+      resolveAppVersion({
+        installed: async () => ({ version: '5.5.2', bundle: '/x' }),
+        path: '/unused/version.json',
+        write: async () => {
+          throw new Error('read-only home')
+        },
+      }),
+    ).resolves.toMatchObject({ version: '5.5.2', source: 'installed' })
   })
 
   it('defaults its cache path under the DSH home', () => {

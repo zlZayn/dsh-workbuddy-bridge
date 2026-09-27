@@ -2,10 +2,23 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { WorkBuddyCredentialStore, desktopAuthCandidatesFor, parseWorkBuddyAuth } from '../src/credential/store.ts'
-import { FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS, WorkBuddyCatalog } from '../src/catalog/index.ts'
+import {
+  WorkBuddyCredentialStore,
+  desktopAuthCandidatesFor,
+  parseWorkBuddyAuth,
+} from '../src/credential/store.ts'
+import {
+  FALLBACK_WORKBUDDY_AI_MODELS,
+  FALLBACK_WORKBUDDY_MODELS,
+  WorkBuddyCatalog,
+} from '../src/catalog/index.ts'
 import { AI_VARIANT, CN_VARIANT, variantFor, WORKBUDDY_VARIANTS } from '../src/variants.ts'
-import { modelWithCurrentPromotion, parseModelCatalog, prepareInternationalChatBody, WorkBuddyUpstreamClient } from '../src/protocol/client.ts'
+import {
+  modelWithCurrentPromotion,
+  parseModelCatalog,
+  prepareInternationalChatBody,
+  WorkBuddyUpstreamClient,
+} from '../src/protocol/client.ts'
 
 /**
  * The two-variant contract. Both products share one auth directory and repeat
@@ -35,12 +48,16 @@ function credentialDocument(domain: string, accessToken = 'at'): string {
   })
 }
 
-function storeFor(variant: typeof CN_VARIANT, desktopPath: string, ownPath: string): WorkBuddyCredentialStore {
+function storeFor(
+  variant: typeof CN_VARIANT,
+  desktopPath: string,
+  ownPath: string,
+): WorkBuddyCredentialStore {
   return new WorkBuddyCredentialStore({
     variant,
     desktopPath,
     ownPath,
-    refresh: async credential => ({ accessToken: credential.accessToken }),
+    refresh: async (credential) => ({ accessToken: credential.accessToken }),
   })
 }
 
@@ -72,8 +89,16 @@ describe('variant descriptors', () => {
   it('shares no file, route, or env var between the two', () => {
     // A shared probe file would let one endpoint's observation answer for the
     // same-named model on the other; a shared route would cross the cards.
-    for (const field of ['desktopFilename', 'ownFilename', 'probeFilename', 'statusPath', 'probePath', 'env', 'id'] as const) {
-      const values = WORKBUDDY_VARIANTS.map(variant => variant[field])
+    for (const field of [
+      'desktopFilename',
+      'ownFilename',
+      'probeFilename',
+      'statusPath',
+      'probePath',
+      'env',
+      'id',
+    ] as const) {
+      const values = WORKBUDDY_VARIANTS.map((variant) => variant[field])
       expect(new Set(values).size, `${field} must differ between variants`).toBe(values.length)
     }
   })
@@ -123,13 +148,15 @@ describe('credential region separation', () => {
     const root = await tempDir()
     const aiDesktop = join(root, 'ai.info')
     await writeFile(aiDesktop, credentialDocument('www.workbuddy.ai'))
-    await expect(storeFor(AI_VARIANT, aiDesktop, join(root, 'ai-own.json')).current())
-      .resolves.toMatchObject({ domain: 'www.workbuddy.ai', uid: 'uid-1' })
+    await expect(
+      storeFor(AI_VARIANT, aiDesktop, join(root, 'ai-own.json')).current(),
+    ).resolves.toMatchObject({ domain: 'www.workbuddy.ai', uid: 'uid-1' })
 
     const cnDesktop = join(root, 'cn.info')
     await writeFile(cnDesktop, credentialDocument('copilot.tencent.com'))
-    await expect(storeFor(CN_VARIANT, cnDesktop, join(root, 'cn-own.json')).current())
-      .resolves.toMatchObject({ domain: 'copilot.tencent.com' })
+    await expect(
+      storeFor(CN_VARIANT, cnDesktop, join(root, 'cn-own.json')).current(),
+    ).resolves.toMatchObject({ domain: 'copilot.tencent.com' })
   })
 
   it('reports a mismatch as a diagnosable reason rather than a silent sign-out', async () => {
@@ -150,15 +177,26 @@ describe('credential region separation', () => {
     await writeFile(desktop, credentialDocument('copilot.tencent.com', 'desktop-token'))
     // The plugin copy belongs to the *same* account but expires later: it wins,
     // which is what makes a refresh by either side effective.
-    await writeFile(ownPath, JSON.stringify({
-      version: 1,
-      credential: {
-        accessToken: 'own-token', refreshToken: 'rt', expiresAtMs: now + 7_200_000,
-        domain: 'copilot.tencent.com', uid: 'uid-1', enterpriseId: 'ent-1', source: 'dsh',
-      },
-    }))
+    await writeFile(
+      ownPath,
+      JSON.stringify({
+        version: 1,
+        credential: {
+          accessToken: 'own-token',
+          refreshToken: 'rt',
+          expiresAtMs: now + 7_200_000,
+          domain: 'copilot.tencent.com',
+          uid: 'uid-1',
+          enterpriseId: 'ent-1',
+          source: 'dsh',
+        },
+      }),
+    )
     const store = storeFor(CN_VARIANT, desktop, ownPath)
-    await expect(store.current()).resolves.toMatchObject({ accessToken: 'own-token', source: 'dsh' })
+    await expect(store.current()).resolves.toMatchObject({
+      accessToken: 'own-token',
+      source: 'dsh',
+    })
   })
 
   it('prefers the desktop file when the account has changed', async () => {
@@ -170,15 +208,26 @@ describe('credential region separation', () => {
     // The plugin copy still belongs to the PREVIOUS account and expires later,
     // because the plugin refreshed it. Choosing by expiry alone would send the
     // old uid in `X-User-Id` and answer as the wrong user.
-    await writeFile(ownPath, JSON.stringify({
-      version: 1,
-      credential: {
-        accessToken: 'stale-own', refreshToken: 'rt', expiresAtMs: now + 7_200_000,
-        domain: 'copilot.tencent.com', uid: 'uid-OTHER', enterpriseId: 'ent-1', source: 'dsh',
-      },
-    }))
+    await writeFile(
+      ownPath,
+      JSON.stringify({
+        version: 1,
+        credential: {
+          accessToken: 'stale-own',
+          refreshToken: 'rt',
+          expiresAtMs: now + 7_200_000,
+          domain: 'copilot.tencent.com',
+          uid: 'uid-OTHER',
+          enterpriseId: 'ent-1',
+          source: 'dsh',
+        },
+      }),
+    )
     const store = storeFor(CN_VARIANT, desktop, ownPath)
-    await expect(store.current()).resolves.toMatchObject({ accessToken: 'desktop-token', uid: 'uid-1' })
+    await expect(store.current()).resolves.toMatchObject({
+      accessToken: 'desktop-token',
+      uid: 'uid-1',
+    })
   })
 
   it('reads the variant env var, not the CN one', async () => {
@@ -190,7 +239,7 @@ describe('credential region separation', () => {
     const store = new WorkBuddyCredentialStore({
       variant: AI_VARIANT,
       ownPath: join(root, 'own.json'),
-      refresh: async credential => ({ accessToken: credential.accessToken }),
+      refresh: async (credential) => ({ accessToken: credential.accessToken }),
     })
     expect(store.desktopAuthPath()).toBe(aiFile)
     await expect(store.current()).resolves.toMatchObject({ domain: 'www.workbuddy.ai' })
@@ -199,8 +248,14 @@ describe('credential region separation', () => {
   it('own copies and diagnostics do not collide between variants', async () => {
     const root = await tempDir()
     vi.stubEnv('DSH_HOME', root)
-    const cn = new WorkBuddyCredentialStore({ variant: CN_VARIANT, refresh: async c => ({ accessToken: c.accessToken }) })
-    const ai = new WorkBuddyCredentialStore({ variant: AI_VARIANT, refresh: async c => ({ accessToken: c.accessToken }) })
+    const cn = new WorkBuddyCredentialStore({
+      variant: CN_VARIANT,
+      refresh: async (c) => ({ accessToken: c.accessToken }),
+    })
+    const ai = new WorkBuddyCredentialStore({
+      variant: AI_VARIANT,
+      refresh: async (c) => ({ accessToken: c.accessToken }),
+    })
     expect(cn.ownAuthPath()).not.toBe(ai.ownAuthPath())
     expect(cn.desktopAuthPath()).not.toBe(ai.desktopAuthPath())
 
@@ -235,17 +290,29 @@ describe('catalog visibility and separation', () => {
   })
 
   it('gives each variant its own roster', () => {
-    const cn = FALLBACK_WORKBUDDY_MODELS.map(model => model.id)
-    const ai = FALLBACK_WORKBUDDY_AI_MODELS.map(model => model.id)
+    const cn = FALLBACK_WORKBUDDY_MODELS.map((model) => model.id)
+    const ai = FALLBACK_WORKBUDDY_AI_MODELS.map((model) => model.id)
     expect(ai).toHaveLength(20)
     expect(cn).toHaveLength(16)
     expect(cn).toContain('deepseek-v4.1-flash')
     expect(cn).toContain('kimi-k2.8-preview')
     expect(cn).not.toContain('deepseek-v4-flash')
     expect(cn).toEqual([
-      'hy4-preview', 'hy3', 'hy3-x', 'deepseek-v4.1-flash', 'glm-5.3',
-      'glm-5.3-flash', 'glm-5.2', 'glm-5.1', 'glm-5v-turbo', 'minimax-m3',
-      'minimax-m2.7', 'kimi-k3-1', 'kimi-k2.8-preview', 'kimi-k2.7', 'kimi-k2.6',
+      'hy4-preview',
+      'hy3',
+      'hy3-x',
+      'deepseek-v4.1-flash',
+      'glm-5.3',
+      'glm-5.3-flash',
+      'glm-5.2',
+      'glm-5.1',
+      'glm-5v-turbo',
+      'minimax-m3',
+      'minimax-m2.7',
+      'kimi-k3-1',
+      'kimi-k2.8-preview',
+      'kimi-k2.7',
+      'kimi-k2.6',
       'deepseek-v4-pro',
     ])
     // International-only models must not appear in the CN roster, and vice
@@ -267,24 +334,46 @@ describe('catalog visibility and separation', () => {
 describe('international catalog parsing', () => {
   const document = {
     models: [
-      { id: 'hy3', name: 'Hy3', maxInputTokens: 1000, maxOutputTokens: 100, credits: 'x0.00', supportsImages: true, supportsReasoning: true, onlyReasoning: true, reasoning: { effort: 'high', summary: 'auto' } },
-      { id: 'ctx-model', name: 'Ctx', maxInputTokens: 1_000_000, maxOutputTokens: 100, credits: 'x1.00', contextWindow: { defaultLength: 300_000, supportedLengths: [300_000, 1_000_000] } },
+      {
+        id: 'hy3',
+        name: 'Hy3',
+        maxInputTokens: 1000,
+        maxOutputTokens: 100,
+        credits: 'x0.00',
+        supportsImages: true,
+        supportsReasoning: true,
+        onlyReasoning: true,
+        reasoning: { effort: 'high', summary: 'auto' },
+      },
+      {
+        id: 'ctx-model',
+        name: 'Ctx',
+        maxInputTokens: 1_000_000,
+        maxOutputTokens: 100,
+        credits: 'x1.00',
+        contextWindow: { defaultLength: 300_000, supportedLengths: [300_000, 1_000_000] },
+      },
       { id: 'not-in-cli', name: 'Excluded', maxInputTokens: 1000, maxOutputTokens: 100 },
     ],
     agents: [{ name: 'cli', models: ['hy3', 'ctx-model'] }],
-    modelPromotions: [{
-      enabled: true,
-      modelIds: ['hy3'],
-      priority: 200,
-      schedule: { validFrom: '2026-07-06T00:00:00+08:00', validUntil: '2026-09-30T00:00:00+08:00' },
-      discount: { displayMode: 'replace', factor: 0 },
-      badge: { label: 'Free now' },
-    }],
+    modelPromotions: [
+      {
+        enabled: true,
+        modelIds: ['hy3'],
+        priority: 200,
+        schedule: {
+          validFrom: '2026-07-06T00:00:00+08:00',
+          validUntil: '2026-09-30T00:00:00+08:00',
+        },
+        discount: { displayMode: 'replace', factor: 0 },
+        badge: { label: 'Free now' },
+      },
+    ],
   }
 
   it('follows the cli roster order and excludes models outside it', () => {
     const models = parseModelCatalog(document, true)
-    expect(models.map(model => model.id)).toEqual(['hy3', 'ctx-model'])
+    expect(models.map((model) => model.id)).toEqual(['hy3', 'ctx-model'])
   })
 
   it('uses the declared default window, not the maximum input ceiling', () => {
@@ -300,17 +389,32 @@ describe('international catalog parsing', () => {
 
   it('can switch an international catalog to its declared maximum windows', () => {
     const catalog = new WorkBuddyCatalog(FALLBACK_WORKBUDDY_AI_MODELS)
-    expect(catalog.current().find(model => model.id === 'deepseek-v4.1-flash')?.contextWindow).toBe(300_000)
+    expect(
+      catalog.current().find((model) => model.id === 'deepseek-v4.1-flash')?.contextWindow,
+    ).toBe(300_000)
     expect(catalog.setUseMaximumContextWindow(true)).toBe(true)
-    expect(catalog.current().find(model => model.id === 'deepseek-v4.1-flash')?.contextWindow).toBe(1_000_000)
-    expect(catalog.current().find(model => model.id === 'gpt-5.6-sol')?.contextWindow).toBe(1_000_000)
+    expect(
+      catalog.current().find((model) => model.id === 'deepseek-v4.1-flash')?.contextWindow,
+    ).toBe(1_000_000)
+    expect(catalog.current().find((model) => model.id === 'gpt-5.6-sol')?.contextWindow).toBe(
+      1_000_000,
+    )
 
-    const legacyCatalog = new WorkBuddyCatalog([{
-      id: 'legacy', name: 'Legacy', contextWindow: 300_000,
-      supportedContextWindows: [300_000, 1_000_000], maxTokens: 1, supportsImages: false,
-    }])
+    const legacyCatalog = new WorkBuddyCatalog([
+      {
+        id: 'legacy',
+        name: 'Legacy',
+        contextWindow: 300_000,
+        supportedContextWindows: [300_000, 1_000_000],
+        maxTokens: 1,
+        supportsImages: false,
+      },
+    ])
     legacyCatalog.setUseMaximumContextWindow(true)
-    expect(legacyCatalog.current()[0]).toMatchObject({ contextWindow: 1_000_000, defaultContextWindow: 300_000 })
+    expect(legacyCatalog.current()[0]).toMatchObject({
+      contextWindow: 1_000_000,
+      defaultContextWindow: 300_000,
+    })
   })
 
   it('does not attach international fields to the CN shape', () => {
@@ -321,7 +425,12 @@ describe('international catalog parsing', () => {
       contextWindow: 1000,
       maxTokens: 100,
       supportsImages: true,
-      reasoning: { supports: true, onlyReasoning: true, defaultEffort: 'high', canDisableThinking: false },
+      reasoning: {
+        supports: true,
+        onlyReasoning: true,
+        defaultEffort: 'high',
+        canDisableThinking: false,
+      },
       billing: { credits: 'x0.00', free: true },
     })
   })
@@ -358,28 +467,44 @@ describe('international catalog parsing', () => {
       resolveAppVersion: resolver,
     })
     const models = await client.fetchModels({
-      accessToken: 'at', refreshToken: 'rt', expiresAtMs: 0,
-      domain: 'www.workbuddy.ai', uid: 'uid', source: 'desktop',
+      accessToken: 'at',
+      refreshToken: 'rt',
+      expiresAtMs: 0,
+      domain: 'www.workbuddy.ai',
+      uid: 'uid',
+      source: 'desktop',
     })
-    expect(models.map(model => model.id)).toEqual(['hy3', 'ctx-model'])
+    expect(models.map((model) => model.id)).toEqual(['hy3', 'ctx-model'])
     expect(resolver).toHaveBeenCalledTimes(1)
     expect(headers?.['User-Agent']).toBe('WorkBuddyAI/5.5.2')
     vi.unstubAllGlobals()
   })
 
   it('still rejects a body that is neither wrapped nor a catalog', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      text: () => Promise.resolve(JSON.stringify({ unrelated: true })),
-    } as unknown as Response)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(JSON.stringify({ unrelated: true })),
+          }) as unknown as Response,
+      ),
+    )
     const client = new WorkBuddyUpstreamClient({
       resolveAppVersion: async () => ({ version: '5.5.2', source: 'fallback' }),
     })
-    await expect(client.fetchModels({
-      accessToken: 'at', refreshToken: 'rt', expiresAtMs: 0,
-      domain: 'www.workbuddy.ai', uid: 'uid', source: 'desktop',
-    })).rejects.toThrow(/cli agent/)
+    await expect(
+      client.fetchModels({
+        accessToken: 'at',
+        refreshToken: 'rt',
+        expiresAtMs: 0,
+        domain: 'www.workbuddy.ai',
+        uid: 'uid',
+        source: 'desktop',
+      }),
+    ).rejects.toThrow(/cli agent/)
     vi.unstubAllGlobals()
   })
 })
@@ -392,13 +517,15 @@ describe('promotion lifetime', () => {
     maxTokens: 100,
     supportsImages: false,
     billing: { credits: 'x0.50', free: false },
-    promotions: [{
-      start: Date.parse('2026-07-06T00:00:00+08:00'),
-      end: Date.parse('2026-09-30T00:00:00+08:00'),
-      label: 'Free now',
-      factor: 0,
-      priority: 200,
-    }],
+    promotions: [
+      {
+        start: Date.parse('2026-07-06T00:00:00+08:00'),
+        end: Date.parse('2026-09-30T00:00:00+08:00'),
+        label: 'Free now',
+        factor: 0,
+        priority: 200,
+      },
+    ],
   }
 
   it('applies an active promotion', () => {
@@ -429,8 +556,12 @@ describe('promotion lifetime', () => {
     // The withholding is scoped to rows whose price derives from a promotion;
     // an ordinary row keeps reporting what the upstream said.
     const plain = {
-      id: 'glm-5.3', name: 'GLM-5.3', contextWindow: 1000, maxTokens: 100,
-      supportsImages: true, billing: { credits: 'x0.79', free: false },
+      id: 'glm-5.3',
+      name: 'GLM-5.3',
+      contextWindow: 1000,
+      maxTokens: 100,
+      supportsImages: true,
+      billing: { credits: 'x0.79', free: false },
     }
     expect(modelWithCurrentPromotion(plain, Date.parse('2026-10-01T00:00:00+08:00'))).toBe(plain)
   })
@@ -454,7 +585,14 @@ describe('promotion lifetime', () => {
   })
 
   it('leaves a model with no promotions untouched', () => {
-    const plain = { id: 'x', name: 'X', contextWindow: 1, maxTokens: 1, supportsImages: false, billing: { credits: 'x1.00', free: false } }
+    const plain = {
+      id: 'x',
+      name: 'X',
+      contextWindow: 1,
+      maxTokens: 1,
+      supportsImages: false,
+      billing: { credits: 'x1.00', free: false },
+    }
     expect(modelWithCurrentPromotion(plain, Date.now())).toBe(plain)
   })
 
@@ -462,42 +600,81 @@ describe('promotion lifetime', () => {
     // The international Auto row carries an empty credits string. A factor of 0
     // is still meaningful there; a multiplier is not, so it is skipped rather
     // than invented.
-    const auto = { id: 'default-model', name: 'Auto', contextWindow: 1, maxTokens: 1, supportsImages: false, billing: { credits: '', free: false }, promotions: base.promotions }
-    expect(modelWithCurrentPromotion(auto, Date.parse('2026-08-01T00:00:00+08:00')).billing?.credits).toBe('x0.00')
+    const auto = {
+      id: 'default-model',
+      name: 'Auto',
+      contextWindow: 1,
+      maxTokens: 1,
+      supportsImages: false,
+      billing: { credits: '', free: false },
+      promotions: base.promotions,
+    }
+    expect(
+      modelWithCurrentPromotion(auto, Date.parse('2026-08-01T00:00:00+08:00')).billing?.credits,
+    ).toBe('x0.00')
     const scaledInput = {
       ...auto,
       promotions: [{ ...base.promotions[0]!, factor: 2 }],
     }
-    expect(modelWithCurrentPromotion(scaledInput, Date.parse('2026-08-01T00:00:00+08:00'))).toBe(scaledInput)
+    expect(modelWithCurrentPromotion(scaledInput, Date.parse('2026-08-01T00:00:00+08:00'))).toBe(
+      scaledInput,
+    )
   })
 })
 
 describe('prepareInternationalChatBody', () => {
   it('prepends a system message when the first message is not one', () => {
-    const body = JSON.parse(prepareInternationalChatBody(JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })))
+    const body = JSON.parse(
+      prepareInternationalChatBody(JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })),
+    )
     expect(body.messages[0].role).toBe('system')
     expect(body.messages[1]).toEqual({ role: 'user', content: 'hi' })
   })
 
   it('keeps user content, order, and count intact', () => {
-    const body = JSON.parse(prepareInternationalChatBody(JSON.stringify({
-      messages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }, { role: 'user', content: 'c' }],
-    })))
-    expect(body.messages.map((message: { content: string }) => message.content)).toEqual(['You are a helpful assistant.', 'a', 'b', 'c'])
+    const body = JSON.parse(
+      prepareInternationalChatBody(
+        JSON.stringify({
+          messages: [
+            { role: 'user', content: 'a' },
+            { role: 'assistant', content: 'b' },
+            { role: 'user', content: 'c' },
+          ],
+        }),
+      ),
+    )
+    expect(body.messages.map((message: { content: string }) => message.content)).toEqual([
+      'You are a helpful assistant.',
+      'a',
+      'b',
+      'c',
+    ])
   })
 
   it('leaves a body that already starts with system alone', () => {
-    const input = JSON.stringify({ messages: [{ role: 'system', content: 'custom' }, { role: 'user', content: 'hi' }] })
+    const input = JSON.stringify({
+      messages: [
+        { role: 'system', content: 'custom' },
+        { role: 'user', content: 'hi' },
+      ],
+    })
     const body = JSON.parse(prepareInternationalChatBody(input))
     expect(body.messages[0].content).toBe('custom')
     expect(body.messages).toHaveLength(2)
   })
 
   it('still rewrites developer to system and forces streaming', () => {
-    const body = JSON.parse(prepareInternationalChatBody(JSON.stringify({
-      stream: false,
-      messages: [{ role: 'developer', content: 'sys' }, { role: 'user', content: 'hi' }],
-    })))
+    const body = JSON.parse(
+      prepareInternationalChatBody(
+        JSON.stringify({
+          stream: false,
+          messages: [
+            { role: 'developer', content: 'sys' },
+            { role: 'user', content: 'hi' },
+          ],
+        }),
+      ),
+    )
     expect(body.stream).toBe(true)
     expect(body.messages[0].role).toBe('system')
     // The developer rewrite already made the first message a system one, so no
@@ -516,7 +693,10 @@ describe('prepareInternationalChatBody', () => {
   })
 
   it('handles a JSON object with no messages array', () => {
-    expect(JSON.parse(prepareInternationalChatBody('{"model":"x"}'))).toEqual({ model: 'x', stream: true })
+    expect(JSON.parse(prepareInternationalChatBody('{"model":"x"}'))).toEqual({
+      model: 'x',
+      stream: true,
+    })
     expect(JSON.parse(prepareInternationalChatBody('{"messages":null}')).messages).toBeNull()
   })
 })

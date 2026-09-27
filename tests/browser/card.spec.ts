@@ -11,16 +11,36 @@ import { createElement } from 'react'
 import { act } from 'react-test-renderer'
 import { describe, expect, it } from 'vitest'
 import { WorkBuddyCard } from '../../src/client/WorkBuddyCard.tsx'
-import { AI_CARD_VARIANT, CN_CARD_VARIANT, type WorkBuddyCardVariant } from '../../src/client/variants.ts'
+import {
+  AI_CARD_VARIANT,
+  CN_CARD_VARIANT,
+  type WorkBuddyCardVariant,
+} from '../../src/client/variants.ts'
 import { formatTime as formatCardTime } from '../../src/client/format.ts'
-import { buttonLabels, clickText, expandDisclosure, signedIn, t, textOf, useBrowserStubs, useTree } from './harness.ts'
+import {
+  buttonLabels,
+  clickText,
+  expandDisclosure,
+  signedIn,
+  t,
+  textOf,
+  useBrowserStubs,
+  useTree,
+} from './harness.ts'
 
 const stub = useBrowserStubs()
 const box = useTree()
 
 /** Mount a card, optionally expanded. */
-async function mount(expanded: boolean, variant: WorkBuddyCardVariant = CN_CARD_VARIANT): Promise<void> {
-  await act(async () => { box.view = (await import('react-test-renderer')).create(createElement(WorkBuddyCard, { variant, t })) })
+async function mount(
+  expanded: boolean,
+  variant: WorkBuddyCardVariant = CN_CARD_VARIANT,
+): Promise<void> {
+  await act(async () => {
+    box.view = (await import('react-test-renderer')).create(
+      createElement(WorkBuddyCard, { variant, t }),
+    )
+  })
   // The whole header row is the toggle (`expandOnRowClick`), so expansion is a
   // row click — there is no separate leading <button> to find.
   if (expanded) await expandDisclosure(box.view!)
@@ -34,7 +54,12 @@ describe('WorkBuddy card', () => {
   })
 
   it('says it is still loading before the first answer, not that nobody is signed in', async () => {
-    stub.call.mockImplementation(() => new Promise(() => { /* never settles */ }))
+    stub.call.mockImplementation(
+      () =>
+        new Promise(() => {
+          /* never settles */
+        }),
+    )
     await mount(false)
     const text = textOf(box.view!)
     expect(text).toContain(t('loading'))
@@ -55,7 +80,9 @@ describe('WorkBuddy card', () => {
     // And the document's other lines are still on screen — only the failed read
     // is reported, nothing is blanked. The expiry line is asserted via its key
     // with the same formatter the card uses, so a wording edit cannot desync it.
-    expect(text).toContain(t('accessTokenExpires', { time: formatCardTime(Date.now() + 3_600_000) }))
+    expect(text).toContain(
+      t('accessTokenExpires', { time: formatCardTime(Date.now() + 3_600_000) }),
+    )
   })
 
   it('lets the newest read win over a slower one started earlier', async () => {
@@ -65,14 +92,26 @@ describe('WorkBuddy card', () => {
       call += 1
       // The FIRST read is slow; the second answers immediately. If the slow one
       // were allowed to settle last it would restore the older document.
-      if (call === 1) return new Promise(resolve => { resolvers.push(resolve) })
-      return { ok: true, json: async () => signedIn({ nickname: '后来', expiresAt: Date.parse('2026-11-19T00:00:00Z') }) }
+      if (call === 1)
+        return new Promise((resolve) => {
+          resolvers.push(resolve)
+        })
+      return {
+        ok: true,
+        json: async () =>
+          signedIn({ nickname: '后来', expiresAt: Date.parse('2026-11-19T00:00:00Z') }),
+      }
     })
     await mount(true)
     // A manual refresh starts read #2 while read #1 is still in flight.
     await clickText(box.view!, t('refresh'))
     await act(async () => {
-      for (const resolve of resolvers) resolve({ ok: true, json: async () => signedIn({ nickname: '先前', expiresAt: Date.parse('2026-01-01T00:00:00Z') }) })
+      for (const resolve of resolvers)
+        resolve({
+          ok: true,
+          json: async () =>
+            signedIn({ nickname: '先前', expiresAt: Date.parse('2026-01-01T00:00:00Z') }),
+        })
     })
     const text = textOf(box.view!)
     // The nickname lives in the collapsed status only; the expiry line is what
@@ -134,7 +173,9 @@ describe('WorkBuddy card', () => {
     expect(labels).toContain(t('tabModels'))
     expect(labels).toContain(t('tabProbe'))
     await clickText(box.view!, t('tabModels'))
-    expect(box.view!.root.findAll(node => node.type === 'div' && node.props.role === 'tabpanel')).toHaveLength(1)
+    expect(
+      box.view!.root.findAll((node) => node.type === 'div' && node.props.role === 'tabpanel'),
+    ).toHaveLength(1)
   })
 
   it('shows credit once: the total and the per-package bars share the credits tab', async () => {
@@ -152,7 +193,9 @@ describe('WorkBuddy card', () => {
     // The total and the bars live on one tab; the old split (total under
     // "Status", bars under "Details") cannot reappear.
     expect(text).toContain(t('creditsTotal', { total: formatNumber(3767) }))
-    expect(text).toContain(t('exactRemaining', { remain: formatNumber(2767), size: formatNumber(10000) }))
+    expect(text).toContain(
+      t('exactRemaining', { remain: formatNumber(2767), size: formatNumber(10000) }),
+    )
     // The old "Status" tab label asserted as a literal: the key was deleted, so
     // a typed key here would no longer compile — the literal is the guard.
     expect(buttonLabels(box.view!)).not.toContain('Status')

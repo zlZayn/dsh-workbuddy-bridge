@@ -7,8 +7,15 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { WorkBuddyConfigController, type WorkBuddyPluginSettings } from '../../src/client/config-controller.ts'
-import type { SettingsFormPathOp, SettingsFormScope, SettingsFormScopeSnapshot } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  WorkBuddyConfigController,
+  type WorkBuddyPluginSettings,
+} from '../../src/client/config-controller.ts'
+import type {
+  SettingsFormPathOp,
+  SettingsFormScope,
+  SettingsFormScopeSnapshot,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 
 /**
  * A Host entry form over an in-memory document. It records every mutation so
@@ -29,7 +36,9 @@ class FakeSettingsScope implements SettingsFormScope<WorkBuddyPluginSettings> {
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   getSnapshot = (): SettingsFormScopeSnapshot<WorkBuddyPluginSettings> => ({
@@ -41,7 +50,10 @@ class FakeSettingsScope implements SettingsFormScope<WorkBuddyPluginSettings> {
     revision: this.revision,
   })
 
-  mutate = async (ops: readonly SettingsFormPathOp[], expectedRevision: number | undefined): Promise<boolean> => {
+  mutate = async (
+    ops: readonly SettingsFormPathOp[],
+    expectedRevision: number | undefined,
+  ): Promise<boolean> => {
     this.mutations.push({ ops, revision: expectedRevision })
     if (!this.land) return false
     for (const op of ops) {
@@ -55,7 +67,9 @@ class FakeSettingsScope implements SettingsFormScope<WorkBuddyPluginSettings> {
   }
 
   /** Apply the ops the way the Host would have, then settle: the test's read-back. */
-  get applied(): Partial<WorkBuddyPluginSettings> { return this.user }
+  get applied(): Partial<WorkBuddyPluginSettings> {
+    return this.user
+  }
 }
 
 describe('WorkBuddy config form', () => {
@@ -87,7 +101,10 @@ describe('WorkBuddy config form', () => {
       ],
     })
     expect(scope.applied).toEqual({ authFile: '/home/yue/auth.info', probeConsent: true })
-    expect(actions.hooks.workbuddyConfig.getSnapshot()).toMatchObject({ dirty: false, failed: false })
+    expect(actions.hooks.workbuddyConfig.getSnapshot()).toMatchObject({
+      dirty: false,
+      failed: false,
+    })
   })
 
   it('empties and resets stage unset rather than writing an empty value', async () => {

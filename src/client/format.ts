@@ -18,7 +18,9 @@ export function formatNumber(value: number): string {
 
 /** Locale-formatted date and time from epoch milliseconds. */
 export function formatTime(ms: number): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms))
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+    new Date(ms),
+  )
 }
 
 /**

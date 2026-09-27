@@ -58,11 +58,16 @@ export function workbuddyCatalogPath(filename: string = WORKBUDDY_CATALOG_FILENA
 function isModel(value: unknown): value is WorkBuddyUpstreamModel {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const row = value as Record<string, unknown>
-  return typeof row['id'] === 'string' && row['id'] !== ''
-    && typeof row['name'] === 'string'
-    && typeof row['contextWindow'] === 'number' && Number.isFinite(row['contextWindow'])
-    && typeof row['maxTokens'] === 'number' && Number.isFinite(row['maxTokens'])
-    && typeof row['supportsImages'] === 'boolean'
+  return (
+    typeof row['id'] === 'string' &&
+    row['id'] !== '' &&
+    typeof row['name'] === 'string' &&
+    typeof row['contextWindow'] === 'number' &&
+    Number.isFinite(row['contextWindow']) &&
+    typeof row['maxTokens'] === 'number' &&
+    Number.isFinite(row['maxTokens']) &&
+    typeof row['supportsImages'] === 'boolean'
+  )
 }
 
 /** Whether a parsed value is a saved catalog this reader can trust. */
@@ -71,7 +76,8 @@ function isSaved(value: unknown): value is SavedCatalog {
   const entry = value as Record<string, unknown>
   if (typeof entry['account'] !== 'string' || entry['account'] === '') return false
   if (typeof entry['source'] !== 'string' || entry['source'] === '') return false
-  if (typeof entry['fetchedAtMs'] !== 'number' || !Number.isFinite(entry['fetchedAtMs'])) return false
+  if (typeof entry['fetchedAtMs'] !== 'number' || !Number.isFinite(entry['fetchedAtMs']))
+    return false
   const models = entry['models']
   if (!Array.isArray(models) || models.length === 0) return false
   return models.every(isModel)
@@ -95,9 +101,7 @@ export class WorkBuddyCatalogStore {
   private entries: Record<string, SavedCatalog> | undefined
 
   constructor(options: WorkBuddyCatalogStoreOptions | string = {}) {
-    this.path = typeof options === 'string'
-      ? options
-      : options.path ?? workbuddyCatalogPath()
+    this.path = typeof options === 'string' ? options : (options.path ?? workbuddyCatalogPath())
   }
 
   /** Resolved state-file path, for the CLI and tests. */
@@ -113,7 +117,8 @@ export class WorkBuddyCatalogStore {
         const parsed: unknown = JSON.parse(readFileSync(this.path, 'utf8'))
         if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
           const document = parsed as Record<string, unknown>
-          const raw = document['version'] === CATALOG_FORMAT_VERSION ? document['entries'] : undefined
+          const raw =
+            document['version'] === CATALOG_FORMAT_VERSION ? document['entries'] : undefined
           if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
             for (const [key, value] of Object.entries(raw)) {
               if (isSaved(value)) entries[key] = value

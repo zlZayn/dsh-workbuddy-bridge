@@ -10,9 +10,13 @@
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
-  SettingsFormModel, settingsTextField,
-  type SettingsFieldSpec, type SettingsFieldState, type SettingsFormActions,
-  type SettingsFormScope, type SettingsFormShell,
+  SettingsFormModel,
+  settingsTextField,
+  type SettingsFieldSpec,
+  type SettingsFieldState,
+  type SettingsFormActions,
+  type SettingsFormScope,
+  type SettingsFormShell,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** The configuration values this plugin's page edits. */
@@ -47,10 +51,12 @@ export interface WorkBuddyConfigFace extends SettingsFormActions {
 function settingsBooleanField(field: string): SettingsFieldSpec {
   return {
     field,
-    format: value => value === true ? 'true' : 'false',
-    parse: text => {
+    format: (value) => (value === true ? 'true' : 'false'),
+    parse: (text) => {
       const trimmed = text.trim()
-      return trimmed === 'true' || trimmed === 'false' ? { kind: 'set', value: trimmed === 'true' } : undefined
+      return trimmed === 'true' || trimmed === 'false'
+        ? { kind: 'set', value: trimmed === 'true' }
+        : undefined
     },
   }
 }
@@ -86,5 +92,7 @@ export class WorkBuddyConfigController {
   }
 
   /** Release the form's subscriptions. */
-  dispose(): void { this.form.dispose() }
+  dispose(): void {
+    this.form.dispose()
+  }
 }

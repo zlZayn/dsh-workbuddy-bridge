@@ -16,9 +16,17 @@
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
-import { WorkBuddyCredentialStore, type WorkBuddyCredential, type WorkBuddyStoreOptions } from './credential/store.ts'
+import {
+  WorkBuddyCredentialStore,
+  type WorkBuddyCredential,
+  type WorkBuddyStoreOptions,
+} from './credential/store.ts'
 import { WorkBuddyAtRestKeyProvider, cnAppDiscovery } from './credential/at-rest.ts'
-import { FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS, WorkBuddyCatalog } from './catalog/index.ts'
+import {
+  FALLBACK_WORKBUDDY_AI_MODELS,
+  FALLBACK_WORKBUDDY_MODELS,
+  WorkBuddyCatalog,
+} from './catalog/index.ts'
 import { workbuddyCatalogPath, WorkBuddyCatalogStore } from './catalog/store.ts'
 import { WorkBuddyVisibilityStore, workbuddyVisibilityPath } from './catalog/visibility.ts'
 import { createWorkBuddyAdapter } from './llm/adapter.ts'
@@ -34,7 +42,12 @@ import { clearHostHeartbeat, writeHostHeartbeat } from './web/heartbeat.ts'
 import { WORKBUDDY_BRIDGE_VERSION } from './version.ts'
 import { CN_VARIANT, WORKBUDDY_VARIANTS, type WorkBuddyVariant } from './variants.ts'
 
-export { WORKBUDDY_PROVIDER, WORKBUDDY_STREAM_IDLE_TIMEOUT_MS, createWorkBuddyAdapter, type WorkBuddyAdapter } from './llm/adapter.ts'
+export {
+  WORKBUDDY_PROVIDER,
+  WORKBUDDY_STREAM_IDLE_TIMEOUT_MS,
+  createWorkBuddyAdapter,
+  type WorkBuddyAdapter,
+} from './llm/adapter.ts'
 export { createWorkBuddyShim, type WorkBuddyShim } from './llm/shim.ts'
 export {
   FALLBACK_WORKBUDDY_AI_MODELS,
@@ -145,7 +158,6 @@ export const name = 'llm-workbuddy'
 /** The model registry required before the provider can register. */
 export const inject = ['llm']
 
-
 /**
  * How often the credential files are re-checked, in milliseconds.
  *
@@ -214,16 +226,32 @@ export interface Config {
 }
 
 /** Explicit CN desktop auth-file path (shared by the plugin schema and its section). */
-const AUTH_FILE_FIELD = z.string().default('').volatile()
-  .description('WorkBuddy desktop auth file (defaults to the app\'s own location)')
+const AUTH_FILE_FIELD = z
+  .string()
+  .default('')
+  .volatile()
+  .description("WorkBuddy desktop auth file (defaults to the app's own location)")
 /** Explicit international desktop auth-file path (shared by the plugin schema and its section). */
-const AUTH_FILE_AI_FIELD = z.string().default('').volatile()
-  .description('WorkBuddy AI desktop auth file (defaults to the app\'s own location)')
+const AUTH_FILE_AI_FIELD = z
+  .string()
+  .default('')
+  .volatile()
+  .description("WorkBuddy AI desktop auth file (defaults to the app's own location)")
 /** Probe authorization (shared by the plugin schema and the CN section). */
-const PROBE_CONSENT_FIELD = z.boolean().default(false).volatile()
-  .description('Authorize reasoning-effort probes (each probe sends real requests that may consume credit)')
-const MAXIMUM_CONTEXT_WINDOW_FIELD = z.boolean().default(true).volatile()
-  .description('Use the largest context window declared by WorkBuddy AI when alternatives are available (on by default)')
+const PROBE_CONSENT_FIELD = z
+  .boolean()
+  .default(false)
+  .volatile()
+  .description(
+    'Authorize reasoning-effort probes (each probe sends real requests that may consume credit)',
+  )
+const MAXIMUM_CONTEXT_WINDOW_FIELD = z
+  .boolean()
+  .default(true)
+  .volatile()
+  .description(
+    'Use the largest context window declared by WorkBuddy AI when alternatives are available (on by default)',
+  )
 
 /**
  * Every field is `.volatile()`, and both reasons matter:
@@ -379,7 +407,9 @@ function credentialIdentity(credential: Pick<WorkBuddyCredential, 'uid' | 'enter
  * route explains the refusal — which is the only honest degradation: it never
  * applies one account's hidden list to another.
  */
-export function visibilityAccountOf(credential: Pick<WorkBuddyCredential, 'uid' | 'enterpriseId'>): string | undefined {
+export function visibilityAccountOf(
+  credential: Pick<WorkBuddyCredential, 'uid' | 'enterpriseId'>,
+): string | undefined {
   return credential.uid === '' ? undefined : credentialIdentity(credential)
 }
 
@@ -423,13 +453,14 @@ function createVariantRuntime(
   const configured = configuredAuthFile(config, variant)
   const store = new WorkBuddyCredentialStore({
     variant,
-    ...configured === undefined ? {} : { desktopPath: configured },
-    ...keyProvider === undefined ? {} : { keyProvider },
-    refresh: credential => client.refreshToken(credential),
+    ...(configured === undefined ? {} : { desktopPath: configured }),
+    ...(keyProvider === undefined ? {} : { keyProvider }),
+    refresh: (credential) => client.refreshToken(credential),
   })
   const fallback = fallbackFor(variant)
   const catalog = new WorkBuddyCatalog(fallback)
-  if (variant.id !== CN_VARIANT.id) catalog.setUseMaximumContextWindow(config.useMaximumContextWindow === true)
+  if (variant.id !== CN_VARIANT.id)
+    catalog.setUseMaximumContextWindow(config.useMaximumContextWindow === true)
   // Start hidden: a variant must serve no models until an account has actually
   // been adopted, so a signed-out variant is empty rather than showing a roster
   // whose models could only fail. `adoptIdentity` is what reveals it, and it
@@ -443,9 +474,7 @@ function createVariantRuntime(
   // One file per variant, for the same reason the probe records are split: the
   // two endpoints disagree about rates and windows for shared model ids, so a
   // saved CN roster must never be served as an international one.
-  const savedCatalogs = new WorkBuddyCatalogStore(
-    workbuddyCatalogPath(variant.catalogFilename),
-  )
+  const savedCatalogs = new WorkBuddyCatalogStore(workbuddyCatalogPath(variant.catalogFilename))
   const visibilityStore = new WorkBuddyVisibilityStore(
     workbuddyVisibilityPath(variant.visibilityFilename),
   )
@@ -492,9 +521,9 @@ function catalogSection(runtime: VariantRuntime): WorkBuddyWebCatalog {
     source: runtime.catalogSource,
     // The served catalog's own fetch time, which for a saved list is when it
     // was fetched, not when the process started.
-    ...runtime.catalogFetchedAtMs === undefined ? {} : { fetchedAt: runtime.catalogFetchedAtMs },
-    ...fetch?.appVersion === undefined ? {} : { appVersion: fetch.appVersion.version },
-    ...runtime.catalogError === undefined ? {} : { error: runtime.catalogError },
+    ...(runtime.catalogFetchedAtMs === undefined ? {} : { fetchedAt: runtime.catalogFetchedAtMs }),
+    ...(fetch?.appVersion === undefined ? {} : { appVersion: fetch.appVersion.version }),
+    ...(runtime.catalogError === undefined ? {} : { error: runtime.catalogError }),
   }
 }
 
@@ -523,21 +552,23 @@ function probeSection(runtime: VariantRuntime, consent: boolean): WorkBuddyWebPr
   // one would have the card promise levels the model picker does not offer. A
   // model the upstream dropped leaves the catalog entirely, so it drops out
   // here too.
-  const results = models.flatMap(info => {
+  const results = models.flatMap((info) => {
     const record = runtime.probeService.recordFor(info.id)
     if (record === undefined) return []
-    return [{
-      id: info.id,
-      name: info.name,
-      validation: record.validation,
-      efforts: record.efforts,
-      probedAt: record.probedAtMs,
-    }]
+    return [
+      {
+        id: info.id,
+        name: info.name,
+        validation: record.validation,
+        efforts: record.efforts,
+        probedAt: record.probedAtMs,
+      },
+    ]
   })
   return {
     consent,
     running: runtime.probeService.isRunning(),
-    candidates: models.filter(isProbeCandidate).map(info => info.id),
+    candidates: models.filter(isProbeCandidate).map((info) => info.id),
     // Newest first: a detection the user just ran belongs at the top, not
     // appended below every earlier one.
     results: newestFirst(results),
@@ -560,7 +591,10 @@ async function startVariant(ctx: Context, runtime: VariantRuntime): Promise<bool
   try {
     await shim.ready
   } catch (error: unknown) {
-    ctx.logger.error(`dsh-workbuddy-bridge: ${variant.displayName} loopback endpoint failed to start`, error)
+    ctx.logger.error(
+      `dsh-workbuddy-bridge: ${variant.displayName} loopback endpoint failed to start`,
+      error,
+    )
     return false
   }
 
@@ -574,7 +608,7 @@ async function startVariant(ctx: Context, runtime: VariantRuntime): Promise<bool
       store,
       catalog,
       resolveAttachments: () => ctx.get('attachments'),
-      observe: modelId => probeService.recordFor(modelId),
+      observe: (modelId) => probeService.recordFor(modelId),
       // Hidden ids resolve per read from the store by the *current* account:
       // an account switch or a toggle changes the answer after the next
       // invalidate, and a signed-out or uid-less variant hides nothing.
@@ -615,7 +649,10 @@ async function startVariant(ctx: Context, runtime: VariantRuntime): Promise<bool
     runtime.registered = true
     return true
   } catch (error: unknown) {
-    ctx.logger.error(`dsh-workbuddy-bridge: ${variant.displayName} provider registration failed`, error)
+    ctx.logger.error(
+      `dsh-workbuddy-bridge: ${variant.displayName} provider registration failed`,
+      error,
+    )
     void shim.close()
     return false
   }
@@ -673,13 +710,15 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     new WorkBuddyAtRestKeyProvider({
       discovery: variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none',
     })
-  const runtimes = WORKBUDDY_VARIANTS.map(variant => createVariantRuntime(
-    config(),
-    variant,
-    id => lastIdentities.get(id),
-    id => lastAccounts.get(id),
-    atRestKeysFor(variant),
-  ))
+  const runtimes = WORKBUDDY_VARIANTS.map((variant) =>
+    createVariantRuntime(
+      config(),
+      variant,
+      (id) => lastIdentities.get(id),
+      (id) => lastAccounts.get(id),
+      atRestKeysFor(variant),
+    ),
+  )
 
   // Same-origin routes backing each Plugin-configuration card; the webServer
   // service is optional (a headless profile serves no browser).
@@ -709,7 +748,11 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
    * also when the credential carries no uid); stored alongside the identity so
    * preference reads never guess it from the identity string.
    */
-  const adoptIdentity = (runtime: VariantRuntime, identity: string | undefined, account: string | undefined): void => {
+  const adoptIdentity = (
+    runtime: VariantRuntime,
+    identity: string | undefined,
+    account: string | undefined,
+  ): void => {
     const id = runtime.variant.id
     const known = lastIdentities.get(id)
     if (known === identity) return
@@ -763,7 +806,7 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     runtime.invalidate()
   }
 
-  ctx.inject(['webServer'], webCtx => {
+  ctx.inject(['webServer'], (webCtx) => {
     for (const runtime of runtimes) {
       registerWorkBuddyStatusRoute(webCtx, {
         path: runtime.variant.statusPath,
@@ -785,79 +828,93 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
         // Reported as a fact, not edited from here: the preference is a
         // configuration field now, and the card points at the settings page
         // rather than writing a second, competing copy of it.
-        ...runtime.variant.id === CN_VARIANT.id ? {} : {
-          useMaximumContextWindow: () => config().useMaximumContextWindow,
-        },
+        ...(runtime.variant.id === CN_VARIANT.id
+          ? {}
+          : {
+              useMaximumContextWindow: () => config().useMaximumContextWindow,
+            }),
       })
-      registerWorkBuddyProbeRoute(webCtx, {
-        path: runtime.variant.probePath,
-        probe: async modelId => {
-          // The authenticated manual endpoint is called only after per-model confirmation.
-          const result = await runtime.probeService.probe(modelId, true)
-          if (result.state === 'ok') runtime.invalidate()
-          return result
-        },
-        clear: () => { runtime.probeStore.clear(); runtime.invalidate() },
-        refresh: async () => {
-          if (stopped) return { state: 'failed', reason: 'plugin is stopping' }
-          // Re-read the credential first: the user pressed this because the list
-          // looks wrong, and a sign-in that happened since the last sweep is the
-          // common cause. Re-registering is unnecessary — visibility is what
-          // changes, and the sweep owns that.
-          let credential
-          try {
-            credential = await runtime.store.current()
-          } catch (error: unknown) {
-            // A refused credential (wrong region, unreadable file) is a report,
-            // not a crash out of the route.
-            return {
-              state: 'failed',
-              reason: error instanceof Error ? error.message.slice(0, 300) : String(error),
+      registerWorkBuddyProbeRoute(
+        webCtx,
+        {
+          path: runtime.variant.probePath,
+          probe: async (modelId) => {
+            // The authenticated manual endpoint is called only after per-model confirmation.
+            const result = await runtime.probeService.probe(modelId, true)
+            if (result.state === 'ok') runtime.invalidate()
+            return result
+          },
+          clear: () => {
+            runtime.probeStore.clear()
+            runtime.invalidate()
+          },
+          refresh: async () => {
+            if (stopped) return { state: 'failed', reason: 'plugin is stopping' }
+            // Re-read the credential first: the user pressed this because the list
+            // looks wrong, and a sign-in that happened since the last sweep is the
+            // common cause. Re-registering is unnecessary — visibility is what
+            // changes, and the sweep owns that.
+            let credential
+            try {
+              credential = await runtime.store.current()
+            } catch (error: unknown) {
+              // A refused credential (wrong region, unreadable file) is a report,
+              // not a crash out of the route.
+              return {
+                state: 'failed',
+                reason: error instanceof Error ? error.message.slice(0, 300) : String(error),
+              }
             }
-          }
-          if (credential === undefined) {
-            adoptIdentity(runtime, undefined, undefined)
-            return { state: 'signed-out' }
-          }
-          const identity = credentialIdentity(credential)
-          // Same transition the sweep performs: a switch reached through the
-          // manual path must drop the previous account's data *now*, not when
-          // the fetch lands, or a failed fetch leaves those models pickable.
-          adoptIdentity(runtime, identity, visibilityAccountOf(credential))
-          await fetchCatalog(runtime, identity)
-          return runtime.catalogError === undefined
-            ? { state: 'refreshed', reason: `${runtime.catalog.current().length} models` }
-            : { state: 'failed', reason: runtime.catalogError }
+            if (credential === undefined) {
+              adoptIdentity(runtime, undefined, undefined)
+              return { state: 'signed-out' }
+            }
+            const identity = credentialIdentity(credential)
+            // Same transition the sweep performs: a switch reached through the
+            // manual path must drop the previous account's data *now*, not when
+            // the fetch lands, or a failed fetch leaves those models pickable.
+            adoptIdentity(runtime, identity, visibilityAccountOf(credential))
+            await fetchCatalog(runtime, identity)
+            return runtime.catalogError === undefined
+              ? { state: 'refreshed', reason: `${runtime.catalog.current().length} models` }
+              : { state: 'failed', reason: runtime.catalogError }
+          },
+          setModelVisibility: async (modelId, visible, expectedAccount) => {
+            // Refused rather than bucketed: a signed-out variant, or a
+            // credential with no uid, has no account to key the preference by,
+            // and writing it anywhere else would let one account's hidden list
+            // answer for another.
+            const account = runtime.account()
+            if (account === undefined) {
+              return {
+                state: 'failed',
+                reason: 'model visibility needs a signed-in account with a stable user id',
+              }
+            }
+            // Expected-account guard: the card names the account its checkboxes
+            // were rendered from. A card still showing account A while the
+            // desktop has already switched to B must not land A's toggle in B's
+            // bucket — refuse, and the card refreshes into B's own section.
+            if (expectedAccount !== account) {
+              return { state: 'stale-account', reason: 'the signed-in account changed' }
+            }
+            try {
+              runtime.visibilityStore.setVisible(account, modelId, visible)
+            } catch (error: unknown) {
+              // A toggle that did not persist must not be reported as saved.
+              return {
+                state: 'failed',
+                reason: error instanceof Error ? error.message.slice(0, 300) : String(error),
+              }
+            }
+            runtime.invalidate()
+            return { state: 'updated' }
+          },
         },
-        setModelVisibility: async (modelId, visible, expectedAccount) => {
-          // Refused rather than bucketed: a signed-out variant, or a
-          // credential with no uid, has no account to key the preference by,
-          // and writing it anywhere else would let one account's hidden list
-          // answer for another.
-          const account = runtime.account()
-          if (account === undefined) {
-            return { state: 'failed', reason: 'model visibility needs a signed-in account with a stable user id' }
-          }
-          // Expected-account guard: the card names the account its checkboxes
-          // were rendered from. A card still showing account A while the
-          // desktop has already switched to B must not land A's toggle in B's
-          // bucket — refuse, and the card refreshes into B's own section.
-          if (expectedAccount !== account) {
-            return { state: 'stale-account', reason: 'the signed-in account changed' }
-          }
-          try {
-            runtime.visibilityStore.setVisible(account, modelId, visible)
-          } catch (error: unknown) {
-            // A toggle that did not persist must not be reported as saved.
-            return { state: 'failed', reason: error instanceof Error ? error.message.slice(0, 300) : String(error) }
-          }
-          runtime.invalidate()
-          return { state: 'updated' }
-        },
-      }, probeKey)
+        probeKey,
+      )
     }
   })
-
 
   ctx.effect(() => () => {
     stopped = true
@@ -888,7 +945,11 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
   const fetchCatalog = async (runtime: VariantRuntime, identity: string): Promise<void> => {
     const inflight = runtime.inflightFetch
     const generation = runtime.catalogGeneration
-    if (inflight !== undefined && inflight.identity === identity && inflight.generation === generation) {
+    if (
+      inflight !== undefined &&
+      inflight.identity === identity &&
+      inflight.generation === generation
+    ) {
       return inflight.promise
     }
     // A caller should normally reach this only after `adoptIdentity()` has
@@ -916,7 +977,11 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
         const latest = await runtime.store.current()
         const latestIdentity = latest === undefined ? undefined : credentialIdentity(latest)
         if (latestIdentity !== identity) {
-          adoptIdentity(runtime, latestIdentity, latest === undefined ? undefined : visibilityAccountOf(latest))
+          adoptIdentity(
+            runtime,
+            latestIdentity,
+            latest === undefined ? undefined : visibilityAccountOf(latest),
+          )
           if (latestIdentity !== undefined) await fetchCatalog(runtime, latestIdentity)
           return
         }
@@ -947,9 +1012,9 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
           source: runtime.client.lastCatalog?.source ?? 'unknown',
           fetchedAtMs: runtime.client.lastCatalog?.fetchedAtMs ?? Date.now(),
           models: [...models],
-          ...runtime.client.lastCatalog?.appVersion === undefined
+          ...(runtime.client.lastCatalog?.appVersion === undefined
             ? {}
-            : { appVersion: runtime.client.lastCatalog.appVersion.version },
+            : { appVersion: runtime.client.lastCatalog.appVersion.version }),
         })
       }
       runtime.invalidate()
@@ -979,7 +1044,10 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     const credential = await runtime.store.current().catch((error: unknown) => {
       // A region mismatch or an unreadable file is reported, not swallowed as
       // "signed out": the user needs to know which file to fix.
-      ctx.logger.warn(`dsh-workbuddy-bridge: ${runtime.variant.displayName} credential read failed`, error)
+      ctx.logger.warn(
+        `dsh-workbuddy-bridge: ${runtime.variant.displayName} credential read failed`,
+        error,
+      )
       return undefined
     })
     if (stopped) return
@@ -1013,17 +1081,19 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     for (const runtime of runtimes) await syncVariant(runtime)
   }
 
-  void Promise.all(runtimes.map(async runtime => startVariant(ctx, runtime))).then(() => {
+  void Promise.all(runtimes.map(async (runtime) => startVariant(ctx, runtime))).then(() => {
     if (stopped) return
     // The host bundle is live: write a heartbeat so the status CLI can report
     // host health without a browser. Cleared on disposal; a stale heartbeat
     // after a crash is detected by PID in the reader. Written when at least one
     // variant registered, since that is what "the host bundle serves models"
     // means for this plugin.
-    if (runtimes.some(runtime => runtime.registered)) void writeHostHeartbeat()
+    if (runtimes.some((runtime) => runtime.registered)) void writeHostHeartbeat()
 
     void syncAll()
-    const timer = setInterval(() => { void syncAll() }, credentialPollMs())
+    const timer = setInterval(() => {
+      void syncAll()
+    }, credentialPollMs())
     timer.unref?.()
     timers.push(timer)
   })

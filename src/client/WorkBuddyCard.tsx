@@ -10,7 +10,12 @@
  */
 
 import { useId, useState, type ReactNode } from 'react'
-import { Button, DisclosureRow, SegmentedTabs, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button,
+  DisclosureRow,
+  SegmentedTabs,
+  StateDot,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SegmentedTab, StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AssistBlock, CreditsPanel, ModelsPanel, ProbePanel, assistCodeFor } from './panels.tsx'
 import { formatCycleReset, formatNumber, formatTime } from './format.ts'
@@ -41,7 +46,9 @@ function dotState(status: WorkBuddyWebStatus | undefined): StateDotState {
 function accountLabel(status: WorkBuddyWebStatus | undefined, t: WorkBuddyTranslate): string {
   if (status === undefined) return t('loading')
   if (status.status === 'signed-in') {
-    return status.nickname === undefined ? t('signedIn') : t('signedInAs', { nickname: status.nickname })
+    return status.nickname === undefined
+      ? t('signedIn')
+      : t('signedInAs', { nickname: status.nickname })
   }
   return status.status === 'error' ? t('requestFailed') : t('signedOut')
 }
@@ -52,31 +59,62 @@ function catalogProvenance(
   t: WorkBuddyTranslate,
 ): string {
   const when = catalog.fetchedAt === undefined ? undefined : formatTime(catalog.fetchedAt)
-  const line = catalog.source === 'live' && when !== undefined
-    ? t('catalogLive', { time: when })
-    : catalog.source === 'saved' && when !== undefined
-      ? t('catalogSaved', { time: when })
-      : t('catalogFallback')
-  return catalog.appVersion === undefined ? line : `${line} · ${t('catalogAppVersion', { version: catalog.appVersion })}`
+  const line =
+    catalog.source === 'live' && when !== undefined
+      ? t('catalogLive', { time: when })
+      : catalog.source === 'saved' && when !== undefined
+        ? t('catalogSaved', { time: when })
+        : t('catalogFallback')
+  return catalog.appVersion === undefined
+    ? line
+    : `${line} · ${t('catalogAppVersion', { version: catalog.appVersion })}`
 }
 
 /** Render one variant's live status card. */
-export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t: WorkBuddyTranslate }): ReactNode {
+export function WorkBuddyCard({
+  variant,
+  t,
+}: {
+  variant: WorkBuddyCardVariant
+  t: WorkBuddyTranslate
+}): ReactNode {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<CardTab>('credits')
-  const { status, readFailure, busy, toggling, refresh, refreshModels, detect, clearDetections, setVisibility } =
-    useWorkBuddyStatus(variant, t)
+  const {
+    status,
+    readFailure,
+    busy,
+    toggling,
+    refresh,
+    refreshModels,
+    detect,
+    clearDetections,
+    setVisibility,
+  } = useWorkBuddyStatus(variant, t)
   const baseId = useId()
   const creditsTab: SegmentedTab<CardTab> = {
-    value: 'credits', label: t('tabCredits'), id: `${baseId}-tab-credits`, panelId: `${baseId}-panel-credits`,
+    value: 'credits',
+    label: t('tabCredits'),
+    id: `${baseId}-tab-credits`,
+    panelId: `${baseId}-panel-credits`,
   }
   const modelsTab: SegmentedTab<CardTab> = {
-    value: 'models', label: t('tabModels'), id: `${baseId}-tab-models`, panelId: `${baseId}-panel-models`,
+    value: 'models',
+    label: t('tabModels'),
+    id: `${baseId}-tab-models`,
+    panelId: `${baseId}-panel-models`,
   }
   const probeTab: SegmentedTab<CardTab> = {
-    value: 'probe', label: t('tabProbe'), id: `${baseId}-tab-probe`, panelId: `${baseId}-panel-probe`,
+    value: 'probe',
+    label: t('tabProbe'),
+    id: `${baseId}-tab-probe`,
+    panelId: `${baseId}-panel-probe`,
   }
-  const tabs: readonly [SegmentedTab<CardTab>, ...SegmentedTab<CardTab>[]] = [creditsTab, modelsTab, probeTab]
+  const tabs: readonly [SegmentedTab<CardTab>, ...SegmentedTab<CardTab>[]] = [
+    creditsTab,
+    modelsTab,
+    probeTab,
+  ]
 
   /**
    * The failure the assist block covers, when this document has one. Computed
@@ -98,13 +136,15 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
       open={open}
       expandable
       expandOnRowClick
-      onToggle={() => { setOpen(!open) }}
-      collapsedContent={(
+      onToggle={() => {
+        setOpen(!open)
+      }}
+      collapsedContent={
         <span className={css.statusLine} role="status" aria-busy={status === undefined}>
           <StateDot state={dotState(status)} />
           <span>{accountLabel(status, t)}</span>
         </span>
-      )}
+      }
     >
       <div className={css.body}>
         <div className={css.section}>
@@ -115,25 +155,31 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
                 action that belongs to that fact. */}
             {/* The assist block carries the re-check in its state, so the
                 refresh button steps aside rather than duplicating it. */}
-            {assistCode === undefined
-              ? (
-                <Button size="sm" disabled={busy} onClick={() => { void refresh() }}>
-                  {busy ? t('refreshing') : t('refresh')}
-                </Button>
-              )
-              : null}
+            {assistCode === undefined ? (
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  void refresh()
+                }}
+              >
+                {busy ? t('refreshing') : t('refresh')}
+              </Button>
+            ) : null}
           </div>
           {/*
-            * A failed read is reported beside the document still on screen,
-            * never in place of it: blanking the card over one transient error
-            * loses the account, credits and model list the user was reading.
-            */}
-          {readFailure === undefined || status === undefined
-            ? null
-            : <p className={css.error}>{t('statusRefreshFailed', { message: readFailure })}</p>}
-          {signedIn?.expiresAt === undefined
-            ? null
-            : <p className={css.text}>{t('accessTokenExpires', { time: formatTime(signedIn.expiresAt) })}</p>}
+           * A failed read is reported beside the document still on screen,
+           * never in place of it: blanking the card over one transient error
+           * loses the account, credits and model list the user was reading.
+           */}
+          {readFailure === undefined || status === undefined ? null : (
+            <p className={css.error}>{t('statusRefreshFailed', { message: readFailure })}</p>
+          )}
+          {signedIn?.expiresAt === undefined ? null : (
+            <p className={css.text}>
+              {t('accessTokenExpires', { time: formatTime(signedIn.expiresAt) })}
+            </p>
+          )}
         </div>
 
         {signedIn === undefined ? null : (
@@ -144,100 +190,124 @@ export function WorkBuddyCard({ variant, t }: { variant: WorkBuddyCardVariant; t
             {signedIn.catalog === undefined ? null : (
               <div className={css.row}>
                 <span className={css.text}>{catalogProvenance(signedIn.catalog, t)}</span>
-                <Button size="sm" disabled={busy} onClick={() => { void refreshModels() }}>
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    void refreshModels()
+                  }}
+                >
                   {busy ? t('refreshingModels') : t('refreshModels')}
                 </Button>
               </div>
             )}
-            {signedIn.catalog?.error === undefined
-              ? null
-              : <p className={css.error}>{t('catalogError', { message: signedIn.catalog.error })}</p>}
+            {signedIn.catalog?.error === undefined ? null : (
+              <p className={css.error}>{t('catalogError', { message: signedIn.catalog.error })}</p>
+            )}
 
-            <SegmentedTabs
-              items={tabs}
-              value={tab}
-              onChange={setTab}
-              label={t('tabLabel')}
-            />
+            <SegmentedTabs items={tabs} value={tab} onChange={setTab} label={t('tabLabel')} />
 
-            {tab === 'credits'
-              ? (
-                <div className={css.section} id={creditsTab.panelId} role="tabpanel" aria-labelledby={creditsTab.id}>
-                  {signedIn.credits === undefined ? null : (
-                    <div className={css.section}>
-                      <div className={css.row}>
-                        {/* `unlimited` first: the placeholder total is 0 and
+            {tab === 'credits' ? (
+              <div
+                className={css.section}
+                id={creditsTab.panelId}
+                role="tabpanel"
+                aria-labelledby={creditsTab.id}
+              >
+                {signedIn.credits === undefined ? null : (
+                  <div className={css.section}>
+                    <div className={css.row}>
+                      {/* `unlimited` first: the placeholder total is 0 and
                             rendering it would claim the quota is exhausted. */}
-                        <span className={css.title}>{signedIn.credits.unlimited === true
+                      <span className={css.title}>
+                        {signedIn.credits.unlimited === true
                           ? t('creditsTotalUnlimited')
-                          : t('creditsTotal', { total: formatNumber(signedIn.credits.total) })}</span>
-                      </div>
-                      {signedIn.credits.cycleResetTime === undefined ? null : (
-                        <p className={css.dim}>
-                          {t('cycleResetAt', { time: formatCycleReset(signedIn.credits.cycleResetTime) })}
-                        </p>
-                      )}
+                          : t('creditsTotal', { total: formatNumber(signedIn.credits.total) })}
+                      </span>
                     </div>
-                  )}
-                  {signedIn.credits === undefined ? null : <CreditsPanel credits={signedIn.credits} t={t} />}
-                  {signedIn.creditsError === undefined
-                    ? null
-                    : <p className={css.error}>{t('creditsError', { message: signedIn.creditsError })}</p>}
-                </div>
-              )
-              : tab === 'models'
-                ? (
-                  <div className={css.section} id={modelsTab.panelId} role="tabpanel" aria-labelledby={modelsTab.id}>
-                    <ModelsPanel
-                      models={signedIn.models}
-                      visibility={signedIn.visibility}
-                      toggling={toggling}
-                      disabled={busy}
-                      t={t}
-                      onToggle={(model, visible, account) => { void setVisibility(model, visible, account) }}
-                    />
-                  </div>
-                )
-                : (
-                  <div className={css.section} id={probeTab.panelId} role="tabpanel" aria-labelledby={probeTab.id}>
-                    {signedIn.probe === undefined
-                      ? null
-                      : (
-                        <ProbePanel
-                          probe={signedIn.probe}
-                          models={signedIn.models}
-                          busy={busy}
-                          t={t}
-                          onDetect={model => { void detect(model) }}
-                          onClear={() => { void clearDetections() }}
-                        />
-                      )}
+                    {signedIn.credits.cycleResetTime === undefined ? null : (
+                      <p className={css.dim}>
+                        {t('cycleResetAt', {
+                          time: formatCycleReset(signedIn.credits.cycleResetTime),
+                        })}
+                      </p>
+                    )}
                   </div>
                 )}
+                {signedIn.credits === undefined ? null : (
+                  <CreditsPanel credits={signedIn.credits} t={t} />
+                )}
+                {signedIn.creditsError === undefined ? null : (
+                  <p className={css.error}>
+                    {t('creditsError', { message: signedIn.creditsError })}
+                  </p>
+                )}
+              </div>
+            ) : tab === 'models' ? (
+              <div
+                className={css.section}
+                id={modelsTab.panelId}
+                role="tabpanel"
+                aria-labelledby={modelsTab.id}
+              >
+                <ModelsPanel
+                  models={signedIn.models}
+                  visibility={signedIn.visibility}
+                  toggling={toggling}
+                  disabled={busy}
+                  t={t}
+                  onToggle={(model, visible, account) => {
+                    void setVisibility(model, visible, account)
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                className={css.section}
+                id={probeTab.panelId}
+                role="tabpanel"
+                aria-labelledby={probeTab.id}
+              >
+                {signedIn.probe === undefined ? null : (
+                  <ProbePanel
+                    probe={signedIn.probe}
+                    models={signedIn.models}
+                    busy={busy}
+                    t={t}
+                    onDetect={(model) => {
+                      void detect(model)
+                    }}
+                    onClear={() => {
+                      void clearDetections()
+                    }}
+                  />
+                )}
+              </div>
+            )}
           </>
         )}
 
-        {status?.status === 'signed-out'
+        {status?.status === 'signed-out' ? (
           // A mismatch explanation replaces the generic hint: telling a user to
           // "sign in" is wrong advice when a credential was found and rejected
           // for belonging to the other product.
-          ? (
-            <>
-              <p className={status.reason === undefined ? css.text : css.error}>
-                {status.reason ?? t(variant.signedOutKey)}
-              </p>
-              {assistCode === undefined ? null : (
-                <AssistBlock
-                  variant={variant}
-                  code={assistCode}
-                  busy={busy}
-                  t={t}
-                  onRecheck={() => { void refresh() }}
-                />
-              )}
-            </>
-          )
-          : null}
+          <>
+            <p className={status.reason === undefined ? css.text : css.error}>
+              {status.reason ?? t(variant.signedOutKey)}
+            </p>
+            {assistCode === undefined ? null : (
+              <AssistBlock
+                variant={variant}
+                code={assistCode}
+                busy={busy}
+                t={t}
+                onRecheck={() => {
+                  void refresh()
+                }}
+              />
+            )}
+          </>
+        ) : null}
         {status?.status === 'error' ? <p className={css.error}>{status.message}</p> : null}
       </div>
     </DisclosureRow>

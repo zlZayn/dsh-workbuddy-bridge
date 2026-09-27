@@ -38,7 +38,15 @@
  * @module dsh-workbuddy-bridge/client/probe-control
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import {
   Button,
@@ -77,7 +85,7 @@ const POPOVER_MARGIN = 12
 /** Pick the model's recorded observation out of the probe section. */
 function resultFor(status: WorkBuddyWebStatus, model: string): WorkBuddyWebProbeModel | undefined {
   if (status.status !== 'signed-in') return undefined
-  return status.probe?.results.find(result => result.id === model)
+  return status.probe?.results.find((result) => result.id === model)
 }
 
 /**
@@ -114,13 +122,17 @@ function tooltipText(
 /** The levels this model accepts, as one line; undefined when there are none to show. */
 function levelsLine(result: WorkBuddyWebProbeModel | undefined): string | undefined {
   if (result === undefined) return undefined
-  if (result.validation === 'validating' && result.efforts.length > 0) return result.efforts.join(' / ')
+  if (result.validation === 'validating' && result.efforts.length > 0)
+    return result.efforts.join(' / ')
   return undefined
 }
 
 /** Model-independent shell: resolves the selection, then delegates per model. */
 export function WorkBuddyProbeControl({ directory, t }: WorkBuddyProbeControlProps): ReactNode {
-  const subscribe = useCallback((listener: () => void) => directory.subscribe(listener), [directory])
+  const subscribe = useCallback(
+    (listener: () => void) => directory.subscribe(listener),
+    [directory],
+  )
   const snapshot = useCallback(() => directory.getSnapshot(), [directory])
   const selection = useSyncExternalStore(subscribe, snapshot, snapshot).current
   const card = selection === undefined ? undefined : cardVariantFor(selection.provider)
@@ -129,10 +141,16 @@ export function WorkBuddyProbeControl({ directory, t }: WorkBuddyProbeControlPro
   // can never read one variant's state while probing the other.
   if (card === undefined || selection === undefined) return null
   // A new selection gets fresh state; a late response cannot target the new model.
-  return <ModelProbe key={`${card.id}:${selection.model}`} model={selection.model} card={card} t={t} />
+  return (
+    <ModelProbe key={`${card.id}:${selection.model}`} model={selection.model} card={card} t={t} />
+  )
 }
 
-function ModelProbe({ model, card, t }: {
+function ModelProbe({
+  model,
+  card,
+  t,
+}: {
   model: string
   card: WorkBuddyCardVariant
   t: WorkBuddyTranslate
@@ -168,31 +186,36 @@ function ModelProbe({ model, card, t }: {
    */
   const panelRef = useRef<HTMLElement>(null)
 
-  const refresh = useCallback(async (signal?: AbortSignal): Promise<void> => {
-    const seq = ++readSeq.current
-    const response = await fetch(card.statusPath, {
-      credentials: 'same-origin',
-      headers: { accept: 'application/json' },
-      ...signal === undefined ? {} : { signal },
-    })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    /*
-     * A 200 does not promise a status document: the body may be empty, literal
-     * `null`, or a non-JSON page. Storing that unchecked would put a value in
-     * state that `resultFor` dereferences on the next render, so it is validated
-     * here with the same predicate the settings card uses. A rejection is left to
-     * the callers below, which already degrade quietly.
-     */
-    const value: unknown = await response.json().catch(() => undefined)
-    if (!isWorkBuddyWebStatus(value)) throw new Error(t('statusResponseInvalid'))
-    if (mounted.current && signal?.aborted !== true && seq === readSeq.current) setStatus(value)
-  }, [card.statusPath, t])
+  const refresh = useCallback(
+    async (signal?: AbortSignal): Promise<void> => {
+      const seq = ++readSeq.current
+      const response = await fetch(card.statusPath, {
+        credentials: 'same-origin',
+        headers: { accept: 'application/json' },
+        ...(signal === undefined ? {} : { signal }),
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      /*
+       * A 200 does not promise a status document: the body may be empty, literal
+       * `null`, or a non-JSON page. Storing that unchecked would put a value in
+       * state that `resultFor` dereferences on the next render, so it is validated
+       * here with the same predicate the settings card uses. A rejection is left to
+       * the callers below, which already degrade quietly.
+       */
+      const value: unknown = await response.json().catch(() => undefined)
+      if (!isWorkBuddyWebStatus(value)) throw new Error(t('statusResponseInvalid'))
+      if (mounted.current && signal?.aborted !== true && seq === readSeq.current) setStatus(value)
+    },
+    [card.statusPath, t],
+  )
 
   useEffect(() => {
     mounted.current = true
     const controller = new AbortController()
     const load = (): void => {
-      void refresh(controller.signal).catch(() => { /* the icon still works without state */ })
+      void refresh(controller.signal).catch(() => {
+        /* the icon still works without state */
+      })
     }
     load()
     // Reconcile detections performed in another conversation or in the card.
@@ -221,7 +244,10 @@ function ModelProbe({ model, card, t }: {
   }, [result])
 
   // A selection change must not strand an open bubble.
-  useEffect(() => { setOpen(false); setFresh(undefined) }, [model])
+  useEffect(() => {
+    setOpen(false)
+    setFresh(undefined)
+  }, [model])
 
   const detect = async (): Promise<void> => {
     if (key === undefined || inFlight.current || probe?.running === true) return
@@ -236,12 +262,18 @@ function ModelProbe({ model, card, t }: {
         headers: { 'Content-Type': 'application/json', 'X-WorkBuddy-Probe-Key': key },
         body: JSON.stringify({ action: 'probe', model }),
       })
-      const body = await response.json() as {
-        state?: string; validation?: string; efforts?: unknown
+      const body = (await response.json()) as {
+        state?: string
+        validation?: string
+        efforts?: unknown
       }
-      if (!response.ok || body.state !== 'ok'
-        || (body.validation !== 'validating' && body.validation !== 'non-validating')
-        || !Array.isArray(body.efforts) || !body.efforts.every(effort => typeof effort === 'string')) {
+      if (
+        !response.ok ||
+        body.state !== 'ok' ||
+        (body.validation !== 'validating' && body.validation !== 'non-validating') ||
+        !Array.isArray(body.efforts) ||
+        !body.efforts.every((effort) => typeof effort === 'string')
+      ) {
         throw new Error('probe failed')
       }
       // This response belongs to the explicit click, even when the host reused
@@ -249,11 +281,16 @@ function ModelProbe({ model, card, t }: {
       // or infer completion from wall-clock timestamps and background polls.
       if (mounted.current) {
         setFresh({
-          id: model, name: model, validation: body.validation as WorkBuddyWebProbeModel['validation'],
-          efforts: body.efforts as string[], probedAt: Date.now(),
+          id: model,
+          name: model,
+          validation: body.validation as WorkBuddyWebProbeModel['validation'],
+          efforts: body.efforts as string[],
+          probedAt: Date.now(),
         })
       }
-      void refresh().catch(() => { /* Credit/status failure does not undo a completed probe. */ })
+      void refresh().catch(() => {
+        /* Credit/status failure does not undo a completed probe. */
+      })
     } catch {
       if (mounted.current) setFailed(true)
     } finally {
@@ -279,7 +316,9 @@ function ModelProbe({ model, card, t }: {
   useDismissOnOutsidePointer(
     rootRef,
     open,
-    () => { setOpen(false) },
+    () => {
+      setOpen(false)
+    },
     panelRef,
   )
 
@@ -315,7 +354,9 @@ function ModelProbe({ model, card, t }: {
           aria-busy={busy}
           aria-expanded={open}
           disabled={disabled}
-          onClick={() => { setOpen(!open) }}
+          onClick={() => {
+            setOpen(!open)
+          }}
         >
           <ProbeIcon lit={lit} />
         </button>
@@ -329,51 +370,68 @@ function ModelProbe({ model, card, t }: {
           any popover — click away, press Escape, or click the icon again. */}
       {open
         ? createPortal(
-          <section
-            ref={panelRef}
-            className={css.panel}
-            style={position ?? MEASURE_STYLE}
-            role="dialog"
-            aria-label={t('probeLabel')}
-          >
-            <div className={css.panelTitle}>
-              <span className={css.panelTitleIcon}><ProbeIcon lit={lit} /></span>
-              <span className={css.panelTitleText}>{model}</span>
-            </div>
+            <section
+              ref={panelRef}
+              className={css.panel}
+              style={position ?? MEASURE_STYLE}
+              role="dialog"
+              aria-label={t('probeLabel')}
+            >
+              <div className={css.panelTitle}>
+                <span className={css.panelTitleIcon}>
+                  <ProbeIcon lit={lit} />
+                </span>
+                <span className={css.panelTitleText}>{model}</span>
+              </div>
 
-            <div className={css.titleRule} aria-hidden />
+              <div className={css.titleRule} aria-hidden />
 
-            <p className={css.levelsLabel}>{t('probePanelLevels')}</p>
-            <p className={css.levels} role="status" aria-live="polite">
-              {levels ?? t('probePanelNone')}
-            </p>
-            {notValidating ? <p className={css.dim}>{t('probePanelNotValidating')}</p> : null}
-            {failed && shown === undefined ? <p className={css.dim}>{t('probePanelFailed')}</p> : null}
+              <p className={css.levelsLabel}>{t('probePanelLevels')}</p>
+              <p className={css.levels} role="status" aria-live="polite">
+                {levels ?? t('probePanelNone')}
+              </p>
+              {notValidating ? <p className={css.dim}>{t('probePanelNotValidating')}</p> : null}
+              {failed && shown === undefined ? (
+                <p className={css.dim}>{t('probePanelFailed')}</p>
+              ) : null}
 
-            {/* The cost note belongs to the action, so it steps aside once the
+              {/* The cost note belongs to the action, so it steps aside once the
                 levels are known and the button only repeats a run. */}
-            {levels === undefined && !notValidating ? (
-              <p className={css.note}>{t('probePanelNote')}</p>
-            ) : null}
+              {levels === undefined && !notValidating ? (
+                <p className={css.note}>{t('probePanelNote')}</p>
+              ) : null}
 
-            <div className={css.panelActions}>
-              <Button size="sm" variant="primary" disabled={disabled} onClick={() => { void detect() }}>
-                {busy ? t('probePanelDetecting') : levels === undefined ? t('probePanelDetect') : t('probePanelRedetect')}
-              </Button>
-            </div>
-          </section>,
-          document.body,
-        )
+              <div className={css.panelActions}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={disabled}
+                  onClick={() => {
+                    void detect()
+                  }}
+                >
+                  {busy
+                    ? t('probePanelDetecting')
+                    : levels === undefined
+                      ? t('probePanelDetect')
+                      : t('probePanelRedetect')}
+                </Button>
+              </div>
+            </section>,
+            document.body,
+          )
         : null}
     </span>
   )
 }
 
 /** The bulb's body — the maintainer's artwork, one filled path with the base cut out. */
-const BULB_BODY = 'M496 64C681.6 64 832 208.896 832 387.648c0 124.544-73.152 232.704-180.352 286.784v24.256c0 6.912-0.64 13.76-1.856 20.288a56.32 56.32 0 0 1 20.672 20.416 54.848 54.848 0 0 1 7.552 27.712v37.312c0 29.312-23.04 53.312-52.288 55.808l-2.816 0.192h-23.04c0 54.976-46.336 99.584-103.424 99.584-57.024 0-103.296-44.544-103.296-99.584h-19.776l-2.24-0.128h-3.84a58.24 58.24 0 0 1-36.48-18.432 55.808 55.808 0 0 1-14.72-37.44v-37.312c0-20.16 11.008-37.888 27.328-47.744a104.064 104.064 0 0 1-1.984-20.672v-23.744C233.6 621.056 160 512.576 160 387.584 160.064 208.96 310.4 64 496 64z m-45.632 796.288c0 24.064 20.48 43.712 46.08 43.712 25.728 0 46.144-19.712 46.208-43.52v-0.192H450.368z m-76.992-56h247.296l0.064-37.056-0.512-0.32H373.632l-0.256 37.376zM496 120.064c-154.112 0-278.656 120-278.656 267.52 0 100.8 58.624 191.68 150.208 237.44l31.104 15.68 0.064 50.56c0 3.968 0.384 7.552 0.896 10.816l0.576 1.984H467.84V704h70.4v-0.128l55.488-0.32 0.512-1.472c0.64-3.776 0.96-7.552 0.96-11.328l-0.96-50.56 31.04-15.616c91.2-45.952 149.312-136.576 149.312-236.992 0-147.584-124.544-267.648-278.656-267.648v0.128z'
+const BULB_BODY =
+  'M496 64C681.6 64 832 208.896 832 387.648c0 124.544-73.152 232.704-180.352 286.784v24.256c0 6.912-0.64 13.76-1.856 20.288a56.32 56.32 0 0 1 20.672 20.416 54.848 54.848 0 0 1 7.552 27.712v37.312c0 29.312-23.04 53.312-52.288 55.808l-2.816 0.192h-23.04c0 54.976-46.336 99.584-103.424 99.584-57.024 0-103.296-44.544-103.296-99.584h-19.776l-2.24-0.128h-3.84a58.24 58.24 0 0 1-36.48-18.432 55.808 55.808 0 0 1-14.72-37.44v-37.312c0-20.16 11.008-37.888 27.328-47.744a104.064 104.064 0 0 1-1.984-20.672v-23.744C233.6 621.056 160 512.576 160 387.584 160.064 208.96 310.4 64 496 64z m-45.632 796.288c0 24.064 20.48 43.712 46.08 43.712 25.728 0 46.144-19.712 46.208-43.52v-0.192H450.368z m-76.992-56h247.296l0.064-37.056-0.512-0.32H373.632l-0.256 37.376zM496 120.064c-154.112 0-278.656 120-278.656 267.52 0 100.8 58.624 191.68 150.208 237.44l31.104 15.68 0.064 50.56c0 3.968 0.384 7.552 0.896 10.816l0.576 1.984H467.84V704h70.4v-0.128l55.488-0.32 0.512-1.472c0.64-3.776 0.96-7.552 0.96-11.328l-0.96-50.56 31.04-15.616c91.2-45.952 149.312-136.576 149.312-236.992 0-147.584-124.544-267.648-278.656-267.648v0.128z'
 
 /** The bolt drawn inside the bulb once a detection has landed. */
-const BULB_BOLT = 'M465.536 443.264H396.8c-8.96 0-15.168-8.192-11.968-15.872l68.288-163.84a11.904 11.904 0 0 1 4.672-5.504A13.632 13.632 0 0 1 465.024 256h115.2c9.088 0 15.36 8.448 11.904 16.128L552.32 361.344H627.2c11.008 0 16.832 11.84 9.6 19.456L453.376 571.968c-8.96 9.28-25.472 1.28-22.016-10.752l34.176-117.952z'
+const BULB_BOLT =
+  'M465.536 443.264H396.8c-8.96 0-15.168-8.192-11.968-15.872l68.288-163.84a11.904 11.904 0 0 1 4.672-5.504A13.632 13.632 0 0 1 465.024 256h115.2c9.088 0 15.36 8.448 11.904 16.128L552.32 361.344H627.2c11.008 0 16.832 11.84 9.6 19.456L453.376 571.968c-8.96 9.28-25.472 1.28-22.016-10.752l34.176-117.952z'
 
 /**
  * The control's icon: a light bulb, and the same bulb lit once a detection landed.

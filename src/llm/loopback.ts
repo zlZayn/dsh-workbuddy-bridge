@@ -19,7 +19,11 @@ export function hostnameOfHost(host: string): string {
   // Only `name:port` with a single colon is a port; anything with more colons
   // is an (unbracketed) IPv6 literal and must not be truncated.
   const colon = hostname.lastIndexOf(':')
-  if (colon !== -1 && !hostname.slice(0, colon).includes(':') && /^\d+$/.test(hostname.slice(colon + 1))) {
+  if (
+    colon !== -1 &&
+    !hostname.slice(0, colon).includes(':') &&
+    /^\d+$/.test(hostname.slice(colon + 1))
+  ) {
     hostname = hostname.slice(0, colon)
   }
   return hostname

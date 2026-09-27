@@ -46,7 +46,7 @@ describe('WorkBuddyCatalogStore', () => {
 
     const reopened = new WorkBuddyCatalogStore({ path })
     const saved = reopened.get('uid-1:ent-1')
-    expect(saved?.models.map(entry => entry.id)).toEqual(['a'])
+    expect(saved?.models.map((entry) => entry.id)).toEqual(['a'])
     expect(saved?.source).toBe('workbuddy:cli')
     expect(saved?.fetchedAtMs).toBe(111)
   })
@@ -55,8 +55,8 @@ describe('WorkBuddyCatalogStore', () => {
     const { store } = tempStore()
     store.set('uid-1:ent-1', { source: 's', fetchedAtMs: 1, models: [model('for-a')] })
     store.set('uid-2:ent-2', { source: 's', fetchedAtMs: 2, models: [model('for-b')] })
-    expect(store.get('uid-1:ent-1')?.models.map(m => m.id)).toEqual(['for-a'])
-    expect(store.get('uid-2:ent-2')?.models.map(m => m.id)).toEqual(['for-b'])
+    expect(store.get('uid-1:ent-1')?.models.map((m) => m.id)).toEqual(['for-a'])
+    expect(store.get('uid-2:ent-2')?.models.map((m) => m.id)).toEqual(['for-b'])
     expect(store.get('uid-3:ent-3')).toBeUndefined()
   })
 
@@ -64,7 +64,7 @@ describe('WorkBuddyCatalogStore', () => {
     const { store } = tempStore()
     store.set('uid-1:ent-1', { source: 's', fetchedAtMs: 1, models: [model('old')] })
     store.set('uid-1:ent-1', { source: 's', fetchedAtMs: 2, models: [model('new')] })
-    expect(store.get('uid-1:ent-1')?.models.map(m => m.id)).toEqual(['new'])
+    expect(store.get('uid-1:ent-1')?.models.map((m) => m.id)).toEqual(['new'])
   })
 
   it('forgets one account on request', () => {
@@ -82,10 +82,40 @@ describe('WorkBuddyCatalogStore', () => {
     const cases = [
       'not json at all',
       '[]',
-      JSON.stringify({ version: 99, entries: { 'uid-1:ent-1': { account: 'uid-1:ent-1', source: 's', fetchedAtMs: 1, models: [model('a')] } } }),
-      JSON.stringify({ version: 1, entries: { 'uid-1:ent-1': { account: 'uid-1:ent-1', source: 's', fetchedAtMs: 1, models: [] } } }),
-      JSON.stringify({ version: 1, entries: { 'uid-1:ent-1': { account: '', source: 's', fetchedAtMs: 1, models: [model('a')] } } }),
-      JSON.stringify({ version: 1, entries: { 'uid-1:ent-1': { account: 'uid-1:ent-1', source: 's', fetchedAtMs: 1, models: [{ id: 'x' }] } } }),
+      JSON.stringify({
+        version: 99,
+        entries: {
+          'uid-1:ent-1': {
+            account: 'uid-1:ent-1',
+            source: 's',
+            fetchedAtMs: 1,
+            models: [model('a')],
+          },
+        },
+      }),
+      JSON.stringify({
+        version: 1,
+        entries: {
+          'uid-1:ent-1': { account: 'uid-1:ent-1', source: 's', fetchedAtMs: 1, models: [] },
+        },
+      }),
+      JSON.stringify({
+        version: 1,
+        entries: {
+          'uid-1:ent-1': { account: '', source: 's', fetchedAtMs: 1, models: [model('a')] },
+        },
+      }),
+      JSON.stringify({
+        version: 1,
+        entries: {
+          'uid-1:ent-1': {
+            account: 'uid-1:ent-1',
+            source: 's',
+            fetchedAtMs: 1,
+            models: [{ id: 'x' }],
+          },
+        },
+      }),
     ]
     for (const [index, body] of cases.entries()) {
       const path = join(dir, `case-${index}.json`)
@@ -116,11 +146,15 @@ describe('WorkBuddyCatalogStore', () => {
     const store = new WorkBuddyCatalogStore({ path: join(blocker, 'catalog.json') })
     // Saving is best-effort: the plugin has already served these models, and a
     // failed write must not surface as a crash.
-    expect(() => store.set('uid-1:ent-1', { source: 's', fetchedAtMs: 1, models: [model('a')] })).not.toThrow()
+    expect(() =>
+      store.set('uid-1:ent-1', { source: 's', fetchedAtMs: 1, models: [model('a')] }),
+    ).not.toThrow()
   })
 
   it('defaults its path under the DSH home', () => {
     expect(workbuddyCatalogPath()).toMatch(/\.workbuddy-catalog\.json$/)
-    expect(workbuddyCatalogPath('.workbuddy-ai-catalog.json')).toMatch(/\.workbuddy-ai-catalog\.json$/)
+    expect(workbuddyCatalogPath('.workbuddy-ai-catalog.json')).toMatch(
+      /\.workbuddy-ai-catalog\.json$/,
+    )
   })
 })

@@ -40,26 +40,43 @@ require_(
 )
 require_('private', pkg.private !== true, '发布前要移除 private: true。')
 require_('engines.dsh', typeof pkg.engines?.dsh === 'string', '宿主兼容范围必须声明。')
-require_('files 含 cordis.patch.yml', Array.isArray(pkg.files) && pkg.files.includes('cordis.patch.yml'), 'bundle 层依赖它。')
+require_(
+  'files 含 cordis.patch.yml',
+  Array.isArray(pkg.files) && pkg.files.includes('cordis.patch.yml'),
+  'bundle 层依赖它。',
+)
 require_('LICENSE 存在', existsSync('LICENSE'), 'package.json 声明 MIT，仓库里必须有对应文件。')
 require_('NOTICE 存在', existsSync('NOTICE'), '来源与双版权声明是发布产物的一部分。')
-require_('files 含 NOTICE', Array.isArray(pkg.files) && pkg.files.includes('NOTICE'), 'NOTICE 不在 files 里就不会进包。')
+require_(
+  'files 含 NOTICE',
+  Array.isArray(pkg.files) && pkg.files.includes('NOTICE'),
+  'NOTICE 不在 files 里就不会进包。',
+)
 
 /** npm 的 `files` 语义：先看有没有正面模式覆盖，再看不被否定模式排除。 */
 function published(file, files) {
   const covered = (pattern) => {
     const normalized = pattern.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '')
-    return normalized === '.' || normalized === ''
-      || matchesGlob(file, normalized) || matchesGlob(file, `${normalized}/**`)
+    return (
+      normalized === '.' ||
+      normalized === '' ||
+      matchesGlob(file, normalized) ||
+      matchesGlob(file, `${normalized}/**`)
+    )
   }
-  return files.some((pattern) => !pattern.startsWith('!') && covered(pattern))
-    && !files.some((pattern) => pattern.startsWith('!') && covered(pattern.slice(1)))
+  return (
+    files.some((pattern) => !pattern.startsWith('!') && covered(pattern)) &&
+    !files.some((pattern) => pattern.startsWith('!') && covered(pattern.slice(1)))
+  )
 }
 
 /** 只认 `*`（段内）与 `**`（跨段）两种通配 —— 够读 `files` 里的模式，不引依赖。 */
 function matchesGlob(file, pattern) {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-  const body = escaped.replace(/\*\*\//g, '(?:.*/)?').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*')
+  const body = escaped
+    .replace(/\*\*\//g, '(?:.*/)?')
+    .replace(/\*\*/g, '.*')
+    .replace(/\*/g, '[^/]*')
   return new RegExp(`^${body}$`).test(file)
 }
 
@@ -80,13 +97,19 @@ function readJson(file) {
 
 const LOCALE_DIR = 'locale'
 const localeFiles = existsSync(LOCALE_DIR)
-  ? readdirSync(LOCALE_DIR).filter((name) => name.endsWith('.json')).sort()
+  ? readdirSync(LOCALE_DIR)
+      .filter((name) => name.endsWith('.json'))
+      .sort()
   : []
 
 // 宿主先解析 locale/en.json，再枚举同目录下的每一个 *.json；两者都经 Node 子路径导出解析，
 // 所以 exports 与 files 少覆盖一个，装出来的包就少一个能读到的语言文件。
 require_('locale 目录存在', existsSync(LOCALE_DIR), '插件展示元数据的家。')
-require_('locale/en.json 是发现入口', localeFiles.includes('en.json'), '宿主先解析它；缺它时其余语言文件根本不会被读。')
+require_(
+  'locale/en.json 是发现入口',
+  localeFiles.includes('en.json'),
+  '宿主先解析它；缺它时其余语言文件根本不会被读。',
+)
 require_(
   'exports 暴露 ./locale/*.json',
   pkg.exports?.['./locale/*.json'] === './locale/*.json',
@@ -114,7 +137,11 @@ for (const name of localeFiles) {
   const parsed = readJson(file)
   if (parsed === undefined) continue
   const meta = parsed.meta
-  require_(`${file} 的 meta.title`, isText(meta?.title), '标题必须是非空字符串：字段名写错或写成空串都等于没写。')
+  require_(
+    `${file} 的 meta.title`,
+    isText(meta?.title),
+    '标题必须是非空字符串：字段名写错或写成空串都等于没写。',
+  )
   require_(`${file} 的 meta.description`, isText(meta?.description), '描述同上。')
 }
 
@@ -122,7 +149,12 @@ for (const name of localeFiles) {
 if (localeFiles.length > 1) {
   const shapes = localeFiles.map((name) => {
     const parsed = readJson(`${LOCALE_DIR}/${name}`) ?? {}
-    return { name, keys: Object.keys(parsed.meta ?? {}).sort().join(',') }
+    return {
+      name,
+      keys: Object.keys(parsed.meta ?? {})
+        .sort()
+        .join(','),
+    }
   })
   const first = shapes[0]
   for (const shape of shapes.slice(1)) {
@@ -151,14 +183,32 @@ const MAX_ICON_BYTES = 256 * 1024
 if (pkg.icon !== undefined) {
   const icon = typeof pkg.icon === 'string' ? pkg.icon : ''
   const relative = icon.replace(/^\.\//, '')
-  const inside = relative !== '' && !relative.startsWith('/')
-    && !/^[A-Za-z][A-Za-z\d+.-]*:/.test(relative)
-    && !relative.split(/[\\/]/).includes('..')
-  require_('icon 是清单目录内的相对路径', inside, '绝对路径、URL 或越出清单目录的路径都会被宿主拒绝。')
-  require_('icon 的扩展名可用', ICON_TYPES.includes(extname(relative).toLowerCase()), '宿主只认 SVG / PNG / JPEG / WebP。')
+  const inside =
+    relative !== '' &&
+    !relative.startsWith('/') &&
+    !/^[A-Za-z][A-Za-z\d+.-]*:/.test(relative) &&
+    !relative.split(/[\\/]/).includes('..')
+  require_(
+    'icon 是清单目录内的相对路径',
+    inside,
+    '绝对路径、URL 或越出清单目录的路径都会被宿主拒绝。',
+  )
+  require_(
+    'icon 的扩展名可用',
+    ICON_TYPES.includes(extname(relative).toLowerCase()),
+    '宿主只认 SVG / PNG / JPEG / WebP。',
+  )
   const iconFile = inside ? fileOf(relative) : undefined
-  require_('icon 存在且是普通文件', iconFile !== undefined, '声明了却读不到，插件页只会用默认图（不报错）。')
-  require_('icon 不超过 256 KiB', (iconFile?.size ?? 0) <= MAX_ICON_BYTES, '超过 256 KiB 会被宿主拒绝。')
+  require_(
+    'icon 存在且是普通文件',
+    iconFile !== undefined,
+    '声明了却读不到，插件页只会用默认图（不报错）。',
+  )
+  require_(
+    'icon 不超过 256 KiB',
+    (iconFile?.size ?? 0) <= MAX_ICON_BYTES,
+    '超过 256 KiB 会被宿主拒绝。',
+  )
   require_(
     'files 收录声明的图标',
     inside && Array.isArray(pkg.files) && published(relative, pkg.files),

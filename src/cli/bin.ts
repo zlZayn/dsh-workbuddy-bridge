@@ -7,7 +7,11 @@ import { WorkBuddyCredentialStore } from '../credential/store.ts'
 import { WorkBuddyUpstreamClient } from '../protocol/client.ts'
 import { FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS } from '../catalog/index.ts'
 import { WORKBUDDY_BRIDGE_VERSION } from '../version.ts'
-import { isHeartbeatProcessAlive, readHostHeartbeat, workbuddyHostHeartbeatPath } from '../web/heartbeat.ts'
+import {
+  isHeartbeatProcessAlive,
+  readHostHeartbeat,
+  workbuddyHostHeartbeatPath,
+} from '../web/heartbeat.ts'
 import { WorkBuddyAtRestKeyProvider, cnAppDiscovery } from '../credential/at-rest.ts'
 import { CN_VARIANT, variantFor, WORKBUDDY_VARIANTS, type WorkBuddyVariant } from '../variants.ts'
 import { resolveAppVersion } from '../protocol/app-version.ts'
@@ -25,18 +29,20 @@ function safeMessage(error: unknown): string {
 }
 
 function printHelp(): void {
-  process.stdout.write([
-    'Usage: dsh-workbuddy-bridge <doctor|status|logout> [--provider <id>] [--json]',
-    '',
-    '  doctor   secret-free sign-in and environment diagnostics',
-    '  status   sign-in state, remaining WorkBuddy credit, and host-bundle health',
-    '  logout   remove the plugin-owned credential copy (the desktop app keeps its sign-in)',
-    '',
-    '  --provider  which product to inspect; defaults to workbuddy',
-    `              one of: ${WORKBUDDY_VARIANTS.map(variant => variant.id).join(', ')}`,
-    '  --json      emit one secret-free JSON document (doctor/status only)',
-    '',
-  ].join('\n'))
+  process.stdout.write(
+    [
+      'Usage: dsh-workbuddy-bridge <doctor|status|logout> [--provider <id>] [--json]',
+      '',
+      '  doctor   secret-free sign-in and environment diagnostics',
+      '  status   sign-in state, remaining WorkBuddy credit, and host-bundle health',
+      '  logout   remove the plugin-owned credential copy (the desktop app keeps its sign-in)',
+      '',
+      '  --provider  which product to inspect; defaults to workbuddy',
+      `              one of: ${WORKBUDDY_VARIANTS.map((variant) => variant.id).join(', ')}`,
+      '  --json      emit one secret-free JSON document (doctor/status only)',
+      '',
+    ].join('\n'),
+  )
 }
 
 function printJson(value: unknown): void {
@@ -55,7 +61,7 @@ function makeStore(variant: WorkBuddyVariant): WorkBuddyCredentialStore {
   const client = new WorkBuddyUpstreamClient()
   return new WorkBuddyCredentialStore({
     variant,
-    refresh: credential => client.refreshToken(credential),
+    refresh: (credential) => client.refreshToken(credential),
     keyProvider: new WorkBuddyAtRestKeyProvider({
       discovery: variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none',
     }),
@@ -69,7 +75,9 @@ function ownAuthPath(variant: WorkBuddyVariant): string {
 
 /** Fallback roster size for one variant. */
 function fallbackCount(variant: WorkBuddyVariant): number {
-  return variant.id === CN_VARIANT.id ? FALLBACK_WORKBUDDY_MODELS.length : FALLBACK_WORKBUDDY_AI_MODELS.length
+  return variant.id === CN_VARIANT.id
+    ? FALLBACK_WORKBUDDY_MODELS.length
+    : FALLBACK_WORKBUDDY_AI_MODELS.length
 }
 
 async function doctor(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<number> {
@@ -80,7 +88,7 @@ async function doctor(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
   // Name the file that was actually hit (e.g. the XDG data-home copy on
   // UOS/deepin, issue #43), falling back to the first *possible* location
   // when none exists so the hint still says where to point WORKBUDDY_AUTH_FILE.
-  const desktopPath = await store.resolvedDesktopAuthPath() ?? store.desktopAuthPath()
+  const desktopPath = (await store.resolvedDesktopAuthPath()) ?? store.desktopAuthPath()
   const heartbeat = await readHostHeartbeat()
   const hostAlive = heartbeat !== undefined && isHeartbeatProcessAlive(heartbeat)
   // Only the international variant needs a UA, and reading it is how `doctor`
@@ -90,9 +98,10 @@ async function doctor(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
   // failed, not that nobody is signed in: the status reason carries the real
   // cause, it is promoted to the first hint, and the generic "sign in again"
   // hint is suppressed — sending the user to re-login would be the wrong fix.
-  const decryptionNote = status.state === 'signed-out' && desktopFormat === 'encrypted' && status.reason !== undefined
-    ? `Encrypted desktop credential could not be used: ${status.reason}`
-    : undefined
+  const decryptionNote =
+    status.state === 'signed-out' && desktopFormat === 'encrypted' && status.reason !== undefined
+      ? `Encrypted desktop credential could not be used: ${status.reason}`
+      : undefined
   const report = {
     schemaVersion: JSON_SCHEMA_VERSION,
     package: 'dsh-workbuddy-bridge',
@@ -110,41 +119,60 @@ async function doctor(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
       format: desktopFormat,
     },
     ownAuthFile: ownAuthPath(variant),
-    ...appVersion === undefined ? {} : {
-      catalogUserAgent: {
-        version: appVersion.version,
-        source: appVersion.source,
-        ...appVersion.bundle === undefined ? {} : { bundle: appVersion.bundle },
-      },
-    },
+    ...(appVersion === undefined
+      ? {}
+      : {
+          catalogUserAgent: {
+            version: appVersion.version,
+            source: appVersion.source,
+            ...(appVersion.bundle === undefined ? {} : { bundle: appVersion.bundle }),
+          },
+        }),
     hostHeartbeat: {
       path: workbuddyHostHeartbeatPath(),
       present: heartbeat !== undefined,
-      ...heartbeat === undefined ? {} : { registeredAt: heartbeat.registeredAt, pid: heartbeat.pid },
+      ...(heartbeat === undefined
+        ? {}
+        : { registeredAt: heartbeat.registeredAt, pid: heartbeat.pid }),
       processAlive: hostAlive,
     },
     signIn: status.state,
     fallbackModels: fallbackCount(variant),
     hints: [
-      ...decryptionNote !== undefined ? [decryptionNote]
-        : status.state === 'signed-out' ? [`Sign in once in the ${variant.appName} desktop app, then run status again.`] : [],
-      ...desktopPresent ? [] : [`No ${variant.appName} desktop auth file at the expected path; set ${variant.env} if it lives elsewhere.`],
-      ...hostAlive ? [] : ['Host bundle not running in this DSH profile (or the process exited). The browser card and provider are unavailable until DSH starts the plugin.'],
+      ...(decryptionNote !== undefined
+        ? [decryptionNote]
+        : status.state === 'signed-out'
+          ? [`Sign in once in the ${variant.appName} desktop app, then run status again.`]
+          : []),
+      ...(desktopPresent
+        ? []
+        : [
+            `No ${variant.appName} desktop auth file at the expected path; set ${variant.env} if it lives elsewhere.`,
+          ]),
+      ...(hostAlive
+        ? []
+        : [
+            'Host bundle not running in this DSH profile (or the process exited). The browser card and provider are unavailable until DSH starts the plugin.',
+          ]),
     ],
   }
   if (jsonOutput) {
-    printJson({ ...report, ...decryptionNote === undefined ? {} : { decryptionNote } })
+    printJson({ ...report, ...(decryptionNote === undefined ? {} : { decryptionNote }) })
   } else {
-    process.stdout.write([
-      `${variant.displayName} Connect ${WORKBUDDY_BRIDGE_VERSION} on ${process.version}`,
-      `Desktop auth file: ${report.desktopAuthFile.present ? 'present' : 'missing'} — ${desktopFormat} (${report.desktopAuthFile.path})`,
-      `Host bundle: ${hostAlive ? `running (pid ${heartbeat!.pid})` : heartbeat !== undefined ? 'stale heartbeat (process exited)' : 'not started'}`,
-      `Sign-in state: ${report.signIn}`,
-      `Static fallback models: ${report.fallbackModels}`,
-      ...appVersion === undefined ? [] : [`Catalog User-Agent version: ${appVersion.version} (${appVersion.source})`],
-      ...report.hints.map(hint => `Hint: ${hint}`),
-      '',
-    ].join('\n'))
+    process.stdout.write(
+      [
+        `${variant.displayName} Connect ${WORKBUDDY_BRIDGE_VERSION} on ${process.version}`,
+        `Desktop auth file: ${report.desktopAuthFile.present ? 'present' : 'missing'} — ${desktopFormat} (${report.desktopAuthFile.path})`,
+        `Host bundle: ${hostAlive ? `running (pid ${heartbeat!.pid})` : heartbeat !== undefined ? 'stale heartbeat (process exited)' : 'not started'}`,
+        `Sign-in state: ${report.signIn}`,
+        `Static fallback models: ${report.fallbackModels}`,
+        ...(appVersion === undefined
+          ? []
+          : [`Catalog User-Agent version: ${appVersion.version} (${appVersion.source})`]),
+        ...report.hints.map((hint) => `Hint: ${hint}`),
+        '',
+      ].join('\n'),
+    )
   }
   return status.state === 'signed-in' && desktopPresent ? 0 : 1
 }
@@ -158,9 +186,18 @@ async function status(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
   const hostState = hostAlive ? 'running' : heartbeat !== undefined ? 'stale' : 'not-started'
   if (authStatus.state !== 'signed-in') {
     if (jsonOutput) {
-      printJson({ schemaVersion: JSON_SCHEMA_VERSION, package: 'dsh-workbuddy-bridge', version: WORKBUDDY_BRIDGE_VERSION, provider: variant.id, status: 'signed-out', hostBundle: hostState })
+      printJson({
+        schemaVersion: JSON_SCHEMA_VERSION,
+        package: 'dsh-workbuddy-bridge',
+        version: WORKBUDDY_BRIDGE_VERSION,
+        provider: variant.id,
+        status: 'signed-out',
+        hostBundle: hostState,
+      })
     } else {
-      process.stdout.write(`${variant.displayName} Connect: signed out\nHost bundle: ${hostState}\n`)
+      process.stdout.write(
+        `${variant.displayName} Connect: signed out\nHost bundle: ${hostState}\n`,
+      )
     }
     return 1
   }
@@ -171,13 +208,16 @@ async function status(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
       const fetched = await client.fetchCredits(credential)
       credits = {
         total: fetched.total,
-        ...fetched.unlimited === true ? { unlimited: true } : {},
+        ...(fetched.unlimited === true ? { unlimited: true } : {}),
       }
     }
   } catch (error: unknown) {
     credits = { total: 0, error: safeMessage(error) }
   }
-  const expiresAt = authStatus.expiresAtMs !== undefined ? new Date(authStatus.expiresAtMs).toISOString() : undefined
+  const expiresAt =
+    authStatus.expiresAtMs !== undefined
+      ? new Date(authStatus.expiresAtMs).toISOString()
+      : undefined
   if (jsonOutput) {
     printJson({
       schemaVersion: JSON_SCHEMA_VERSION,
@@ -185,31 +225,37 @@ async function status(jsonOutput: boolean, variant: WorkBuddyVariant): Promise<n
       version: WORKBUDDY_BRIDGE_VERSION,
       provider: variant.id,
       status: 'signed-in',
-      ...expiresAt === undefined ? {} : { accessTokenExpires: expiresAt },
-      ...authStatus.nickname === undefined ? {} : { nickname: authStatus.nickname },
-      ...authStatus.domain === undefined || authStatus.domain === '' ? {} : { domain: authStatus.domain },
+      ...(expiresAt === undefined ? {} : { accessTokenExpires: expiresAt }),
+      ...(authStatus.nickname === undefined ? {} : { nickname: authStatus.nickname }),
+      ...(authStatus.domain === undefined || authStatus.domain === ''
+        ? {}
+        : { domain: authStatus.domain }),
       source: authStatus.source,
       credits: credits?.total,
-      ...credits?.unlimited === true ? { creditsUnlimited: true } : {},
-      ...credits?.error === undefined ? {} : { creditsError: credits.error },
+      ...(credits?.unlimited === true ? { creditsUnlimited: true } : {}),
+      ...(credits?.error === undefined ? {} : { creditsError: credits.error }),
       hostBundle: hostState,
     })
     return 0
   }
-  process.stdout.write([
-    `${variant.displayName} Connect: signed in${authStatus.nickname === undefined ? '' : ` as ${authStatus.nickname}`}`,
-    ...expiresAt === undefined ? [] : [`Access token expires ${expiresAt} (refresh is automatic)`],
-    credits?.error !== undefined
-      ? `Remaining credit: unavailable (${credits.error})`
-      // An uncapped quota has no balance to print; showing the placeholder 0
-      // would read as "exhausted".
-      : credits?.unlimited === true
-        ? 'Remaining credit: unlimited'
-        : `Remaining credit: ${credits?.total ?? 'unknown'}`,
-    `Host bundle: ${hostAlive ? `running (pid ${heartbeat!.pid})` : hostState === 'stale' ? 'stale heartbeat (DSH process exited)' : 'not started in this profile'}`,
-    'Client card: load failures are logged to the browser console only; the host provider is unaffected.',
-    '',
-  ].join('\n'))
+  process.stdout.write(
+    [
+      `${variant.displayName} Connect: signed in${authStatus.nickname === undefined ? '' : ` as ${authStatus.nickname}`}`,
+      ...(expiresAt === undefined
+        ? []
+        : [`Access token expires ${expiresAt} (refresh is automatic)`]),
+      credits?.error !== undefined
+        ? `Remaining credit: unavailable (${credits.error})`
+        : // An uncapped quota has no balance to print; showing the placeholder 0
+          // would read as "exhausted".
+          credits?.unlimited === true
+          ? 'Remaining credit: unlimited'
+          : `Remaining credit: ${credits?.total ?? 'unknown'}`,
+      `Host bundle: ${hostAlive ? `running (pid ${heartbeat!.pid})` : hostState === 'stale' ? 'stale heartbeat (DSH process exited)' : 'not started in this profile'}`,
+      'Client card: load failures are logged to the browser console only; the host provider is unaffected.',
+      '',
+    ].join('\n'),
+  )
   return 0
 }
 
@@ -222,7 +268,9 @@ export async function run(argv: readonly string[]): Promise<number> {
   const [rawAction, ...flags] = argv
   const actions: readonly Action[] = ['doctor', 'logout', 'status']
   if (!actions.includes(rawAction as Action)) {
-    process.stderr.write(`dsh-workbuddy-bridge: expected doctor, logout, or status; got ${JSON.stringify(rawAction)}\n`)
+    process.stderr.write(
+      `dsh-workbuddy-bridge: expected doctor, logout, or status; got ${JSON.stringify(rawAction)}\n`,
+    )
     return 1
   }
   const action = rawAction as Action
@@ -248,13 +296,15 @@ export async function run(argv: readonly string[]): Promise<number> {
   const variant = providerId === undefined ? CN_VARIANT : variantFor(providerId)
   if (variant === undefined) {
     process.stderr.write(
-      `dsh-workbuddy-bridge: unknown provider ${JSON.stringify(providerId)}; expected one of ${WORKBUDDY_VARIANTS.map(v => v.id).join(', ')}\n`,
+      `dsh-workbuddy-bridge: unknown provider ${JSON.stringify(providerId)}; expected one of ${WORKBUDDY_VARIANTS.map((v) => v.id).join(', ')}\n`,
     )
     return 1
   }
-  const unknown = rest.filter(flag => flag !== '--json')
+  const unknown = rest.filter((flag) => flag !== '--json')
   if (unknown.length > 0 || (jsonOutput && action === 'logout')) {
-    process.stderr.write(`dsh-workbuddy-bridge: invalid options for ${action}: ${flags.join(' ')}\n`)
+    process.stderr.write(
+      `dsh-workbuddy-bridge: invalid options for ${action}: ${flags.join(' ')}\n`,
+    )
     return 1
   }
   try {
@@ -281,6 +331,9 @@ export async function run(argv: readonly string[]): Promise<number> {
   }
 }
 
-if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
+if (
+  process.argv[1] !== undefined &&
+  fileURLToPath(import.meta.url) === realpathSync(process.argv[1])
+) {
   process.exitCode = await run(process.argv.slice(2))
 }

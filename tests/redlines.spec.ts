@@ -32,12 +32,16 @@ describe('依赖分层', () => {
   })
 
   it('每个 peer 都同时在 dev —— 否则本机装不出可编译的树', () => {
-    const missing = Object.keys(pkg.peerDependencies).filter((name) => pkg.devDependencies[name] === undefined)
+    const missing = Object.keys(pkg.peerDependencies).filter(
+      (name) => pkg.devDependencies[name] === undefined,
+    )
     expect(missing).toEqual([])
   })
 
   it('dsh 平台包的 peer 与 dev 都必须能读出一个下限', () => {
-    const bounds = Object.keys(pkg.peerDependencies).filter((name) => name.startsWith('@deepseek-ai/dsh'))
+    const bounds = Object.keys(pkg.peerDependencies).filter((name) =>
+      name.startsWith('@deepseek-ai/dsh'),
+    )
     // 自检：这条断言必须真的有对象可查。
     expect(bounds.length).toBeGreaterThan(0)
     for (const name of bounds) expect(pkg.devDependencies[name], name).toBeTruthy()
@@ -87,7 +91,9 @@ describe('锁文件与源', () => {
 
 describe('插件展示元数据', () => {
   const localeDir = new URL('../locale/', import.meta.url)
-  const localeFiles = readdirSync(localeDir).filter((name) => name.endsWith('.json')).sort()
+  const localeFiles = readdirSync(localeDir)
+    .filter((name) => name.endsWith('.json'))
+    .sort()
 
   it('en.json 是发现入口，且存在', () => {
     expect(localeFiles).toContain('en.json')
@@ -96,7 +102,9 @@ describe('插件展示元数据', () => {
   it('中英两份的键集逐字相同，且只有 title / description', () => {
     expect(localeFiles.length).toBeGreaterThan(1)
     const shapes = localeFiles.map((name) => {
-      const parsed = JSON.parse(readFileSync(new URL(name, localeDir), 'utf8')) as { meta: Record<string, string> }
+      const parsed = JSON.parse(readFileSync(new URL(name, localeDir), 'utf8')) as {
+        meta: Record<string, string>
+      }
       return { name, keys: Object.keys(parsed.meta).sort() }
     })
     for (const shape of shapes) expect(shape.keys, shape.name).toEqual(['description', 'title'])
@@ -162,7 +170,10 @@ describe('插件图标', () => {
     const SOURCE_MAX = 280
     const inkLeft = SOURCE_MIN * Number(s) + Number(tx)
     const inkRight = SOURCE_MAX * Number(s) + Number(tx)
-    const margins = [['左', inkLeft], ['右', 36 - inkRight]] as const
+    const margins = [
+      ['左', inkLeft],
+      ['右', 36 - inkRight],
+    ] as const
     for (const [edge, margin] of margins) {
       expect(margin, `图标${edge}边距偏离官方档位`).toBeGreaterThanOrEqual(6)
       expect(margin, `图标${edge}边距偏离官方档位`).toBeLessThanOrEqual(9)
@@ -225,14 +236,13 @@ describe('浏览器半体产物不内联宿主运行时', () => {
 
   it('产物只 require 宿主提供的模块', () => {
     if (bundle === undefined) return
-    const required = [...bundle.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)].map(match => match[1] as string)
+    const required = [...bundle.matchAll(/require\(\s*['"]([^'"]+)['"]\s*\)/g)].map(
+      (match) => match[1] as string,
+    )
     // 自检：真的扫到了 require，否则这条断言永不触发。
     expect(required.length, '产物里一个 require 都没有 —— 扫描失效了？').toBeGreaterThan(0)
-    const inlined = [...new Set(required)].filter(name => !HOST_PROVIDED.includes(name))
-    expect(
-      inlined,
-      '这些模块被打进了产物；应加进 tsdown.config.ts 的 CLIENT_EXTERNALS',
-    ).toEqual([])
+    const inlined = [...new Set(required)].filter((name) => !HOST_PROVIDED.includes(name))
+    expect(inlined, '这些模块被打进了产物；应加进 tsdown.config.ts 的 CLIENT_EXTERNALS').toEqual([])
   })
 
   it('产物里没有 process 引用（内联 React 运行时的signature）', () => {
@@ -282,9 +292,9 @@ describe('插件页样式跟着宿主走', () => {
     const OFFICIAL = new Set(['11px', '12px', '13px', '14px'])
     for (const file of sheets) {
       const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
-      const sizes = [...body.matchAll(/font-size:\s*([^;]+);/g)].map(m => (m[1] ?? '').trim())
+      const sizes = [...body.matchAll(/font-size:\s*([^;]+);/g)].map((m) => (m[1] ?? '').trim())
       expect(sizes.length, `${file} 里一个 font-size 都没有 —— 扫描失效了？`).toBeGreaterThan(0)
-      const offScale = [...new Set(sizes)].filter(size => !OFFICIAL.has(size))
+      const offScale = [...new Set(sizes)].filter((size) => !OFFICIAL.has(size))
       expect(offScale, `${file} 出现了宿主没有的字号档`).toEqual([])
     }
   })
@@ -292,8 +302,8 @@ describe('插件页样式跟着宿主走', () => {
   it('line-height 只用 1.5 / 1.6（宿主那两档）', () => {
     for (const file of sheets) {
       const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
-      const heights = [...body.matchAll(/line-height:\s*([^;]+);/g)].map(m => (m[1] ?? '').trim())
-      const offScale = [...new Set(heights)].filter(value => value !== '1.5' && value !== '1.6')
+      const heights = [...body.matchAll(/line-height:\s*([^;]+);/g)].map((m) => (m[1] ?? '').trim())
+      const offScale = [...new Set(heights)].filter((value) => value !== '1.5' && value !== '1.6')
       expect(offScale, `${file} 出现了非宿主档的 line-height`).toEqual([])
     }
   })
@@ -301,7 +311,9 @@ describe('插件页样式跟着宿主走', () => {
   it('中性描边一律 0.5px（状态色才允许 1px）', () => {
     for (const file of sheets) {
       const body = read(file).replace(/\/\*[\s\S]*?\*\//g, '')
-      for (const [, width, rest] of body.matchAll(/border(?:-top|-bottom)?:\s*([\d.]+)px\s+solid\s+([^;]+);/g)) {
+      for (const [, width, rest] of body.matchAll(
+        /border(?:-top|-bottom)?:\s*([\d.]+)px\s+solid\s+([^;]+);/g,
+      )) {
         const ink = rest ?? ''
         // 1px 只留给状态色；其余中性描边一律 0.5px。
         if (width === '1px') expect(ink, `${file} 的中性描边写成了 1px`).toMatch(/state-/)
@@ -330,7 +342,7 @@ describe('客户端接缝', () => {
     const source = read('src/client/index.tsx')
     // 自检：源码里必须真的有这条注册。
     expect(source).toContain('slots.register(')
-    expect(source).toContain("conversation.input.right")
+    expect(source).toContain('conversation.input.right')
     // conversation.input.model 是 single 槽，宿主自带 ModelSelect 已占 priority 0；
     // 注上去会抛错并顶掉宿主的模型选择器（2026-09-25 的缺陷）。
     expect(source).not.toContain("'conversation.input.model'")
@@ -338,7 +350,7 @@ describe('客户端接缝', () => {
 
   it('配置页注册在 plugins.bundle.config，key 取包名', () => {
     const source = read('src/client/index.tsx')
-    expect(source).toContain("plugins.bundle.config")
+    expect(source).toContain('plugins.bundle.config')
     expect(source).toContain(`const BUNDLE_NAME = '${pkg.name}'`)
   })
 
@@ -413,7 +425,9 @@ function needsSource(paragraph: string): boolean {
 function mentionsHostRequirement(paragraph: string): boolean {
   const mentionsHost = /0\.1\.\d+(-[a-z]+\.\d+)?/.test(paragraph)
   if (!mentionsHost) return false
-  return /只支持|仅支持|要求|需要|及以上|或更高|不自动覆盖|supports|requires|or newer|only/.test(paragraph)
+  return /只支持|仅支持|要求|需要|及以上|或更高|不自动覆盖|supports|requires|or newer|only/.test(
+    paragraph,
+  )
 }
 
 /** 同段里点出了出处。 */
@@ -423,11 +437,19 @@ function hasSource(paragraph: string): boolean {
 
 describe('文档不抄实测值', () => {
   /** 活文档：随代码走，所以里面不许抄会漂的宿主版本号。 */
-  const LIVE_DOCS = ['README.md', 'README_en.md', 'AGENTS.md', 'docs/ARCHITECTURE.md', 'docs/PUBLISHING.md', 'docs/README.md']
+  const LIVE_DOCS = [
+    'README.md',
+    'README_en.md',
+    'AGENTS.md',
+    'docs/ARCHITECTURE.md',
+    'docs/PUBLISHING.md',
+    'docs/README.md',
+  ]
 
   it('扫描器真的读到了活文档（否则下面几条是假绿）', () => {
     expect(LIVE_DOCS.length).toBeGreaterThan(0)
-    for (const doc of LIVE_DOCS) expect(existsSync(new URL(`../${doc}`, import.meta.url)), doc).toBe(true)
+    for (const doc of LIVE_DOCS)
+      expect(existsSync(new URL(`../${doc}`, import.meta.url)), doc).toBe(true)
   })
 
   it('活文档里的宿主版本必须与出处同段（或明确标为历史）', () => {
@@ -443,8 +465,9 @@ describe('文档不抄实测值', () => {
     }
     // 自检：活文档里必须真的有「要哪一版宿主」这类话（带不带出处都算），
     // 否则上面那个循环扫的是一个空集合 —— 那是永不触发的假绿。
-    const inScope = LIVE_DOCS.flatMap((doc) => read(doc).split(/\r?\n\s*\r?\n/))
-      .filter((paragraph) => mentionsHostRequirement(paragraph))
+    const inScope = LIVE_DOCS.flatMap((doc) => read(doc).split(/\r?\n\s*\r?\n/)).filter(
+      (paragraph) => mentionsHostRequirement(paragraph),
+    )
     expect(inScope.length, '活文档里没有「要哪一版宿主」这类话 —— 守卫空转了').toBeGreaterThan(0)
     void floor
   })
@@ -454,7 +477,9 @@ describe('文档不抄实测值', () => {
     expect(needsSource('本仓只支持 DSH 0.1.7-rc.2 及以上。')).toBe(true)
     expect(hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上。')).toBe(false)
     // 同一条话补上出处 → 放行。
-    expect(hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上；下限见 package.json 的 engines.dsh。')).toBe(true)
+    expect(
+      hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上；下限见 package.json 的 engines.dsh。'),
+    ).toBe(true)
     // 历史陈述（“X 起”）与插件自己的版本号都不在管辖内。
     expect(needsSource('0.1.7 起 Config schema 就是设置文档。')).toBe(false)
     expect(needsSource('版本 `0.1.0`；尚未发布到 npm。')).toBe(false)

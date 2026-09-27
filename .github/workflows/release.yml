@@ -210,4 +210,3 @@ jobs:
             sleep 10
             gh release create "$tag" --title "$tag" --generate-notes $extra
           }
-

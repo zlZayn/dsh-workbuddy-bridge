@@ -24,13 +24,23 @@ function tempStore(now?: () => number): { store: WorkBuddyProbeStore; path: stri
   const dir = mkdtempSync(join(tmpdir(), 'wb-probe-'))
   CLEANUP.push(dir)
   const path = join(dir, 'probe.json')
-  return { store: new WorkBuddyProbeStore({ path, pluginVersion: '9.9.9', ...now === undefined ? {} : { now } }), path, dir }
+  return {
+    store: new WorkBuddyProbeStore({
+      path,
+      pluginVersion: '9.9.9',
+      ...(now === undefined ? {} : { now }),
+    }),
+    path,
+    dir,
+  }
 }
 
 /** The fallback catalog's old-form row, which declares no effort set. */
-const HY3 = FALLBACK_WORKBUDDY_MODELS.find(model => model.id === 'hy3') as WorkBuddyModelInfo
+const HY3 = FALLBACK_WORKBUDDY_MODELS.find((model) => model.id === 'hy3') as WorkBuddyModelInfo
 /** The fallback catalog's new-form row, which declares one. */
-const GLM53 = FALLBACK_WORKBUDDY_MODELS.find(model => model.id === 'glm-5.3') as WorkBuddyModelInfo
+const GLM53 = FALLBACK_WORKBUDDY_MODELS.find(
+  (model) => model.id === 'glm-5.3',
+) as WorkBuddyModelInfo
 
 /** The account these observations are attributed to. */
 const ACCOUNT = 'uid-1:ent-1'
@@ -128,25 +138,28 @@ describe('WorkBuddyProbeStore', () => {
   it('reads the version-1 flat format as empty rather than half-understanding it', () => {
     const { path } = tempStore()
     // What v0.5.x used to write: one flat record per model, no account level.
-    writeFileSync(path, JSON.stringify({
-      version: 1,
-      records: {
-        auto: {
-          fingerprint: fingerprintModel(HY3),
-          validation: 'validating',
-          efforts: ['low'],
-          probedAtMs: Date.now(),
-          pluginVersion: '9.9.9',
-          account: ACCOUNT,
+    writeFileSync(
+      path,
+      JSON.stringify({
+        version: 1,
+        records: {
+          auto: {
+            fingerprint: fingerprintModel(HY3),
+            validation: 'validating',
+            efforts: ['low'],
+            probedAtMs: Date.now(),
+            pluginVersion: '9.9.9',
+            account: ACCOUNT,
+          },
         },
-      },
-    }))
+      }),
+    )
     const reopened = new WorkBuddyProbeStore({ path, pluginVersion: '9.9.9' })
     expect(reopened.get('hy3', fingerprintModel(HY3), ACCOUNT)).toBeUndefined()
     expect(reopened.all()).toEqual({})
   })
 
-  it('keeps each account\'s record isolated and recovers it after a switch back', () => {
+  it("keeps each account's record isolated and recovers it after a switch back", () => {
     const { store, path } = tempStore()
     const fingerprint = fingerprintModel(HY3)
     const OTHER = 'uid-2:'
@@ -223,13 +236,13 @@ describe('newestFirst', () => {
       { probedAt: 300, id: 'newest' },
       { probedAt: 200, id: 'middle' },
     ])
-    expect(ordered.map(entry => entry.id)).toEqual(['newest', 'middle', 'oldest'])
+    expect(ordered.map((entry) => entry.id)).toEqual(['newest', 'middle', 'oldest'])
   })
 
   it('does not mutate its input', () => {
     const input = [{ probedAt: 1 }, { probedAt: 2 }]
     newestFirst(input)
-    expect(input.map(entry => entry.probedAt)).toEqual([1, 2])
+    expect(input.map((entry) => entry.probedAt)).toEqual([1, 2])
   })
 })
 

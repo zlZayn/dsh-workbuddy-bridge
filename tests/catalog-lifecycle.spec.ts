@@ -36,7 +36,12 @@ async function tempDir(): Promise<string> {
 
 function credentialDocument(domain: string, uid: string): string {
   return JSON.stringify({
-    auth: { accessToken: `at-${uid}`, refreshToken: 'rt', expiresAt: Date.now() + 3_600_000, domain },
+    auth: {
+      accessToken: `at-${uid}`,
+      refreshToken: 'rt',
+      expiresAt: Date.now() + 3_600_000,
+      domain,
+    },
     account: { uid, nickname: uid, enterpriseId: 'ent-1' },
   })
 }
@@ -47,7 +52,15 @@ function catalogEnvelope(modelId: string, name: string): string {
     code: 0,
     msg: 'ok',
     data: {
-      models: [{ id: modelId, name, maxInputTokens: 100_000, maxOutputTokens: 1_000, supportsImages: true }],
+      models: [
+        {
+          id: modelId,
+          name,
+          maxInputTokens: 100_000,
+          maxOutputTokens: 1_000,
+          supportsImages: true,
+        },
+      ],
       agents: [{ name: 'cli', models: [modelId] }],
     },
   })
@@ -75,23 +88,47 @@ class FakeWebServer extends Service {
     FakeWebServer.current = this
   }
 
-  register(route: { kind: string; path: string; handler: (req: IncomingMessage, res: ServerResponse) => Promise<void> }): () => void {
+  register(route: {
+    kind: string
+    path: string
+    handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>
+  }): () => void {
     this.routes.set(route.path, route.handler)
-    return () => { this.routes.delete(route.path) }
+    return () => {
+      this.routes.delete(route.path)
+    }
   }
 }
 
 /** Serve the captured routes over real HTTP, so the handlers see real req/res. */
-async function serve(routes: Map<string, (req: IncomingMessage, res: ServerResponse) => Promise<void>>): Promise<{ port: number; close: () => Promise<void> }> {
+async function serve(
+  routes: Map<string, (req: IncomingMessage, res: ServerResponse) => Promise<void>>,
+): Promise<{ port: number; close: () => Promise<void> }> {
   const server = createServer((req, res) => {
     const handler = routes.get(new URL(req.url ?? '/', 'http://127.0.0.1').pathname)
-    if (handler === undefined) { res.writeHead(404).end('{}'); return }
+    if (handler === undefined) {
+      res.writeHead(404).end('{}')
+      return
+    }
     void handler(req, res)
   })
-  await new Promise<void>(resolve => { server.listen(0, '127.0.0.1', resolve) })
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', resolve)
+  })
   const port = (server.address() as { port: number }).port
-  CLEANUP.push(() => new Promise<void>(resolve => { server.close(() => resolve()) }))
-  return { port, close: () => new Promise<void>(resolve => { server.close(() => resolve()) }) }
+  CLEANUP.push(
+    () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve())
+      }),
+  )
+  return {
+    port,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve())
+      }),
+  }
 }
 
 async function boot(): Promise<Context> {
@@ -105,7 +142,7 @@ async function boot(): Promise<Context> {
   await ctx.plugin(FakeWebServer)
   await ctx.plugin(WorkBuddy, {})
   await vi.waitFor(() => {
-    expect(ctx.llm.listProviders().map(provider => provider.id)).toContain('workbuddy')
+    expect(ctx.llm.listProviders().map((provider) => provider.id)).toContain('workbuddy')
   })
   return ctx
 }
@@ -118,14 +155,21 @@ describe('catalog lifecycle', () => {
     vi.stubEnv('DSH_HOME', root)
     vi.stubEnv('WORKBUDDY_AUTH_FILE', cnFile)
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
-    vi.stubGlobal('fetch', vi.fn(async () => fakeResponse(catalogEnvelope('live-model', 'Live Model'))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fakeResponse(catalogEnvelope('live-model', 'Live Model'))),
+    )
 
     const ctx = await boot()
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['live-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'live-model',
+      ])
     })
     // The upstream roster replaced the built-in fallback entirely.
-    expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).not.toContain('minimax-m3')
+    expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).not.toContain(
+      'minimax-m3',
+    )
   })
 
   it('keeps the fallback roster and retries after a failed fetch', async () => {
@@ -137,13 +181,16 @@ describe('catalog lifecycle', () => {
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
 
     let attempts = 0
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      attempts += 1
-      // Fail the first attempt only: the retry must recover on its own.
-      return attempts === 1
-        ? fakeResponse('upstream down', false, 503)
-        : fakeResponse(catalogEnvelope('recovered-model', 'Recovered'))
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        attempts += 1
+        // Fail the first attempt only: the retry must recover on its own.
+        return attempts === 1
+          ? fakeResponse('upstream down', false, 503)
+          : fakeResponse(catalogEnvelope('recovered-model', 'Recovered'))
+      }),
+    )
 
     const ctx = await boot()
     // The failed fetch leaves the per-variant fallback serving: the group is
@@ -151,14 +198,19 @@ describe('catalog lifecycle', () => {
     await vi.waitFor(async () => {
       expect((await ctx.llm.listModels('workbuddy')).length).toBeGreaterThan(0)
     })
-    expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toContain('minimax-m3')
+    expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toContain('minimax-m3')
     expect(attempts).toBeGreaterThanOrEqual(1)
 
     // Without the retry this stayed on the fallback list until a manual
     // refresh — a startup network blip should not require user action.
-    await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['recovered-model'])
-    }, { timeout: 10_000 })
+    await vi.waitFor(
+      async () => {
+        expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+          'recovered-model',
+        ])
+      },
+      { timeout: 10_000 },
+    )
   })
 
   it('does not re-fetch the catalog on every credential sweep', async () => {
@@ -173,7 +225,9 @@ describe('catalog lifecycle', () => {
 
     const ctx = await boot()
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['live-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'live-model',
+      ])
     })
     const afterFirst = request.mock.calls.length
     // Several sweeps' worth of time at the module's 30s interval would be too
@@ -191,24 +245,37 @@ describe('catalog lifecycle', () => {
     vi.stubEnv('DSH_HOME', root)
     vi.stubEnv('WORKBUDDY_AUTH_FILE', cnFile)
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
-    vi.stubGlobal('fetch', vi.fn(async () => fakeResponse(catalogEnvelope('live-model', 'Live'))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fakeResponse(catalogEnvelope('live-model', 'Live'))),
+    )
 
     const ctx = await boot()
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['live-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'live-model',
+      ])
     })
 
     // Signing out (file removed) must remove the group, not leave it pickable.
     await rm(cnFile)
-    await vi.waitFor(async () => {
-      expect(await ctx.llm.listModels('workbuddy')).toEqual([])
-    }, { timeout: 20_000 })
+    await vi.waitFor(
+      async () => {
+        expect(await ctx.llm.listModels('workbuddy')).toEqual([])
+      },
+      { timeout: 20_000 },
+    )
 
     // Signing back in restores it: the provider stayed registered throughout.
     await writeFile(cnFile, credentialDocument('copilot.tencent.com', 'uid-a'))
-    await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['live-model'])
-    }, { timeout: 20_000 })
+    await vi.waitFor(
+      async () => {
+        expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+          'live-model',
+        ])
+      },
+      { timeout: 20_000 },
+    )
   }, 45_000)
 
   it('does not show a previous account catalog after the account switches', async () => {
@@ -218,25 +285,39 @@ describe('catalog lifecycle', () => {
     vi.stubEnv('DSH_HOME', root)
     vi.stubEnv('WORKBUDDY_AUTH_FILE', cnFile)
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
-    vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: RequestInit) => {
-      // Answer per credential: the request carries the account's token, so the
-      // second account gets a different roster.
-      const auth = String((init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? '')
-      return fakeResponse(auth.includes('uid-b')
-        ? catalogEnvelope('account-b-model', 'B')
-        : catalogEnvelope('account-a-model', 'A'))
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        // Answer per credential: the request carries the account's token, so the
+        // second account gets a different roster.
+        const auth = String(
+          (init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? '',
+        )
+        return fakeResponse(
+          auth.includes('uid-b')
+            ? catalogEnvelope('account-b-model', 'B')
+            : catalogEnvelope('account-a-model', 'A'),
+        )
+      }),
+    )
 
     const ctx = await boot()
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['account-a-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'account-a-model',
+      ])
     })
 
     // Switch the desktop app's account in place.
     await writeFile(cnFile, credentialDocument('copilot.tencent.com', 'uid-b'))
-    await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['account-b-model'])
-    }, { timeout: 20_000 })
+    await vi.waitFor(
+      async () => {
+        expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+          'account-b-model',
+        ])
+      },
+      { timeout: 20_000 },
+    )
   }, 45_000)
 
   /**
@@ -272,48 +353,67 @@ describe('catalog lifecycle', () => {
       supportsImages: true,
       reasoning: { supports: false, onlyReasoning: false, canDisableThinking: true },
     }
-    await writeFile(join(root, '.workbuddy-probe.json'), JSON.stringify({
-      version: 2,
-      records: {
-        'uid-a:ent-1': {
-          'acct-a-model': {
-            fingerprint: fingerprintModel(liveRowA),
-            validation: 'validating',
-            efforts: ['low'],
-            probedAtMs: Date.now(),
-            pluginVersion: 'test',
-            // Observations are bound to the account that produced them; a record
-            // without this is refused by design, so this names account A.
-            account: 'uid-a:ent-1',
+    await writeFile(
+      join(root, '.workbuddy-probe.json'),
+      JSON.stringify({
+        version: 2,
+        records: {
+          'uid-a:ent-1': {
+            'acct-a-model': {
+              fingerprint: fingerprintModel(liveRowA),
+              validation: 'validating',
+              efforts: ['low'],
+              probedAtMs: Date.now(),
+              pluginVersion: 'test',
+              // Observations are bound to the account that produced them; a record
+              // without this is refused by design, so this names account A.
+              account: 'uid-a:ent-1',
+            },
           },
         },
-      },
-    }))
+      }),
+    )
 
     let failCatalog = false
     let rosterModel = 'acct-a-model'
     // The stub must leave this test's own calls to the mounted routes alone:
     // delegate loopback requests to the real fetch, answer only upstream ones.
     const realFetch = globalThis.fetch
-    vi.stubGlobal('fetch', vi.fn(async (url: string | URL, init?: RequestInit) => {
-      if (String(url).startsWith('http://127.0.0.1')) return realFetch(url, init)
-      if (failCatalog) return fakeResponse('upstream down', false, 503)
-      return fakeResponse(catalogEnvelope(rosterModel, rosterModel))
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string | URL, init?: RequestInit) => {
+        if (String(url).startsWith('http://127.0.0.1')) return realFetch(url, init)
+        if (failCatalog) return fakeResponse('upstream down', false, 503)
+        return fakeResponse(catalogEnvelope(rosterModel, rosterModel))
+      }),
+    )
 
     const ctx = await boot()
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['acct-a-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'acct-a-model',
+      ])
     })
 
     const routes = FakeWebServer.current!.routes
     expect(routes.has('/plugins/dsh-workbuddy-bridge/status')).toBe(true)
     const server = await serve(routes)
-    const get = async (path: string) => JSON.parse((await (await fetch(`http://127.0.0.1:${server.port}${path}`, { headers: { host: `127.0.0.1:${server.port}` } })).text()))
+    const get = async (path: string) =>
+      JSON.parse(
+        await (
+          await fetch(`http://127.0.0.1:${server.port}${path}`, {
+            headers: { host: `127.0.0.1:${server.port}` },
+          })
+        ).text(),
+      )
     const post = async (path: string, key: string, body: unknown) =>
       await fetch(`http://127.0.0.1:${server.port}${path}`, {
         method: 'POST',
-        headers: { host: `127.0.0.1:${server.port}`, 'content-type': 'application/json', 'x-workbuddy-probe-key': key },
+        headers: {
+          host: `127.0.0.1:${server.port}`,
+          'content-type': 'application/json',
+          'x-workbuddy-probe-key': key,
+        },
         body: JSON.stringify(body),
       })
 
@@ -337,7 +437,7 @@ describe('catalog lifecycle', () => {
     expect(after.probe.results).toEqual([])
     expect(after.catalog.source).toBe('fallback')
     expect(String(after.catalog.error)).toMatch(/503|upstream/i)
-    const serving = (await ctx.llm.listModels('workbuddy')).map(model => model.id)
+    const serving = (await ctx.llm.listModels('workbuddy')).map((model) => model.id)
     expect(serving).not.toContain('acct-a-model')
     expect(serving).toContain('minimax-m3')
 
@@ -347,7 +447,9 @@ describe('catalog lifecycle', () => {
     const ok = await post('/plugins/dsh-workbuddy-bridge/probe', key, { action: 'refresh' })
     expect(await ok.json()).toMatchObject({ state: 'refreshed' })
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['acct-b-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'acct-b-model',
+      ])
     })
 
     // And back to A: its roster and its recorded levels return without a fresh
@@ -359,7 +461,9 @@ describe('catalog lifecycle', () => {
     await vi.waitFor(async () => {
       const status = await get('/plugins/dsh-workbuddy-bridge/status')
       expect(status.probe.results.map((r: { id: string }) => r.id)).toContain('acct-a-model')
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['acct-a-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'acct-a-model',
+      ])
     })
   }, 45_000)
 })
@@ -381,22 +485,40 @@ describe('saved catalog', () => {
     vi.stubEnv('DSH_WORKBUDDY_POLL_MS', '100')
 
     // First run: online, so a live catalog lands and is remembered.
-    vi.stubGlobal('fetch', vi.fn(async () => fakeResponse(catalogEnvelope('saved-model', 'Saved'))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fakeResponse(catalogEnvelope('saved-model', 'Saved'))),
+    )
     const first = await boot()
-    await vi.waitFor(async () => {
-      expect((await first.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['saved-model'])
-    }, { timeout: 10_000 })
+    await vi.waitFor(
+      async () => {
+        expect((await first.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+          'saved-model',
+        ])
+      },
+      { timeout: 10_000 },
+    )
     // Let the write land before the process is torn down.
-    await new Promise(resolve => setTimeout(resolve, 300))
+    await new Promise((resolve) => setTimeout(resolve, 300))
     await first.fiber.dispose()
     context = undefined
 
     // Second run: offline. The saved catalog must serve, not the built-in roster.
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline') }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline')
+      }),
+    )
     const second = await boot()
-    await vi.waitFor(async () => {
-      expect((await second.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['saved-model'])
-    }, { timeout: 10_000 })
+    await vi.waitFor(
+      async () => {
+        expect((await second.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+          'saved-model',
+        ])
+      },
+      { timeout: 10_000 },
+    )
   }, 45_000)
 })
 
@@ -410,26 +532,37 @@ describe('identity changes during catalog loading', () => {
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
 
     let fail = false
-    vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: RequestInit) => {
-      if (fail) return fakeResponse('offline', false, 503)
-      const auth = String((init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? '')
-      return fakeResponse(auth.includes('uid-b')
-        ? catalogEnvelope('account-b-model', 'B')
-        : catalogEnvelope('account-a-model', 'A'))
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        if (fail) return fakeResponse('offline', false, 503)
+        const auth = String(
+          (init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? '',
+        )
+        return fakeResponse(
+          auth.includes('uid-b')
+            ? catalogEnvelope('account-b-model', 'B')
+            : catalogEnvelope('account-a-model', 'A'),
+        )
+      }),
+    )
 
     const ctx = await boot()
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['account-a-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'account-a-model',
+      ])
     })
 
     await rm(cnFile)
-    await vi.waitFor(async () => { expect(await ctx.llm.listModels('workbuddy')).toEqual([]) })
+    await vi.waitFor(async () => {
+      expect(await ctx.llm.listModels('workbuddy')).toEqual([])
+    })
 
     fail = true
     await writeFile(cnFile, credentialDocument('copilot.tencent.com', 'uid-b'))
     await vi.waitFor(async () => {
-      const ids = (await ctx.llm.listModels('workbuddy')).map(model => model.id)
+      const ids = (await ctx.llm.listModels('workbuddy')).map((model) => model.id)
       expect(ids).not.toContain('account-a-model')
       expect(ids).toContain('minimax-m3')
     })
@@ -445,21 +578,30 @@ describe('identity changes during catalog loading', () => {
 
     let calls = 0
     let aborted = false
-    vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: RequestInit) => {
-      calls += 1
-      if (calls === 1) {
-        return await new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => {
-            aborted = true
-            reject(new Error('old account request aborted'))
-          }, { once: true })
-        })
-      }
-      return fakeResponse(catalogEnvelope('account-b-model', 'B'))
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        calls += 1
+        if (calls === 1) {
+          return await new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              'abort',
+              () => {
+                aborted = true
+                reject(new Error('old account request aborted'))
+              },
+              { once: true },
+            )
+          })
+        }
+        return fakeResponse(catalogEnvelope('account-b-model', 'B'))
+      }),
+    )
 
     const ctx = await boot()
-    await vi.waitFor(() => { expect(calls).toBe(1) })
+    await vi.waitFor(() => {
+      expect(calls).toBe(1)
+    })
     await writeFile(cnFile, credentialDocument('copilot.tencent.com', 'uid-b'))
 
     await vi.waitFor(async () => {
@@ -469,7 +611,9 @@ describe('identity changes during catalog loading', () => {
       // A's aborted call 1. The exact total is an implementation detail of
       // how many documents a refresh needs; only the abort invariant is pinned.
       expect(calls).toBeGreaterThanOrEqual(3)
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['account-b-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'account-b-model',
+      ])
     })
     expect(aborted).toBe(true)
   }, 45_000)
@@ -481,16 +625,25 @@ describe('identity changes during catalog loading', () => {
     vi.stubEnv('DSH_HOME', root)
     vi.stubEnv('WORKBUDDY_AUTH_FILE', cnFile)
     vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
-    vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: RequestInit) => {
-      const auth = String((init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? '')
-      return fakeResponse(auth.includes('uid-b')
-        ? catalogEnvelope('account-b-model', 'B')
-        : catalogEnvelope('account-a-model', 'A'))
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        const auth = String(
+          (init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? '',
+        )
+        return fakeResponse(
+          auth.includes('uid-b')
+            ? catalogEnvelope('account-b-model', 'B')
+            : catalogEnvelope('account-a-model', 'A'),
+        )
+      }),
+    )
 
     const resolve = WorkBuddyCredentialStore.prototype.resolve
     let switched = false
-    vi.spyOn(WorkBuddyCredentialStore.prototype, 'resolve').mockImplementation(async function (this: WorkBuddyCredentialStore) {
+    vi.spyOn(WorkBuddyCredentialStore.prototype, 'resolve').mockImplementation(async function (
+      this: WorkBuddyCredentialStore,
+    ) {
       if (!switched) {
         switched = true
         await writeFile(cnFile, credentialDocument('copilot.tencent.com', 'uid-b'))
@@ -500,9 +653,13 @@ describe('identity changes during catalog loading', () => {
 
     const ctx = await boot()
     await vi.waitFor(async () => {
-      expect((await ctx.llm.listModels('workbuddy')).map(model => model.id)).toEqual(['account-b-model'])
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'account-b-model',
+      ])
     })
-    const saved = JSON.parse(await readFile(join(root, '.workbuddy-catalog.json'), 'utf8')) as { entries: Record<string, unknown> }
+    const saved = JSON.parse(await readFile(join(root, '.workbuddy-catalog.json'), 'utf8')) as {
+      entries: Record<string, unknown>
+    }
     expect(saved.entries['uid-a:ent-1']).toBeUndefined()
     expect(saved.entries['uid-b:ent-1']).toBeDefined()
   }, 45_000)

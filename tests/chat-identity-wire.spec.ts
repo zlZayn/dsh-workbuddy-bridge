@@ -12,8 +12,12 @@ import type { ChatIdentity } from '../src/protocol/client-identity.ts'
  */
 
 const CN: WorkBuddyCredential = {
-  accessToken: 'at', refreshToken: 'rt', expiresAtMs: 0,
-  domain: 'www.codebuddy.cn', uid: 'uid-1', source: 'desktop',
+  accessToken: 'at',
+  refreshToken: 'rt',
+  expiresAtMs: 0,
+  domain: 'www.codebuddy.cn',
+  uid: 'uid-1',
+  source: 'desktop',
 }
 const GLOBAL: WorkBuddyCredential = { ...CN, domain: 'www.workbuddy.ai' }
 
@@ -39,7 +43,10 @@ function captureFetch(body: string, ok = true, status = 200) {
   return {
     last: () => {
       expect(fetchMock).toHaveBeenCalled()
-      return fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as unknown as [string, RequestInit]
+      return fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as unknown as [
+        string,
+        RequestInit,
+      ]
     },
   }
 }
@@ -47,7 +54,10 @@ function captureFetch(body: string, ok = true, status = 200) {
 describe('chatStream identity', () => {
   it('presents the CN desktop UA and leaves every other header unchanged', async () => {
     const wire = captureFetch('{}')
-    const result = await client().chatStream(CN, JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }))
+    const result = await client().chatStream(
+      CN,
+      JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
+    )
     expect(result.ok).toBe(true)
     const [url, init] = wire.last()
     expect(url).toBe('https://copilot.tencent.com/v2/chat/completions')
@@ -61,12 +71,17 @@ describe('chatStream identity', () => {
     expect(headers['X-Product']).toBe('SaaS')
     expect(headers['Authorization']).toBe('Bearer at')
     expect(headers['X-Refresh-Token']).toBeUndefined()
-    expect(init.body).toBe(JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }))
+    expect(init.body).toBe(
+      JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
+    )
   })
 
   it('names the international product in the UA and still prepends the first system message', async () => {
     const wire = captureFetch('{}')
-    const result = await client().chatStream(GLOBAL, JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }))
+    const result = await client().chatStream(
+      GLOBAL,
+      JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
+    )
     expect(result.ok).toBe(true)
     const [url, init] = wire.last()
     expect(url).toBe('https://www.workbuddy.ai/v2/chat/completions')
@@ -86,7 +101,9 @@ describe('probeEffort identity', () => {
     const headers = init.headers as Record<string, string>
     expect(headers['User-Agent']).toBe('WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1')
     const body = JSON.parse(init.body as string) as {
-      messages: { role: string }[]; max_tokens: number; reasoning_effort: string
+      messages: { role: string }[]
+      max_tokens: number
+      reasoning_effort: string
     }
     expect(body.messages[0]?.role).toBe('user')
     expect(body.max_tokens).toBe(1)
@@ -99,7 +116,10 @@ describe('probeEffort identity', () => {
     const [, init] = wire.last()
     const headers = init.headers as Record<string, string>
     expect(headers['User-Agent']).toBe('WorkBuddy/5.5.6 WorkBuddy AI/5.5.6 CLI/2.137.1')
-    const body = JSON.parse(init.body as string) as { messages: { role: string }[]; max_tokens: number }
+    const body = JSON.parse(init.body as string) as {
+      messages: { role: string }[]
+      max_tokens: number
+    }
     expect(body.messages[0]?.role).toBe('system')
     expect(body.max_tokens).toBe(16)
     expect('reasoning_effort' in body).toBe(false)
@@ -112,16 +132,21 @@ describe('probeEffort identity', () => {
       },
     })
     const chatWire = captureFetch('{}')
-    const chat = await throwing.chatStream(CN, JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }))
+    const chat = await throwing.chatStream(
+      CN,
+      JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
+    )
     expect(chat.ok).toBe(true)
-    expect((chatWire.last()[1].headers as Record<string, string>)['User-Agent'])
-      .toBe('WorkBuddy/5.5.6 WorkBuddy/5.5.6')
+    expect((chatWire.last()[1].headers as Record<string, string>)['User-Agent']).toBe(
+      'WorkBuddy/5.5.6 WorkBuddy/5.5.6',
+    )
 
     const probeWire = captureFetch('{"code":11150,"msg":"no"}', false, 400)
     const probe = await throwing.probeEffort(GLOBAL, 'model-x', 'low', new AbortController().signal)
     expect(probe.status).toBe(400)
-    expect((probeWire.last()[1].headers as Record<string, string>)['User-Agent'])
-      .toBe('WorkBuddy/5.5.2 WorkBuddy AI/5.5.2')
+    expect((probeWire.last()[1].headers as Record<string, string>)['User-Agent']).toBe(
+      'WorkBuddy/5.5.2 WorkBuddy AI/5.5.2',
+    )
   })
 })
 
@@ -139,21 +164,35 @@ describe('unchanged paths (regression pin)', () => {
   })
 
   it('CN catalog keeps the CLI-form UA', async () => {
-    const wire = captureFetch(JSON.stringify({
-      code: 0, msg: 'ok',
-      data: { models: [{ id: 'm', name: 'M', maxInputTokens: 100, maxOutputTokens: 10 }], agents: [{ name: 'cli', models: ['m'] }] },
-    }))
+    const wire = captureFetch(
+      JSON.stringify({
+        code: 0,
+        msg: 'ok',
+        data: {
+          models: [{ id: 'm', name: 'M', maxInputTokens: 100, maxOutputTokens: 10 }],
+          agents: [{ name: 'cli', models: ['m'] }],
+        },
+      }),
+    )
     await client().fetchModels(CN)
     const [url, init] = wire.last()
     expect(url).toBe('https://copilot.tencent.com/console/enterprises/personal/models')
-    expect((init.headers as Record<string, string>)['User-Agent']).toBe('CLI/2.63.2 CodeBuddy/2.63.2')
+    expect((init.headers as Record<string, string>)['User-Agent']).toBe(
+      'CLI/2.63.2 CodeBuddy/2.63.2',
+    )
   })
 
   it('international catalog keeps the no-space App-form UA', async () => {
-    const wire = captureFetch(JSON.stringify({
-      code: 0, msg: 'ok',
-      data: { models: [{ id: 'm', name: 'M', maxInputTokens: 100, maxOutputTokens: 10 }], agents: [{ name: 'cli', models: ['m'] }] },
-    }))
+    const wire = captureFetch(
+      JSON.stringify({
+        code: 0,
+        msg: 'ok',
+        data: {
+          models: [{ id: 'm', name: 'M', maxInputTokens: 100, maxOutputTokens: 10 }],
+          agents: [{ name: 'cli', models: ['m'] }],
+        },
+      }),
+    )
     const intlClient = new WorkBuddyUpstreamClient({
       resolveAppVersion: async () => ({ version: '5.5.2', source: 'installed', bundle: '/x' }),
       resolveChatIdentity: async () => IDENTITY,
@@ -165,10 +204,13 @@ describe('unchanged paths (regression pin)', () => {
   })
 
   it('billing stays untouched by the identity change', async () => {
-    const wire = captureFetch(JSON.stringify({
-      code: 0, msg: 'ok',
-      data: { Response: { Data: { Accounts: [] } } },
-    }))
+    const wire = captureFetch(
+      JSON.stringify({
+        code: 0,
+        msg: 'ok',
+        data: { Response: { Data: { Accounts: [] } } },
+      }),
+    )
     await client().fetchCredits(CN)
     const [url, init] = wire.last()
     expect(url).toBe('https://www.codebuddy.cn/v2/billing/meter/get-user-resource')

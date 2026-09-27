@@ -16,12 +16,21 @@
 import type { WorkBuddyCredentialStore } from '../credential/store.ts'
 import type { WorkBuddyCatalog } from '../catalog/index.ts'
 import { probeModel, type ProbeSender, type SentinelFactory } from '../probe/probe.ts'
-import { fingerprintModel, type WorkBuddyProbeRecord, type WorkBuddyProbeStore } from '../probe/store.ts'
+import {
+  fingerprintModel,
+  type WorkBuddyProbeRecord,
+  type WorkBuddyProbeStore,
+} from '../probe/store.ts'
 import type { WorkBuddyUpstreamClient } from '../protocol/client.ts'
 
 /** What the caller learns about a completed probe. */
 export type WorkBuddyProbeStatus =
-  | { state: 'ok'; validation: WorkBuddyProbeRecord['validation']; efforts: readonly string[]; requests: number }
+  | {
+      state: 'ok'
+      validation: WorkBuddyProbeRecord['validation']
+      efforts: readonly string[]
+      requests: number
+    }
   | { state: 'unavailable'; reason: string }
 
 /** Options for {@link WorkBuddyProbeService}. */
@@ -74,9 +83,12 @@ export class WorkBuddyProbeService {
    * that declares `supportedEfforts` is never answered from an observation.
    */
   recordFor(modelId: string): WorkBuddyProbeRecord | undefined {
-    const info = this.options.catalog.current().find(model => model.id === modelId)
+    const info = this.options.catalog.current().find((model) => model.id === modelId)
     if (info === undefined) return undefined
-    if (info.reasoning?.supportedEfforts !== undefined && info.reasoning.supportedEfforts.length > 0) {
+    if (
+      info.reasoning?.supportedEfforts !== undefined &&
+      info.reasoning.supportedEfforts.length > 0
+    ) {
       return undefined
     }
     const account = this.options.account()
@@ -98,7 +110,7 @@ export class WorkBuddyProbeService {
     if (!manualConsent && !this.options.consent()) {
       return { state: 'unavailable', reason: 'probing is not authorized' }
     }
-    const info = this.options.catalog.current().find(model => model.id === modelId)
+    const info = this.options.catalog.current().find((model) => model.id === modelId)
     if (info === undefined) return { state: 'unavailable', reason: `unknown model: ${modelId}` }
     const account = this.options.account()
     if (account === undefined) return { state: 'unavailable', reason: 'no WorkBuddy credential' }
@@ -109,12 +121,16 @@ export class WorkBuddyProbeService {
     const run = this.queue.then(async (): Promise<WorkBuddyProbeStatus> => {
       // Re-read inside the queue: an earlier sweep may have changed the catalog
       // or already answered this model.
-      const current = this.options.catalog.current().find(model => model.id === modelId)
-      if (current === undefined) return { state: 'unavailable', reason: `unknown model: ${modelId}` }
+      const current = this.options.catalog.current().find((model) => model.id === modelId)
+      if (current === undefined)
+        return { state: 'unavailable', reason: `unknown model: ${modelId}` }
       if (!manualConsent && !this.options.consent()) {
         return { state: 'unavailable', reason: 'probing is not authorized' }
       }
-      if (current.reasoning?.supports !== true || (current.reasoning.supportedEfforts?.length ?? 0) > 0) {
+      if (
+        current.reasoning?.supports !== true ||
+        (current.reasoning.supportedEfforts?.length ?? 0) > 0
+      ) {
         return { state: 'unavailable', reason: 'model does not need detection' }
       }
       const cached = this.recordFor(modelId)
@@ -128,20 +144,23 @@ export class WorkBuddyProbeService {
       // the sweep is still talking to the upstream), and storing the result
       // afterwards would resurrect the previous account's answer.
       const activeAccount = this.options.account()
-      if (activeAccount !== account) return { state: 'unavailable', reason: 'account changed before detection' }
+      if (activeAccount !== account)
+        return { state: 'unavailable', reason: 'account changed before detection' }
       const credential = await this.options.credentials.current()
-      if (credential === undefined) return { state: 'unavailable', reason: 'no WorkBuddy credential' }
+      if (credential === undefined)
+        return { state: 'unavailable', reason: 'no WorkBuddy credential' }
 
-      const send = this.options.send === undefined
-        ? (effort: string | undefined, signal: AbortSignal) =>
-            this.options.client.probeEffort(credential, modelId, effort, signal)
-        : this.options.send(modelId)
+      const send =
+        this.options.send === undefined
+          ? (effort: string | undefined, signal: AbortSignal) =>
+              this.options.client.probeEffort(credential, modelId, effort, signal)
+          : this.options.send(modelId)
 
       this.running = true
       try {
         const outcome = await probeModel({
           send,
-          ...this.options.sentinel === undefined ? {} : { sentinel: this.options.sentinel },
+          ...(this.options.sentinel === undefined ? {} : { sentinel: this.options.sentinel }),
         })
         // The account may have changed while the requests were in flight. Drop
         // the observation rather than attribute it to whoever is signed in now.
@@ -158,7 +177,12 @@ export class WorkBuddyProbeService {
         if (outcome.validation === 'unknown') {
           return { state: 'unavailable', reason: outcome.reason }
         }
-        return { state: 'ok', validation: outcome.validation, efforts: record.efforts, requests: outcome.requests }
+        return {
+          state: 'ok',
+          validation: outcome.validation,
+          efforts: record.efforts,
+          requests: outcome.requests,
+        }
       } finally {
         this.running = false
       }

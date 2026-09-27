@@ -110,39 +110,43 @@ export function useWorkBuddyStatus(
    * Read the status document and apply it.
    * @returns whether this read produced the document now on screen.
    */
-  const read = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
-    const seq = ++readSeq.current
-    // Superseded or unmounted: write nothing, report nothing. A dropped
-    // response must not surface as a failure of its own.
-    const current = (): boolean => mounted.current && signal?.aborted !== true && seq === readSeq.current
-    try {
-      const response = await fetch(variant.statusPath, {
-        headers: { accept: 'application/json' },
-        credentials: 'same-origin',
-        ...signal === undefined ? {} : { signal },
-      })
-      const value: unknown = await response.json().catch(() => undefined)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      if (!isWorkBuddyWebStatus(value)) throw new Error(t('statusResponseInvalid'))
-      if (!current()) return false
-      setStatus(value)
-      // Only a document that states the session may move the poll gate. An
-      // `error` document says nothing about the account, so it must not stop
-      // the interval — that would strand the card on a state it cannot leave.
-      if (value.status === 'signed-in') signedOut.current = false
-      else if (value.status === 'signed-out') signedOut.current = true
-      setReadFailure(undefined)
-      return true
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : t('requestFailed')
-      if (current()) {
-        setReadFailure(message)
-        // Nothing on screen to preserve: the failure is all there is to show.
-        setStatus(previous => previous ?? { status: 'error', message })
+  const read = useCallback(
+    async (signal?: AbortSignal): Promise<boolean> => {
+      const seq = ++readSeq.current
+      // Superseded or unmounted: write nothing, report nothing. A dropped
+      // response must not surface as a failure of its own.
+      const current = (): boolean =>
+        mounted.current && signal?.aborted !== true && seq === readSeq.current
+      try {
+        const response = await fetch(variant.statusPath, {
+          headers: { accept: 'application/json' },
+          credentials: 'same-origin',
+          ...(signal === undefined ? {} : { signal }),
+        })
+        const value: unknown = await response.json().catch(() => undefined)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        if (!isWorkBuddyWebStatus(value)) throw new Error(t('statusResponseInvalid'))
+        if (!current()) return false
+        setStatus(value)
+        // Only a document that states the session may move the poll gate. An
+        // `error` document says nothing about the account, so it must not stop
+        // the interval — that would strand the card on a state it cannot leave.
+        if (value.status === 'signed-in') signedOut.current = false
+        else if (value.status === 'signed-out') signedOut.current = true
+        setReadFailure(undefined)
+        return true
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : t('requestFailed')
+        if (current()) {
+          setReadFailure(message)
+          // Nothing on screen to preserve: the failure is all there is to show.
+          setStatus((previous) => previous ?? { status: 'error', message })
+        }
+        return false
       }
-      return false
-    }
-  }, [t, variant.statusPath])
+    },
+    [t, variant.statusPath],
+  )
 
   /**
    * POST one control action, then re-read so the host's truth is what stays.
@@ -151,58 +155,62 @@ export function useWorkBuddyStatus(
    * the host never accepts a prompt, a sentinel, or a model outside its own
    * catalog from here.
    */
-  const control = useCallback(async (action: WorkBuddyControlAction): Promise<void> => {
-    const key = status?.status === 'signed-in' ? status.probeKey : undefined
-    if (key === undefined) return
-    // A visibility toggle runs on its own per-row in-flight set, so the Refresh
-    // buttons keep their idle labels and untouched rows stay clickable; every
-    // other action takes the card-wide `busy` those labels report.
-    const perRow = action.action === 'set-model-visibility'
-    if (perRow) setToggling(previous => new Set(previous).add(action.model))
-    else setBusy(true)
-    const controller = track()
-    try {
-      const response = await fetch(variant.probePath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-WorkBuddy-Probe-Key': key },
-        credentials: 'same-origin',
-        signal: controller.signal,
-        body: JSON.stringify(action),
-      })
-      const value: unknown = await response.json().catch(() => undefined)
-      if (!response.ok) throw new Error(errorMessage(value, response.status))
-      // A visibility write must confirm itself: a `failed` state means the host
-      // did not persist the toggle, and the checkbox must not be left claiming
-      // it did — the thrown reason lands beside the list and the next read
-      // restores the honest state.
-      if (action.action === 'set-model-visibility' && fieldOf(value, 'state') !== 'updated') {
-        // A stale write (the account switched under the open card) is its own
-        // outcome: explain it and re-read now, so the checkboxes converge on
-        // the new account's section instead of waiting for the next poll while
-        // still showing the departed account's list.
-        if (fieldOf(value, 'state') === 'stale-account') {
-          await read(controller.signal)
-          throw new Error(t('visibilityStaleAccount'))
-        }
-        throw new Error(fieldOf(value, 'reason') ?? t('requestFailed'))
-      }
-      await read(controller.signal)
-    } catch (error: unknown) {
-      if (mounted.current && controller.signal.aborted !== true) {
-        setReadFailure(error instanceof Error ? error.message : t('requestFailed'))
-      }
-    } finally {
-      inFlight.current.delete(controller)
-      if (mounted.current) {
-        if (perRow) setToggling(previous => {
-          const next = new Set(previous)
-          if (action.action === 'set-model-visibility') next.delete(action.model)
-          return next
+  const control = useCallback(
+    async (action: WorkBuddyControlAction): Promise<void> => {
+      const key = status?.status === 'signed-in' ? status.probeKey : undefined
+      if (key === undefined) return
+      // A visibility toggle runs on its own per-row in-flight set, so the Refresh
+      // buttons keep their idle labels and untouched rows stay clickable; every
+      // other action takes the card-wide `busy` those labels report.
+      const perRow = action.action === 'set-model-visibility'
+      if (perRow) setToggling((previous) => new Set(previous).add(action.model))
+      else setBusy(true)
+      const controller = track()
+      try {
+        const response = await fetch(variant.probePath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WorkBuddy-Probe-Key': key },
+          credentials: 'same-origin',
+          signal: controller.signal,
+          body: JSON.stringify(action),
         })
-        else setBusy(false)
+        const value: unknown = await response.json().catch(() => undefined)
+        if (!response.ok) throw new Error(errorMessage(value, response.status))
+        // A visibility write must confirm itself: a `failed` state means the host
+        // did not persist the toggle, and the checkbox must not be left claiming
+        // it did — the thrown reason lands beside the list and the next read
+        // restores the honest state.
+        if (action.action === 'set-model-visibility' && fieldOf(value, 'state') !== 'updated') {
+          // A stale write (the account switched under the open card) is its own
+          // outcome: explain it and re-read now, so the checkboxes converge on
+          // the new account's section instead of waiting for the next poll while
+          // still showing the departed account's list.
+          if (fieldOf(value, 'state') === 'stale-account') {
+            await read(controller.signal)
+            throw new Error(t('visibilityStaleAccount'))
+          }
+          throw new Error(fieldOf(value, 'reason') ?? t('requestFailed'))
+        }
+        await read(controller.signal)
+      } catch (error: unknown) {
+        if (mounted.current && controller.signal.aborted !== true) {
+          setReadFailure(error instanceof Error ? error.message : t('requestFailed'))
+        }
+      } finally {
+        inFlight.current.delete(controller)
+        if (mounted.current) {
+          if (perRow)
+            setToggling((previous) => {
+              const next = new Set(previous)
+              if (action.action === 'set-model-visibility') next.delete(action.model)
+              return next
+            })
+          else setBusy(false)
+        }
       }
-    }
-  }, [read, status, t, track, variant.probePath])
+    },
+    [read, status, t, track, variant.probePath],
+  )
 
   /**
    * The poll. Armed on mount and disarmed on unmount; a genuine signed-out

@@ -104,28 +104,46 @@ export function apply(ctx: ClientContext): void {
   // this entry, so a deployment with no writable configuration shows no page
   // that could not save.
   const config = new WorkBuddyConfigController(ctx.configForms.get(ENTRY_ID))
-  ctx.effect(() => () => { config.dispose() }, 'dsh-workbuddy-bridge: form subscription')
   ctx.effect(
-    () => ctx.configForms.whileServed([ENTRY_ID], () => ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
-      name: 'plugins.bundle.config',
-      key: BUNDLE_NAME,
-      locale: NS,
-      inject: () => config.inject(),
-    }, WorkBuddyConfigPage))),
+    () => () => {
+      config.dispose()
+    },
+    'dsh-workbuddy-bridge: form subscription',
+  )
+  ctx.effect(
+    () =>
+      ctx.configForms.whileServed([ENTRY_ID], () =>
+        ctx.slots.inject('plugins.bundle.config', () =>
+          ctx.slots.register(
+            {
+              name: 'plugins.bundle.config',
+              key: BUNDLE_NAME,
+              locale: NS,
+              inject: () => config.inject(),
+            },
+            WorkBuddyConfigPage,
+          ),
+        ),
+      ),
     'dsh-workbuddy-bridge: configuration page',
   )
 
   // The reasoning-effort seat itself. It reads the session's current selection
   // through `modelDirectories`, which is why it waits for that service rather
   // than registering eagerly.
-  ctx.inject(['modelDirectories'], scope => {
-    scope.slots.inject(PROBE_SEAT, () => scope.slots.register({
-      name: PROBE_SEAT,
-      id: PROBE_SEAT_ID,
-      inject: sessionId => ({
-        directory: scope.modelDirectories.directoryFor(sessionId).store,
-        t,
-      }),
-    }, WorkBuddyProbeControl))
+  ctx.inject(['modelDirectories'], (scope) => {
+    scope.slots.inject(PROBE_SEAT, () =>
+      scope.slots.register(
+        {
+          name: PROBE_SEAT,
+          id: PROBE_SEAT_ID,
+          inject: (sessionId) => ({
+            directory: scope.modelDirectories.directoryFor(sessionId).store,
+            t,
+          }),
+        },
+        WorkBuddyProbeControl,
+      ),
+    )
   })
 }

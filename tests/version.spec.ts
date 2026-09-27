@@ -11,9 +11,9 @@ import { WORKBUDDY_BRIDGE_VERSION } from '../src/version.ts'
  */
 describe('package version sync', () => {
   it('WORKBUDDY_BRIDGE_VERSION matches package.json', () => {
-    const pkg = JSON.parse(
-      readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-    ) as { version: string }
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      version: string
+    }
     expect(WORKBUDDY_BRIDGE_VERSION).toBe(pkg.version)
   })
 
@@ -36,14 +36,18 @@ describe('package version sync', () => {
   it('built lib/ artifacts carry the current version when present', () => {
     const libDir = new URL('../lib/', import.meta.url)
     if (!existsSync(libDir)) return
-    const pkg = JSON.parse(
-      readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-    ) as { version: string }
-    const bundles = readdirSync(libDir).filter(name => name.endsWith('.js'))
-    expect(bundles.length, 'no built bundles in lib/ — run the build before this test').toBeGreaterThan(0)
-    const declaring = bundles.filter(bundle =>
-      readFileSync(new URL(`../lib/${bundle}`, import.meta.url), 'utf8')
-        .includes(`WORKBUDDY_BRIDGE_VERSION = "${pkg.version}"`),
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      version: string
+    }
+    const bundles = readdirSync(libDir).filter((name) => name.endsWith('.js'))
+    expect(
+      bundles.length,
+      'no built bundles in lib/ — run the build before this test',
+    ).toBeGreaterThan(0)
+    const declaring = bundles.filter((bundle) =>
+      readFileSync(new URL(`../lib/${bundle}`, import.meta.url), 'utf8').includes(
+        `WORKBUDDY_BRIDGE_VERSION = "${pkg.version}"`,
+      ),
     )
     expect(
       declaring,
@@ -63,12 +67,19 @@ describe('package version sync', () => {
   it('emits the CSS class map in a stable, sorted order', () => {
     const libDir = new URL('../lib/', import.meta.url)
     if (!existsSync(libDir)) return
-    const bundle = readdirSync(libDir).find(name => name === 'client.js')
+    const bundle = readdirSync(libDir).find((name) => name === 'client.js')
     if (bundle === undefined) return
     const text = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
-    const keys = [...text.matchAll(/"([A-Za-z][\w]*)": "[0-9a-zA-Z]+_\1"/g)].map(match => match[1] as string)
+    const keys = [...text.matchAll(/"([A-Za-z][\w]*)": "[0-9a-zA-Z]+_\1"/g)].map(
+      (match) => match[1] as string,
+    )
     // Self-check: the scan must actually see the class map.
-    expect(keys.length, 'no CSS class map found in lib/client.js — is the scan still right?').toBeGreaterThan(0)
-    expect(keys, 'CSS class map is not sorted — the build is non-deterministic').toEqual([...keys].sort())
+    expect(
+      keys.length,
+      'no CSS class map found in lib/client.js — is the scan still right?',
+    ).toBeGreaterThan(0)
+    expect(keys, 'CSS class map is not sorted — the build is non-deterministic').toEqual(
+      [...keys].sort(),
+    )
   })
 })

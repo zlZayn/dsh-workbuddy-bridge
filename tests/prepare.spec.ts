@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { classifyUpstreamError, prepareChatBody, prepareInternationalChatBody, regionOf } from '../src/protocol/client.ts'
+import {
+  classifyUpstreamError,
+  prepareChatBody,
+  prepareInternationalChatBody,
+  regionOf,
+} from '../src/protocol/client.ts'
 
 describe('prepareChatBody', () => {
   it('forces stream true', () => {
@@ -15,30 +20,40 @@ describe('prepareChatBody', () => {
     expect(body['tool_choice']).toBe('auto')
   })
 
-  it('passes `reasoning_effort` through verbatim, including the adapter\'s own `off` (issue #49)', () => {
+  it("passes `reasoning_effort` through verbatim, including the adapter's own `off` (issue #49)", () => {
     // The shared preparation is region-agnostic: the CN variant keeps its
     // existing wire behaviour, so `off` (and any other value) survives here.
     // The international-only strip lives one layer down, in
     // `prepareInternationalChatBody` — pinned by the tests below and by the
     // chatStream-level spec in upstream.spec.ts.
     for (const effort of ['off', 'low', 'medium', 'high', 'xhigh', 'max', 'none']) {
-      const body = JSON.parse(prepareChatBody(JSON.stringify({ messages: [], reasoning_effort: effort })))
+      const body = JSON.parse(
+        prepareChatBody(JSON.stringify({ messages: [], reasoning_effort: effort })),
+      )
       expect(body['reasoning_effort']).toBe(effort)
     }
   })
 
   it('flattens named function tool_choice to the function name', () => {
-    const body = JSON.parse(prepareChatBody(JSON.stringify({
-      tool_choice: { type: 'function', function: { name: 'grep' } },
-    })))
+    const body = JSON.parse(
+      prepareChatBody(
+        JSON.stringify({
+          tool_choice: { type: 'function', function: { name: 'grep' } },
+        }),
+      ),
+    )
     expect(body['tool_choice']).toBe('grep')
   })
 
   it('drops tool_choice and tools for none', () => {
-    const body = JSON.parse(prepareChatBody(JSON.stringify({
-      tool_choice: { type: 'none' },
-      tools: [{ type: 'function', function: { name: 'grep' } }],
-    })))
+    const body = JSON.parse(
+      prepareChatBody(
+        JSON.stringify({
+          tool_choice: { type: 'none' },
+          tools: [{ type: 'function', function: { name: 'grep' } }],
+        }),
+      ),
+    )
     expect('tool_choice' in body).toBe(false)
     expect('tools' in body).toBe(false)
   })
@@ -49,24 +64,32 @@ describe('prepareChatBody', () => {
   })
 
   it('preserves the reasoning_effort the model picker selects', () => {
-    const body = JSON.parse(prepareChatBody(JSON.stringify({
-      model: 'glm-5.3',
-      messages: [{ role: 'user', content: 'hi' }],
-      reasoning_effort: 'xhigh',
-    })))
+    const body = JSON.parse(
+      prepareChatBody(
+        JSON.stringify({
+          model: 'glm-5.3',
+          messages: [{ role: 'user', content: 'hi' }],
+          reasoning_effort: 'xhigh',
+        }),
+      ),
+    )
     expect(body['reasoning_effort']).toBe('xhigh')
     expect(body['stream']).toBe(true)
   })
 
   it('rewrites developer messages to system (upstream rejects developer)', () => {
-    const body = JSON.parse(prepareChatBody(JSON.stringify({
-      model: 'deepseek-v4-flash',
-      messages: [
-        { role: 'developer', content: 'system prompt' },
-        { role: 'user', content: 'hi' },
-      ],
-      reasoning_effort: 'max',
-    })))
+    const body = JSON.parse(
+      prepareChatBody(
+        JSON.stringify({
+          model: 'deepseek-v4-flash',
+          messages: [
+            { role: 'developer', content: 'system prompt' },
+            { role: 'user', content: 'hi' },
+          ],
+          reasoning_effort: 'max',
+        }),
+      ),
+    )
     const roles = body['messages'].map((message: { role: string }) => message.role)
     expect(roles).toEqual(['system', 'user'])
     expect(body['reasoning_effort']).toBe('max')
@@ -110,26 +133,34 @@ describe('regionOf', () => {
 })
 
 describe('prepareInternationalChatBody effort handling (issue #49)', () => {
-  it('drops the adapter\'s own `off` spelling on the international wire', () => {
+  it("drops the adapter's own `off` spelling on the international wire", () => {
     // pi-ai sends `model.thinkingLevelMap.off` for every request that carries
     // no explicit level; the international endpoint rejects it on the GPT
     // family with 400 / 11133 / `extError.param === 'reasoning.effort'`.
     // Omission is the only form measured good on every such model — including
     // `gpt-6-astra`, which also rejects a literal `'none'`.
-    const body = JSON.parse(prepareInternationalChatBody(JSON.stringify({
-      model: 'gpt-5.6-sol',
-      messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-      reasoning_effort: 'off',
-    })))
+    const body = JSON.parse(
+      prepareInternationalChatBody(
+        JSON.stringify({
+          model: 'gpt-5.6-sol',
+          messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+          reasoning_effort: 'off',
+        }),
+      ),
+    )
     expect('reasoning_effort' in body).toBe(false)
   })
 
   it('keeps declared spellings and an explicit `none` untouched', () => {
     for (const effort of ['low', 'medium', 'high', 'xhigh', 'max', 'none']) {
-      const body = JSON.parse(prepareInternationalChatBody(JSON.stringify({
-        messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-        reasoning_effort: effort,
-      })))
+      const body = JSON.parse(
+        prepareInternationalChatBody(
+          JSON.stringify({
+            messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
+            reasoning_effort: effort,
+          }),
+        ),
+      )
       expect(body['reasoning_effort']).toBe(effort)
     }
   })
@@ -138,7 +169,9 @@ describe('prepareInternationalChatBody effort handling (issue #49)', () => {
     // A body without a messages array takes an early return; the strip must
     // still apply, or such a request would reach the international endpoint
     // carrying the rejected spelling.
-    const body = JSON.parse(prepareInternationalChatBody(JSON.stringify({ reasoning_effort: 'off' })))
+    const body = JSON.parse(
+      prepareInternationalChatBody(JSON.stringify({ reasoning_effort: 'off' })),
+    )
     expect('reasoning_effort' in body).toBe(false)
   })
 })

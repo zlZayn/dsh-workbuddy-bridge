@@ -8,19 +8,30 @@ import type { WorkBuddyShim } from '../src/llm/shim.ts'
 /** The pi-ai collection built by an adapter exposes the exact model descriptor it consumes. */
 interface AdapterSnapshot {
   models: {
-    getModel(provider: string, model: string): {
-      compat?: { maxTokensField?: string }
-      thinkingLevelMap?: Partial<Record<string, string | null>>
-    } | undefined
+    getModel(
+      provider: string,
+      model: string,
+    ):
+      | {
+          compat?: { maxTokensField?: string }
+          thinkingLevelMap?: Partial<Record<string, string | null>>
+        }
+      | undefined
   }
 }
 
 describe('WorkBuddy adapter model descriptors', () => {
-  it('uses WorkBuddy\'s max_tokens output-cap field', () => {
-    const catalog = new WorkBuddyCatalog([{
-      id: 'model', name: 'Model', contextWindow: 1_000, maxTokens: 128_000,
-      supportsImages: false, billing: { free: false },
-    }])
+  it("uses WorkBuddy's max_tokens output-cap field", () => {
+    const catalog = new WorkBuddyCatalog([
+      {
+        id: 'model',
+        name: 'Model',
+        contextWindow: 1_000,
+        maxTokens: 128_000,
+        supportsImages: false,
+        billing: { free: false },
+      },
+    ])
     const { adapter } = createWorkBuddyAdapter({
       catalog,
       store: {} as WorkBuddyCredentialStore,
@@ -35,7 +46,9 @@ describe('WorkBuddy adapter model descriptors', () => {
     // `current()` is private in the adapter's public API, but this is the
     // descriptor seam pi-ai reads before it serializes a request.
     const snapshot = (adapter as unknown as { current(): AdapterSnapshot }).current()
-    expect(snapshot.models.getModel(WORKBUDDY_PROVIDER, 'model')?.compat?.maxTokensField).toBe('max_tokens')
+    expect(snapshot.models.getModel(WORKBUDDY_PROVIDER, 'model')?.compat?.maxTokensField).toBe(
+      'max_tokens',
+    )
   })
 
   it('keeps the `off` thinking level selectable when thinking can be disabled', () => {
@@ -47,11 +60,22 @@ describe('WorkBuddy adapter model descriptors', () => {
     // Known limitation that stays: selecting Off on the international side
     // does not guarantee thinking is disabled — the field is omitted and the
     // upstream decides.
-    const catalog = new WorkBuddyCatalog([{
-      id: 'model', name: 'Model', contextWindow: 1_000, maxTokens: 128_000,
-      supportsImages: false, billing: { free: false },
-      reasoning: { supports: true, onlyReasoning: false, canDisableThinking: true, supportedEfforts: ['low', 'high', 'max'] },
-    }])
+    const catalog = new WorkBuddyCatalog([
+      {
+        id: 'model',
+        name: 'Model',
+        contextWindow: 1_000,
+        maxTokens: 128_000,
+        supportsImages: false,
+        billing: { free: false },
+        reasoning: {
+          supports: true,
+          onlyReasoning: false,
+          canDisableThinking: true,
+          supportedEfforts: ['low', 'high', 'max'],
+        },
+      },
+    ])
     const { adapter } = createWorkBuddyAdapter({
       catalog,
       store: {} as WorkBuddyCredentialStore,
@@ -67,11 +91,22 @@ describe('WorkBuddy adapter model descriptors', () => {
     const model = snapshot.models.getModel(WORKBUDDY_PROVIDER, 'model')
     expect(model?.thinkingLevelMap?.off).toBe('off')
     // A model without the declaration still offers no `off` at all.
-    const bare = new WorkBuddyCatalog([{
-      id: 'bare', name: 'Bare', contextWindow: 1_000, maxTokens: 8_000,
-      supportsImages: false, billing: { free: false },
-      reasoning: { supports: true, onlyReasoning: true, canDisableThinking: false, supportedEfforts: ['high'] },
-    }])
+    const bare = new WorkBuddyCatalog([
+      {
+        id: 'bare',
+        name: 'Bare',
+        contextWindow: 1_000,
+        maxTokens: 8_000,
+        supportsImages: false,
+        billing: { free: false },
+        reasoning: {
+          supports: true,
+          onlyReasoning: true,
+          canDisableThinking: false,
+          supportedEfforts: ['high'],
+        },
+      },
+    ])
     const second = createWorkBuddyAdapter({
       catalog: bare,
       store: {} as WorkBuddyCredentialStore,
@@ -83,7 +118,9 @@ describe('WorkBuddy adapter model descriptors', () => {
       } as WorkBuddyShim,
     })
     const bareSnapshot = (second.adapter as unknown as { current(): AdapterSnapshot }).current()
-    expect(bareSnapshot.models.getModel(WORKBUDDY_PROVIDER, 'bare')?.thinkingLevelMap?.off).toBeNull()
+    expect(
+      bareSnapshot.models.getModel(WORKBUDDY_PROVIDER, 'bare')?.thinkingLevelMap?.off,
+    ).toBeNull()
   })
 })
 
@@ -100,15 +137,30 @@ describe('request-image contract (0.1.7 host)', () => {
     source: { kind: 'user' as const },
     content: [
       { type: 'text' as const, text: 'describe' },
-      { type: 'image' as const, attachment: { attachmentId: 'sha256:test', mediaType: 'image/png', width: 1, height: 1, bytes: 70 } },
+      {
+        type: 'image' as const,
+        attachment: {
+          attachmentId: 'sha256:test',
+          mediaType: 'image/png',
+          width: 1,
+          height: 1,
+          bytes: 70,
+        },
+      },
     ],
   }
 
   function imageAdapter(store: Record<string, unknown>) {
-    const catalog = new WorkBuddyCatalog([{
-      id: 'glm-5.3', name: 'GLM-5.3', contextWindow: 1_000, maxTokens: 128_000,
-      supportsImages: true, billing: { free: false },
-    }])
+    const catalog = new WorkBuddyCatalog([
+      {
+        id: 'glm-5.3',
+        name: 'GLM-5.3',
+        contextWindow: 1_000,
+        maxTokens: 128_000,
+        supportsImages: true,
+        billing: { free: false },
+      },
+    ])
     return createWorkBuddyAdapter({
       catalog,
       store: {} as WorkBuddyCredentialStore,
@@ -137,7 +189,11 @@ describe('request-image contract (0.1.7 host)', () => {
     // is the target at the attachment boundary, not Message branding.
     const messages = [IMAGE_MESSAGE as never]
     await expect(async () => {
-      for await (const _chunk of call.stream({ provider: WORKBUDDY_PROVIDER, model: 'glm-5.3', messages })) {
+      for await (const _chunk of call.stream({
+        provider: WORKBUDDY_PROVIDER,
+        model: 'glm-5.3',
+        messages,
+      })) {
         // drain; the store's sentinel is expected to end the iteration
       }
     }).rejects.toThrow('PAST_VALIDATION')

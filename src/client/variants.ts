@@ -7,7 +7,12 @@
  * paths and platform facts a browser bundle must never see.
  */
 
-import { WORKBUDDY_AI_PROBE_PATH, WORKBUDDY_AI_STATUS_PATH, WORKBUDDY_PROBE_PATH, WORKBUDDY_STATUS_PATH } from '../shared/paths.ts'
+import {
+  WORKBUDDY_AI_PROBE_PATH,
+  WORKBUDDY_AI_STATUS_PATH,
+  WORKBUDDY_PROBE_PATH,
+  WORKBUDDY_STATUS_PATH,
+} from '../shared/paths.ts'
 import type { WorkBuddyLocaleKey } from './locales.ts'
 
 /** One variant, as a card renders it. */
@@ -59,5 +64,5 @@ export const CARD_VARIANTS: readonly WorkBuddyCardVariant[] = [CN_CARD_VARIANT, 
 
 /** The card (and therefore the routes) a selected provider belongs to. */
 export function cardVariantFor(provider: string): WorkBuddyCardVariant | undefined {
-  return CARD_VARIANTS.find(card => card.id === provider)
+  return CARD_VARIANTS.find((card) => card.id === provider)
 }

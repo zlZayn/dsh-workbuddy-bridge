@@ -7,9 +7,8 @@ import type { Plugin, UserConfig } from 'tsdown'
 const PLUGIN_ID = 'dsh-workbuddy-bridge'
 
 /** Read the npm version once so the build injects it into src/version.ts. */
-const PACKAGE_VERSION = JSON.parse(
-  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
-).version as string
+const PACKAGE_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+  .version as string
 
 /** Build-time define map; `src/version.ts` reads `__DSH_WORKBUDDY_VERSION__`. */
 const VERSION_DEFINE = { __DSH_WORKBUDDY_VERSION__: JSON.stringify(PACKAGE_VERSION) }
@@ -64,8 +63,8 @@ function styleInjectionModule(
   return [
     `const css = ${JSON.stringify(css)};`,
     `const tagId = ${JSON.stringify(tagId)};`,
-    'if (typeof document !== \'undefined\' && document.querySelector(\'style[data-plugin-css=\' + JSON.stringify(tagId) + \']\') === null) {',
-    '  const tag = document.createElement(\'style\');',
+    "if (typeof document !== 'undefined' && document.querySelector('style[data-plugin-css=' + JSON.stringify(tagId) + ']') === null) {",
+    "  const tag = document.createElement('style');",
     `  tag.dataset.plugin = ${JSON.stringify(id)};`,
     '  tag.dataset.pluginCss = tagId;',
     '  tag.textContent = css;',
@@ -86,9 +85,10 @@ function cssModulesPlugin(id: string): Plugin {
     name: 'workbuddy-css-modules',
     resolveId(source, importer) {
       if (!source.endsWith('.module.css')) return null
-      const abs = importer !== undefined && source.startsWith('.')
-        ? resolvePath(dirname(importer), source)
-        : source
+      const abs =
+        importer !== undefined && source.startsWith('.')
+          ? resolvePath(dirname(importer), source)
+          : source
       return CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
     },
     async load(virtualId) {

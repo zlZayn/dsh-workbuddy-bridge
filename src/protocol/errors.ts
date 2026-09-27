@@ -14,12 +14,7 @@ import z from '@deepseek-ai/schemastery'
 
 /** Upstream failure classes the shim maps onto distinct HTTP answers. */
 export type UpstreamErrorKind =
-  | 'hard_credit'
-  | 'soft_rate'
-  | 'session_dead'
-  | 'not_found'
-  | 'server'
-  | 'client'
+  'hard_credit' | 'soft_rate' | 'session_dead' | 'not_found' | 'server' | 'client'
 
 /** 一次已分类的上游失败。 */
 export interface UpstreamFailure {
@@ -137,7 +132,12 @@ export function classifyUpstreamFailure(status: number, body: string): UpstreamF
   if (text !== undefined) {
     return { status, kind: text, message: body.slice(0, 160), fromTextFallback: true }
   }
-  return { status, kind: kindOfStatus(status), message: body.slice(0, 160), fromTextFallback: false }
+  return {
+    status,
+    kind: kindOfStatus(status),
+    message: body.slice(0, 160),
+    fromTextFallback: false,
+  }
 }
 
 /** 兼容旧调用点：只要类别，不要证据。 */

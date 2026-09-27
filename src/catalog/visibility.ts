@@ -68,15 +68,20 @@ function isSaved(value: unknown): value is SavedVisibility {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const entry = value as Record<string, unknown>
   if (typeof entry['account'] !== 'string' || entry['account'] === '') return false
-  if (typeof entry['updatedAtMs'] !== 'number' || !Number.isFinite(entry['updatedAtMs'])) return false
+  if (typeof entry['updatedAtMs'] !== 'number' || !Number.isFinite(entry['updatedAtMs']))
+    return false
   const list = entry['hidden'] ?? entry['disabled']
   if (!Array.isArray(list)) return false
-  return list.every(id => typeof id === 'string' && id !== '')
+  return list.every((id) => typeof id === 'string' && id !== '')
 }
 
 /** Normalize one parsed entry: pick the list up from either field name. */
 function normalize(value: SavedVisibility & { disabled?: readonly string[] }): SavedVisibility {
-  return { account: value.account, hidden: value.hidden ?? value.disabled ?? [], updatedAtMs: value.updatedAtMs }
+  return {
+    account: value.account,
+    hidden: value.hidden ?? value.disabled ?? [],
+    updatedAtMs: value.updatedAtMs,
+  }
 }
 
 /** Options for {@link WorkBuddyVisibilityStore}. */
@@ -98,9 +103,7 @@ export class WorkBuddyVisibilityStore {
   private accounts: Record<string, SavedVisibility> | undefined
 
   constructor(options: WorkBuddyVisibilityStoreOptions | string = {}) {
-    this.path = typeof options === 'string'
-      ? options
-      : options.path ?? workbuddyVisibilityPath()
+    this.path = typeof options === 'string' ? options : (options.path ?? workbuddyVisibilityPath())
   }
 
   /** Resolved state-file path, for the CLI and tests. */
@@ -116,7 +119,8 @@ export class WorkBuddyVisibilityStore {
         const parsed: unknown = JSON.parse(readFileSync(this.path, 'utf8'))
         if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
           const document = parsed as Record<string, unknown>
-          const raw = document['version'] === VISIBILITY_FORMAT_VERSION ? document['accounts'] : undefined
+          const raw =
+            document['version'] === VISIBILITY_FORMAT_VERSION ? document['accounts'] : undefined
           if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
             for (const [key, value] of Object.entries(raw)) {
               if (isSaved(value)) accounts[key] = normalize(value)
@@ -147,7 +151,7 @@ export class WorkBuddyVisibilityStore {
    */
   setVisible(account: string, model: string, visible: boolean): void {
     const current = this.load()[account]?.hidden ?? []
-    const next = visible ? current.filter(id => id !== model) : [...new Set([...current, model])]
+    const next = visible ? current.filter((id) => id !== model) : [...new Set([...current, model])]
     const accounts = { ...this.load() }
     if (next.length === 0) delete accounts[account]
     else accounts[account] = { account, hidden: next, updatedAtMs: Date.now() }

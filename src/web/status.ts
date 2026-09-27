@@ -15,7 +15,13 @@ import { normalizeCredits } from '../protocol/client.ts'
 import type { WorkBuddyModelInfo } from '../catalog/index.ts'
 import { hostIsLoopback, originIsLoopback } from '../llm/loopback.ts'
 import { WORKBUDDY_STATUS_PATH } from '../shared/paths.ts'
-import type { WorkBuddyWebCatalog, WorkBuddyWebModelBadge, WorkBuddyWebProbeSection, WorkBuddyWebStatus, WorkBuddyWebVisibilitySection } from '../shared/paths.ts'
+import type {
+  WorkBuddyWebCatalog,
+  WorkBuddyWebModelBadge,
+  WorkBuddyWebProbeSection,
+  WorkBuddyWebStatus,
+  WorkBuddyWebVisibilitySection,
+} from '../shared/paths.ts'
 
 export { WORKBUDDY_STATUS_PATH } from '../shared/paths.ts'
 export type { WorkBuddyWebStatus } from '../shared/paths.ts'
@@ -70,7 +76,10 @@ function safeMessage(error: unknown): string {
 
 function json(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) })
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(payload),
+  })
   res.end(payload)
 }
 
@@ -106,16 +115,18 @@ export async function workBuddyWebStatus(
     // payloads and subprocess output out of its own message.
     return {
       status: 'signed-out',
-      ...authStatus.reason === undefined ? {} : { reason: authStatus.reason },
-      ...authStatus.reasonCode === undefined ? {} : { reasonCode: authStatus.reasonCode },
+      ...(authStatus.reason === undefined ? {} : { reason: authStatus.reason }),
+      ...(authStatus.reasonCode === undefined ? {} : { reasonCode: authStatus.reasonCode }),
     }
   }
   const status: WorkBuddyWebStatus = {
     status: 'signed-in',
-    ...authStatus.nickname === undefined ? {} : { nickname: authStatus.nickname },
-    ...authStatus.domain === undefined || authStatus.domain === '' ? {} : { domain: authStatus.domain },
-    ...authStatus.source === undefined ? {} : { source: authStatus.source },
-    ...authStatus.expiresAtMs === undefined ? {} : { expiresAt: authStatus.expiresAtMs },
+    ...(authStatus.nickname === undefined ? {} : { nickname: authStatus.nickname }),
+    ...(authStatus.domain === undefined || authStatus.domain === ''
+      ? {}
+      : { domain: authStatus.domain }),
+    ...(authStatus.source === undefined ? {} : { source: authStatus.source }),
+    ...(authStatus.expiresAtMs === undefined ? {} : { expiresAt: authStatus.expiresAtMs }),
   }
   // Model facts ride the signed-in document so the card can show rates,
   // promos, and context capacity without touching the Models picker. The rate
@@ -128,41 +139,44 @@ export async function workBuddyWebStatus(
   // precisely the ones with no promo attached. The discount section filters
   // what it renders.
   const models = deps.models()
-  const modelsField: readonly WorkBuddyWebModelBadge[] = models
-    .map(model => {
-      const rate = normalizeCredits(model.billing?.credits)
-      // The largest window the upstream declares for this model, when it
-      // declares alternatives; equal to `contextWindow` otherwise, and omitted
-      // when the upstream said nothing.
-      const supported = model.supportedContextWindows ?? []
-      const maxContextWindow = supported.length > 0 ? Math.max(...supported) : undefined
-      const defaultContextWindow = model.defaultContextWindow ?? model.contextWindow
-      return {
-        id: model.id,
-        name: model.name,
-        ...model.billing?.free === true ? { free: true as const } : {},
-        ...model.billing?.badges !== undefined && model.billing.badges.length > 0 ? { badges: model.billing.badges } : {},
-        ...rate === undefined ? {} : { credits: rate },
-        // The rate is deliberately withheld for a row whose price cannot be
-        // vouched for (a promotion that has ended but is still baked into the
-        // cached row): the card then says the price needs a refresh instead of
-        // repeating a stale figure or implying the model is free.
-        ...model.billing?.rateUnknown === true ? { rateUnknown: true as const } : {},
-        // Verbatim from the upstream catalog; omitted when it said nothing.
-        ...typeof model.contextWindow === 'number' && model.contextWindow > 0
-          ? { contextWindow: model.contextWindow }
-          : {},
-        ...typeof defaultContextWindow === 'number' && defaultContextWindow > 0 && defaultContextWindow < model.contextWindow
-          ? { defaultContextWindow }
-          : {},
-        ...maxContextWindow === undefined || maxContextWindow <= defaultContextWindow
-          ? {}
-          : { maxContextWindow },
-        ...typeof model.maxInputTokens === 'number' && model.maxInputTokens > 0
-          ? { maxInputTokens: model.maxInputTokens }
-          : {},
-      }
-    })
+  const modelsField: readonly WorkBuddyWebModelBadge[] = models.map((model) => {
+    const rate = normalizeCredits(model.billing?.credits)
+    // The largest window the upstream declares for this model, when it
+    // declares alternatives; equal to `contextWindow` otherwise, and omitted
+    // when the upstream said nothing.
+    const supported = model.supportedContextWindows ?? []
+    const maxContextWindow = supported.length > 0 ? Math.max(...supported) : undefined
+    const defaultContextWindow = model.defaultContextWindow ?? model.contextWindow
+    return {
+      id: model.id,
+      name: model.name,
+      ...(model.billing?.free === true ? { free: true as const } : {}),
+      ...(model.billing?.badges !== undefined && model.billing.badges.length > 0
+        ? { badges: model.billing.badges }
+        : {}),
+      ...(rate === undefined ? {} : { credits: rate }),
+      // The rate is deliberately withheld for a row whose price cannot be
+      // vouched for (a promotion that has ended but is still baked into the
+      // cached row): the card then says the price needs a refresh instead of
+      // repeating a stale figure or implying the model is free.
+      ...(model.billing?.rateUnknown === true ? { rateUnknown: true as const } : {}),
+      // Verbatim from the upstream catalog; omitted when it said nothing.
+      ...(typeof model.contextWindow === 'number' && model.contextWindow > 0
+        ? { contextWindow: model.contextWindow }
+        : {}),
+      ...(typeof defaultContextWindow === 'number' &&
+      defaultContextWindow > 0 &&
+      defaultContextWindow < model.contextWindow
+        ? { defaultContextWindow }
+        : {}),
+      ...(maxContextWindow === undefined || maxContextWindow <= defaultContextWindow
+        ? {}
+        : { maxContextWindow }),
+      ...(typeof model.maxInputTokens === 'number' && model.maxInputTokens > 0
+        ? { maxInputTokens: model.maxInputTokens }
+        : {}),
+    }
+  })
   // Catalog provenance rides the document even when the model list is empty:
   // "no models" is precisely the case a user needs explained, and it is the
   // only way to tell a hidden group from a failed fetch.
@@ -172,10 +186,10 @@ export async function workBuddyWebStatus(
   // when no account-with-uid is in effect; the card keys its controls on the
   // section's presence.
   const visibility = deps.visibility?.()
-  const withVisibility: WorkBuddyWebStatus = visibility === undefined ? withCatalog : { ...withCatalog, visibility }
-  const statusWithModels: WorkBuddyWebStatus = modelsField.length > 0
-    ? { ...withVisibility, models: modelsField }
-    : withVisibility
+  const withVisibility: WorkBuddyWebStatus =
+    visibility === undefined ? withCatalog : { ...withCatalog, visibility }
+  const statusWithModels: WorkBuddyWebStatus =
+    modelsField.length > 0 ? { ...withVisibility, models: modelsField } : withVisibility
   // Probe state rides the signed-in document so the card can render the
   // consent switches and results without a second request. The control key
   // travels with it: this response already passed the loopback guard, and the
@@ -189,8 +203,10 @@ export async function workBuddyWebStatus(
     probed = {
       ...statusWithModels,
       probe: deps.probe(),
-      ...deps.probeKey === undefined ? {} : { probeKey: deps.probeKey },
-      ...maximumContextWindow === undefined ? {} : { useMaximumContextWindow: maximumContextWindow },
+      ...(deps.probeKey === undefined ? {} : { probeKey: deps.probeKey }),
+      ...(maximumContextWindow === undefined
+        ? {}
+        : { useMaximumContextWindow: maximumContextWindow }),
     }
   }
   try {
@@ -230,7 +246,10 @@ export function workBuddyStatusHandler(
 }
 
 /** Mount the GET status route on an optional webServer context. */
-export function registerWorkBuddyStatusRoute(ctx: Context, deps: WorkBuddyStatusRouteOptions): void {
+export function registerWorkBuddyStatusRoute(
+  ctx: Context,
+  deps: WorkBuddyStatusRouteOptions,
+): void {
   const path = deps.path ?? WORKBUDDY_STATUS_PATH
   ctx.effect(() => {
     const dispose = ctx.webServer.register({

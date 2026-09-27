@@ -2,9 +2,8 @@ import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vitest/config'
 
 /** Mirror the build-time define from tsdown.config.ts so tests see the same version. */
-const PACKAGE_VERSION = JSON.parse(
-  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
-).version as string
+const PACKAGE_VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+  .version as string
 
 /**
  * Stub CSS for the browser lane.

@@ -58,7 +58,8 @@
    draws them — a hard-coded 2px brand outline is a visibly different ring from
    the one the rest of the chrome shows. */
 .trigger:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline: var(--dsw-focus-ring-width) solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 

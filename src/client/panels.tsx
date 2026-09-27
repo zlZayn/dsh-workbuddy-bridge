@@ -12,8 +12,11 @@ import { formatNumber, formatPercent, formatTime, formatTokens } from './format.
 import type { WorkBuddyLocaleKey, WorkBuddyTranslate } from './locales.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
 import type {
-  WorkBuddySignedOutReasonCode, WorkBuddyWebCredits, WorkBuddyWebModelBadge,
-  WorkBuddyWebProbeSection, WorkBuddyWebVisibilitySection,
+  WorkBuddySignedOutReasonCode,
+  WorkBuddyWebCredits,
+  WorkBuddyWebModelBadge,
+  WorkBuddyWebProbeSection,
+  WorkBuddyWebVisibilitySection,
 } from '../shared/paths.ts'
 import css from './workbuddy.module.css'
 
@@ -42,7 +45,9 @@ const ASSIST_REASON_CODES: readonly WorkBuddySignedOutReasonCode[] = [
 export function assistCodeFor(
   reasonCode: WorkBuddySignedOutReasonCode | undefined,
 ): WorkBuddySignedOutReasonCode | undefined {
-  return reasonCode !== undefined && ASSIST_REASON_CODES.includes(reasonCode) ? reasonCode : undefined
+  return reasonCode !== undefined && ASSIST_REASON_CODES.includes(reasonCode)
+    ? reasonCode
+    : undefined
 }
 
 /** Locale key for one failure's summary inside the Agent prompt. */
@@ -51,11 +56,16 @@ function assistSummaryKey(
   variant: WorkBuddyCardVariant,
 ): WorkBuddyLocaleKey {
   switch (code) {
-    case 'electron-binary-not-found': return 'assistNotFound'
-    case 'electron-binary-ambiguous': return 'assistAmbiguous'
-    case 'electron-discovery-incomplete': return 'assistIncomplete'
-    case 'electron-path-invalid': return 'assistPathInvalid'
-    default: return variant.unavailableKey
+    case 'electron-binary-not-found':
+      return 'assistNotFound'
+    case 'electron-binary-ambiguous':
+      return 'assistAmbiguous'
+    case 'electron-discovery-incomplete':
+      return 'assistIncomplete'
+    case 'electron-path-invalid':
+      return 'assistPathInvalid'
+    default:
+      return variant.unavailableKey
   }
 }
 
@@ -76,10 +86,20 @@ function badgeLabel(badge: string, t: WorkBuddyTranslate): string {
 }
 
 /** One model's promotional badges, plus `Free` when the upstream says so. */
-function ModelBadges({ model, t }: { model: WorkBuddyWebModelBadge; t: WorkBuddyTranslate }): ReactNode {
+function ModelBadges({
+  model,
+  t,
+}: {
+  model: WorkBuddyWebModelBadge
+  t: WorkBuddyTranslate
+}): ReactNode {
   return (
     <span className={css.badges}>
-      {model.badges?.map(badge => <Tag key={badge} tone="success">{badgeLabel(badge, t)}</Tag>)}
+      {model.badges?.map((badge) => (
+        <Tag key={badge} tone="success">
+          {badgeLabel(badge, t)}
+        </Tag>
+      ))}
       {model.free === true ? <Tag tone="success">{t('freeModel')}</Tag> : null}
     </span>
   )
@@ -94,7 +114,13 @@ function ModelBadges({ model, t }: { model: WorkBuddyWebModelBadge; t: WorkBuddy
  * honest "remaining N" line printed below it. Unknown size therefore renders the
  * percent slot as unknown copy and an unfilled, indeterminate track.
  */
-function CreditBar({ label, remain, size, unlimited, t }: {
+function CreditBar({
+  label,
+  remain,
+  size,
+  unlimited,
+  t,
+}: {
   label: string
   remain: number
   size: number
@@ -105,12 +131,15 @@ function CreditBar({ label, remain, size, unlimited, t }: {
   if (unlimited === true) {
     return (
       <div className={css.package}>
-        <div className={css.packageLabel}><span>{label}</span><span>{quota}</span></div>
+        <div className={css.packageLabel}>
+          <span>{label}</span>
+          <span>{quota}</span>
+        </div>
         {/*
-          * "Uncapped" is not "100% remaining", so the range attributes are
-          * omitted and no fill is drawn: an uncapped quota has no proportion
-          * to state, and a full bar would assert one.
-          */}
+         * "Uncapped" is not "100% remaining", so the range attributes are
+         * omitted and no fill is drawn: an uncapped quota has no proportion
+         * to state, and a full bar would assert one.
+         */}
         <div className={css.track} role="progressbar" aria-label={label} aria-valuetext={quota} />
       </div>
     )
@@ -124,22 +153,28 @@ function CreditBar({ label, remain, size, unlimited, t }: {
     <div className={css.package}>
       <div className={css.packageLabel}>
         <span>{label}</span>
-        <span>{percent === undefined ? t('percentUnknown') : t('percentRemaining', { percent: formatPercent(percent) })}</span>
+        <span>
+          {percent === undefined
+            ? t('percentUnknown')
+            : t('percentRemaining', { percent: formatPercent(percent) })}
+        </span>
       </div>
       {/*
-        * No numeric value when the size is unknown: the range attributes are
-        * omitted so assistive technology reports an indeterminate bar rather
-        * than a second, louder repeat of the false 100%.
-        */}
+       * No numeric value when the size is unknown: the range attributes are
+       * omitted so assistive technology reports an indeterminate bar rather
+       * than a second, louder repeat of the false 100%.
+       */}
       <div
         className={css.track}
         role="progressbar"
         aria-label={label}
-        {...percent === undefined
+        {...(percent === undefined
           ? { 'aria-valuetext': detail }
-          : { 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': percent }}
+          : { 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': percent })}
       >
-        {percent === undefined ? null : <div className={css.fill} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />}
+        {percent === undefined ? null : (
+          <div className={css.fill} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
+        )}
       </div>
       {/* The exact figure belongs on screen, not only in the progressbar's
           accessibility text: a percentage alone cannot be quoted to support. */}
@@ -149,17 +184,30 @@ function CreditBar({ label, remain, size, unlimited, t }: {
 }
 
 /** The per-package credit breakdown, under the card's own "Credits" tab. */
-export function CreditsPanel({ credits, t }: { credits: WorkBuddyWebCredits; t: WorkBuddyTranslate }): ReactNode {
+export function CreditsPanel({
+  credits,
+  t,
+}: {
+  credits: WorkBuddyWebCredits
+  t: WorkBuddyTranslate
+}): ReactNode {
   return (
     <div className={css.section}>
       {credits.accounts
         // Skip the packages that say nothing: an exhausted non-enterprise
         // package is noise once the total is on screen.
-        .filter(account => account.packageName === 'enterprise' || account.remain > 0 || account.unlimited === true)
+        .filter(
+          (account) =>
+            account.packageName === 'enterprise' ||
+            account.remain > 0 ||
+            account.unlimited === true,
+        )
         .map((account, index) => (
           <CreditBar
             key={`${account.packageName}-${String(index)}`}
-            label={account.packageName === 'enterprise' ? t('packageEnterprise') : account.packageName}
+            label={
+              account.packageName === 'enterprise' ? t('packageEnterprise') : account.packageName
+            }
             remain={account.remain}
             size={account.size}
             unlimited={account.unlimited}
@@ -188,7 +236,14 @@ export function CreditsPanel({ credits, t }: { credits: WorkBuddyWebCredits; t: 
  * budget actually requested, while the larger value is a ceiling the upstream
  * would accept.
  */
-export function ModelsPanel({ models, visibility, toggling, disabled, onToggle, t }: {
+export function ModelsPanel({
+  models,
+  visibility,
+  toggling,
+  disabled,
+  onToggle,
+  t,
+}: {
   models: readonly WorkBuddyWebModelBadge[] | undefined
   /** Per-account hidden-model state; undefined renders no checkboxes. */
   visibility: WorkBuddyWebVisibilitySection | undefined
@@ -216,51 +271,72 @@ export function ModelsPanel({ models, visibility, toggling, disabled, onToggle, 
           visibility. */}
       {visibility === undefined ? null : <p className={css.text}>{t('visibilityIntro')}</p>}
       <div className={css.list}>
-      {rows.map(model => {
-        const capacity = model.contextWindow
-        // Only shown when the upstream declared a larger alternative, so the
-        // CN list (which declares none) is unchanged.
-        const alternative = capacity !== undefined && model.maxContextWindow !== undefined && model.maxContextWindow > capacity
-          ? model.maxContextWindow
-          : undefined
-        return (
-          <div key={model.id} className={css.modelRow}>
-            <span className={css.modelMain}>
-              {/* The checkbox owns the name: it is one control whose label is the
+        {rows.map((model) => {
+          const capacity = model.contextWindow
+          // Only shown when the upstream declared a larger alternative, so the
+          // CN list (which declares none) is unchanged.
+          const alternative =
+            capacity !== undefined &&
+            model.maxContextWindow !== undefined &&
+            model.maxContextWindow > capacity
+              ? model.maxContextWindow
+              : undefined
+          return (
+            <div key={model.id} className={css.modelRow}>
+              <span className={css.modelMain}>
+                {/* The checkbox owns the name: it is one control whose label is the
                   model, exactly the shape the host's Checkbox is built for. Splitting
                   the name out of it would read as two objects and double the label. */}
-              {visibility === undefined
-                ? <span className={css.name}>{model.name}</span>
-                : (
+                {visibility === undefined ? (
+                  <span className={css.name}>{model.name}</span>
+                ) : (
                   <Checkbox
                     checked={!hidden.has(model.id)}
                     disabled={disabled || toggling.has(model.id)}
                     label={model.name}
-                    onChange={visible => { onToggle(model.id, visible, visibility.account) }}
+                    onChange={(visible) => {
+                      onToggle(model.id, visible, visibility.account)
+                    }}
                   />
                 )}
-            </span>
-            <span className={css.modelEnd}>
-              {model.credits === undefined
-                // No rate to show. When the plugin withheld it because the price
-                // came from an ended promotion, say so plainly rather than showing
-                // nothing — silence here reads as "free", which is the claim being
-                // avoided.
-                ? model.rateUnknown === true ? <span className={css.dim}>{t('rateUnknown')}</span> : null
-                : <span className={css.dim}>{t('rate', { rate: model.credits })}</span>}
-              {capacity === undefined
-                ? <span className={css.meta} aria-label={t('contextUnknown')}>—</span>
-                : <span>{formatTokens(capacity)}</span>}
-              {alternative !== undefined
-                ? <span className={css.dim}>{t('contextUpTo', { size: formatTokens(alternative) })}</span>
-                : capacity !== undefined && model.defaultContextWindow !== undefined && model.defaultContextWindow < capacity
-                  ? <span className={css.dim}>{t('contextDefault', { size: formatTokens(model.defaultContextWindow) })}</span>
-                  : null}
-              <span className={css.badges}><ModelBadges model={model} t={t} /></span>
-            </span>
-          </div>
-        )
-      })}
+              </span>
+              <span className={css.modelEnd}>
+                {model.credits === undefined ? (
+                  // No rate to show. When the plugin withheld it because the price
+                  // came from an ended promotion, say so plainly rather than showing
+                  // nothing — silence here reads as "free", which is the claim being
+                  // avoided.
+                  model.rateUnknown === true ? (
+                    <span className={css.dim}>{t('rateUnknown')}</span>
+                  ) : null
+                ) : (
+                  <span className={css.dim}>{t('rate', { rate: model.credits })}</span>
+                )}
+                {capacity === undefined ? (
+                  <span className={css.meta} aria-label={t('contextUnknown')}>
+                    —
+                  </span>
+                ) : (
+                  <span>{formatTokens(capacity)}</span>
+                )}
+                {alternative !== undefined ? (
+                  <span className={css.dim}>
+                    {t('contextUpTo', { size: formatTokens(alternative) })}
+                  </span>
+                ) : capacity !== undefined &&
+                  model.defaultContextWindow !== undefined &&
+                  model.defaultContextWindow < capacity ? (
+                  <span className={css.dim}>
+                    {t('contextDefault', { size: formatTokens(model.defaultContextWindow) })}
+                  </span>
+                ) : null}
+                <span className={css.badges}>
+                  <ModelBadges model={model} t={t} />
+                </span>
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -280,7 +356,14 @@ export function ModelsPanel({ models, visibility, toggling, disabled, onToggle, 
  *
  * The tab bar owns the heading, so this panel renders no heading of its own.
  */
-export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
+export function ProbePanel({
+  probe,
+  models,
+  busy,
+  onDetect,
+  onClear,
+  t,
+}: {
   probe: WorkBuddyWebProbeSection
   /** Catalog rows from the same status document, for candidate display names. */
   models: readonly WorkBuddyWebModelBadge[] | undefined
@@ -317,58 +400,66 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
     <div className={css.section}>
       <p className={css.text}>{t('probeCostNote')}</p>
       {/*
-        * One row per probeable model, each carrying its own result and button.
-        * Buttons used to live in a block above the results, so a detected model
-        * left the button list and reappeared only as a result below — re-running
-        * it meant clearing every other result. Rows keep the model and its
-        * action together, and the order is fixed by the catalog, so nothing
-        * moves when a detection lands.
-        */}
+       * One row per probeable model, each carrying its own result and button.
+       * Buttons used to live in a block above the results, so a detected model
+       * left the button list and reappeared only as a result below — re-running
+       * it meant clearing every other result. Rows keep the model and its
+       * action together, and the order is fixed by the catalog, so nothing
+       * moves when a detection lands.
+       */}
       <div className={css.list}>
-      {probe.candidates.map(id => {
-        const result = probe.results.find(entry => entry.id === id)
-        // Display name: the catalog's own label first, then whatever the
-        // recorded probe stored, then the bare id. The *action* below keeps
-        // using the id regardless of what the name resolves to.
-        const name = models?.find(model => model.id === id)?.name ?? result?.name ?? id
-        return (
-          <div key={id} className={css.modelStack}>
-            <div className={css.probeRow}>
-              <span className={css.name}>{name}</span>
-              <span className={css.probeEnd}>
-                {result === undefined ? null : (
-                  <Tag tone={result.validation === 'validating' ? 'success' : 'neutral'}>
-                    {result.validation === 'validating' && result.efforts.length > 0
-                      ? result.efforts.join(' / ')
-                      : t(result.validation === 'non-validating' ? 'probeResultNotValidating' : 'probeResultUnknown')}
-                  </Tag>
-                )}
-                <Button
-                  size="sm"
-                  disabled={probe.running || busy}
-                  onClick={() => {
-                    setRunningModel(id)
-                    onDetect(id)
-                  }}
-                >
-                  {/* Only the button that was pressed reports progress; the
+        {probe.candidates.map((id) => {
+          const result = probe.results.find((entry) => entry.id === id)
+          // Display name: the catalog's own label first, then whatever the
+          // recorded probe stored, then the bare id. The *action* below keeps
+          // using the id regardless of what the name resolves to.
+          const name = models?.find((model) => model.id === id)?.name ?? result?.name ?? id
+          return (
+            <div key={id} className={css.modelStack}>
+              <div className={css.probeRow}>
+                <span className={css.name}>{name}</span>
+                <span className={css.probeEnd}>
+                  {result === undefined ? null : (
+                    <Tag tone={result.validation === 'validating' ? 'success' : 'neutral'}>
+                      {result.validation === 'validating' && result.efforts.length > 0
+                        ? result.efforts.join(' / ')
+                        : t(
+                            result.validation === 'non-validating'
+                              ? 'probeResultNotValidating'
+                              : 'probeResultUnknown',
+                          )}
+                    </Tag>
+                  )}
+                  <Button
+                    size="sm"
+                    disabled={probe.running || busy}
+                    onClick={() => {
+                      setRunningModel(id)
+                      onDetect(id)
+                    }}
+                  >
+                    {/* Only the button that was pressed reports progress; the
                       card-wide `busy` flag cannot pick the label. */}
-                  {runningModel === id
-                    ? t('probeRunning', { model: name })
-                    : t(result === undefined ? 'probeStart' : 'probeRedetect')}
-                </Button>
-              </span>
+                    {runningModel === id
+                      ? t('probeRunning', { model: name })
+                      : t(result === undefined ? 'probeStart' : 'probeRedetect')}
+                  </Button>
+                </span>
+              </div>
+              {result === undefined ? null : (
+                <span className={css.meta}>
+                  {t('probeResultAt', { time: formatTime(result.probedAt) })}
+                </span>
+              )}
             </div>
-            {result === undefined ? null
-              : <span className={css.meta}>{t('probeResultAt', { time: formatTime(result.probedAt) })}</span>}
-
-          </div>
-        )
-      })}
+          )
+        })}
       </div>
       {probe.results.length === 0 ? null : (
         <div className={css.sectionActions}>
-          <Button size="sm" disabled={busy} onClick={onClear}>{t('probeClear')}</Button>
+          <Button size="sm" disabled={busy} onClick={onClear}>
+            {t('probeClear')}
+          </Button>
         </div>
       )}
     </div>
@@ -380,7 +471,13 @@ export function ProbePanel({ probe, models, busy, onDetect, onClear, t }: {
  * request, and a re-check. Rendered only for the codes the host can do
  * something about.
  */
-export function AssistBlock({ variant, code, busy, onRecheck, t }: {
+export function AssistBlock({
+  variant,
+  code,
+  busy,
+  onRecheck,
+  t,
+}: {
   variant: WorkBuddyCardVariant
   code: WorkBuddySignedOutReasonCode
   busy: boolean
@@ -404,7 +501,7 @@ export function AssistBlock({ variant, code, busy, onRecheck, t }: {
         <Button
           size="sm"
           onClick={() => {
-            void writeClipboard(prompt).then(ok => {
+            void writeClipboard(prompt).then((ok) => {
               setCopied(ok)
               setCopyFailed(!ok)
             })
@@ -414,8 +511,16 @@ export function AssistBlock({ variant, code, busy, onRecheck, t }: {
         </Button>
       </div>
       {/* `role="status"` so the copy result is announced, not just shown. */}
-      {copied ? <p className={css.dim} role="status">{t('assistantCopied')}</p> : null}
-      {copyFailed ? <p className={css.dim} role="status">{t('assistantCopyFailed')}</p> : null}
+      {copied ? (
+        <p className={css.dim} role="status">
+          {t('assistantCopied')}
+        </p>
+      ) : null}
+      {copyFailed ? (
+        <p className={css.dim} role="status">
+          {t('assistantCopyFailed')}
+        </p>
+      ) : null}
       <p className={css.text}>{t('assistantAfter')}</p>
       <Button size="sm" disabled={busy} onClick={onRecheck}>
         {busy ? t('assistantRechecking') : t('assistantRecheck')}

@@ -102,12 +102,19 @@ export function workbuddyOwnAuthPath(): string {
   return join(resolveDshHome(), WORKBUDDY_AUTH_FILENAME)
 }
 
-const DESKTOP_AUTH_RELATIVE_PATH = ['CodeBuddyExtension', 'Data', 'Public', 'auth', 'workbuddy-desktop.info'] as const
+const DESKTOP_AUTH_RELATIVE_PATH = [
+  'CodeBuddyExtension',
+  'Data',
+  'Public',
+  'auth',
+  'workbuddy-desktop.info',
+] as const
 
 /** Whether this Linux process is running inside Windows Subsystem for Linux. */
 function isWsl(): boolean {
   if (process.platform !== 'linux') return false
-  if (process.env['WSL_DISTRO_NAME'] !== undefined || process.env['WSL_INTEROP'] !== undefined) return true
+  if (process.env['WSL_DISTRO_NAME'] !== undefined || process.env['WSL_INTEROP'] !== undefined)
+    return true
   return release().toLowerCase().includes('microsoft')
 }
 
@@ -123,12 +130,12 @@ function windowsPathForWsl(value: string | undefined): string | undefined {
 
 /** Windows desktop credential candidates visible from a WSL process. */
 function wslDesktopAuthCandidates(home: string): string[] {
-  const profile = windowsPathForWsl(process.env['USERPROFILE'])
-    ?? join('/mnt/c/Users', basename(home))
-  const localAppData = windowsPathForWsl(process.env['LOCALAPPDATA'])
-    ?? join(profile, 'AppData', 'Local')
-  const roamingAppData = windowsPathForWsl(process.env['APPDATA'])
-    ?? join(profile, 'AppData', 'Roaming')
+  const profile =
+    windowsPathForWsl(process.env['USERPROFILE']) ?? join('/mnt/c/Users', basename(home))
+  const localAppData =
+    windowsPathForWsl(process.env['LOCALAPPDATA']) ?? join(profile, 'AppData', 'Local')
+  const roamingAppData =
+    windowsPathForWsl(process.env['APPDATA']) ?? join(profile, 'AppData', 'Roaming')
   return [
     join(localAppData, ...DESKTOP_AUTH_RELATIVE_PATH),
     join(roamingAppData, ...DESKTOP_AUTH_RELATIVE_PATH),
@@ -148,12 +155,41 @@ function wslDesktopAuthCandidates(home: string): string[] {
 export function defaultDesktopAuthCandidates(): string[] {
   const home = homedir()
   if (process.platform === 'darwin') {
-    return [join(home, 'Library', 'Application Support', 'CodeBuddyExtension', 'Data', 'Public', 'auth', 'workbuddy-desktop.info')]
+    return [
+      join(
+        home,
+        'Library',
+        'Application Support',
+        'CodeBuddyExtension',
+        'Data',
+        'Public',
+        'auth',
+        'workbuddy-desktop.info',
+      ),
+    ]
   }
   if (process.platform === 'win32') {
     return [
-      join(home, 'AppData', 'Local', 'CodeBuddyExtension', 'Data', 'Public', 'auth', 'workbuddy-desktop.info'),
-      join(home, 'AppData', 'Roaming', 'CodeBuddyExtension', 'Data', 'Public', 'auth', 'workbuddy-desktop.info'),
+      join(
+        home,
+        'AppData',
+        'Local',
+        'CodeBuddyExtension',
+        'Data',
+        'Public',
+        'auth',
+        'workbuddy-desktop.info',
+      ),
+      join(
+        home,
+        'AppData',
+        'Roaming',
+        'CodeBuddyExtension',
+        'Data',
+        'Public',
+        'auth',
+        'workbuddy-desktop.info',
+      ),
     ]
   }
   if (process.platform === 'linux') {
@@ -192,12 +228,15 @@ function dedupeCandidates(candidates: readonly string[]): string[] {
  * is reused verbatim and just the filename is swapped.
  */
 export function desktopAuthCandidatesFor(variant: WorkBuddyVariant): string[] {
-  return dedupeCandidates(defaultDesktopAuthCandidates().map(path => join(dirname(path), variant.desktopFilename)))
+  return dedupeCandidates(
+    defaultDesktopAuthCandidates().map((path) => join(dirname(path), variant.desktopFilename)),
+  )
 }
 
 /** First platform-default candidate; see {@link defaultDesktopAuthCandidates}. */
 export function defaultDesktopAuthPath(variant?: WorkBuddyVariant): string | undefined {
-  const candidates = variant === undefined ? defaultDesktopAuthCandidates() : desktopAuthCandidatesFor(variant)
+  const candidates =
+    variant === undefined ? defaultDesktopAuthCandidates() : desktopAuthCandidatesFor(variant)
   return candidates[0]
 }
 
@@ -229,9 +268,10 @@ export function parseWorkBuddyAuth(text: string): WorkBuddyCredential | undefine
   let identity: Record<string, unknown>
   if (typeof document['auth'] === 'object' && document['auth'] !== null) {
     auth = document['auth'] as Record<string, unknown>
-    identity = typeof document['account'] === 'object' && document['account'] !== null
-      ? document['account'] as Record<string, unknown>
-      : {}
+    identity =
+      typeof document['account'] === 'object' && document['account'] !== null
+        ? (document['account'] as Record<string, unknown>)
+        : {}
   } else {
     auth = document
     identity = document
@@ -239,18 +279,19 @@ export function parseWorkBuddyAuth(text: string): WorkBuddyCredential | undefine
   const accessToken = typeof auth['accessToken'] === 'string' ? auth['accessToken'] : ''
   if (accessToken === '') return undefined
   const expiresAtMs = typeof auth['expiresAt'] === 'number' ? expiryToMs(auth['expiresAt']) : 0
-  const refreshExpiresAtMs = typeof auth['refreshExpiresAt'] === 'number' ? expiryToMs(auth['refreshExpiresAt']) : undefined
+  const refreshExpiresAtMs =
+    typeof auth['refreshExpiresAt'] === 'number' ? expiryToMs(auth['refreshExpiresAt']) : undefined
   const enterpriseId = optionalString(identity['enterpriseId'])
   const nickname = optionalString(identity['nickname'])
   const credential: WorkBuddyCredential = {
     accessToken,
     refreshToken: typeof auth['refreshToken'] === 'string' ? auth['refreshToken'] : '',
     expiresAtMs,
-    ...refreshExpiresAtMs === undefined ? {} : { refreshExpiresAtMs },
+    ...(refreshExpiresAtMs === undefined ? {} : { refreshExpiresAtMs }),
     domain: optionalString(auth['domain']) ?? '',
     uid: optionalString(identity['uid']) ?? '',
-    ...enterpriseId === undefined ? {} : { enterpriseId },
-    ...nickname === undefined ? {} : { nickname },
+    ...(enterpriseId === undefined ? {} : { enterpriseId }),
+    ...(nickname === undefined ? {} : { nickname }),
     source: 'desktop',
   }
   return credential
@@ -272,7 +313,8 @@ function parseOwnDocument(text: string): WorkBuddyCredential | undefined {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
   const document = parsed as Record<string, unknown>
   if (document['version'] !== OWN_FORMAT_VERSION) return undefined
-  if (typeof document['credential'] !== 'object' || document['credential'] === null) return undefined
+  if (typeof document['credential'] !== 'object' || document['credential'] === null)
+    return undefined
   // The owned copy stores the normalized credential itself (camelCase
   // `expiresAtMs`, identity fields at the top level), not the desktop
   // document shape. Round-tripping through parseWorkBuddyAuth reads
@@ -282,18 +324,19 @@ function parseOwnDocument(text: string): WorkBuddyCredential | undefined {
   const stored = document['credential'] as Record<string, unknown>
   const accessToken = typeof stored['accessToken'] === 'string' ? stored['accessToken'] : ''
   if (accessToken === '') return undefined
-  const refreshExpiresAtMs = typeof stored['refreshExpiresAtMs'] === 'number' ? stored['refreshExpiresAtMs'] : undefined
+  const refreshExpiresAtMs =
+    typeof stored['refreshExpiresAtMs'] === 'number' ? stored['refreshExpiresAtMs'] : undefined
   const enterpriseId = optionalString(stored['enterpriseId'])
   const nickname = optionalString(stored['nickname'])
   return {
     accessToken,
     refreshToken: typeof stored['refreshToken'] === 'string' ? stored['refreshToken'] : '',
     expiresAtMs: typeof stored['expiresAtMs'] === 'number' ? stored['expiresAtMs'] : 0,
-    ...refreshExpiresAtMs === undefined ? {} : { refreshExpiresAtMs },
+    ...(refreshExpiresAtMs === undefined ? {} : { refreshExpiresAtMs }),
     domain: optionalString(stored['domain']) ?? '',
     uid: optionalString(stored['uid']) ?? '',
-    ...enterpriseId === undefined ? {} : { enterpriseId },
-    ...nickname === undefined ? {} : { nickname },
+    ...(enterpriseId === undefined ? {} : { enterpriseId }),
+    ...(nickname === undefined ? {} : { nickname }),
     source: 'dsh',
   }
 }
@@ -325,7 +368,11 @@ export class WorkBuddyCredentialStore {
     this.variant = options.variant
     this.refresh = options.refresh
     this.refreshMarginMs = options.refreshMarginMs ?? 5 * 60 * 1000
-    this.ownPath = options.ownPath ?? (options.variant ? join(resolveDshHome(), options.variant.ownFilename) : workbuddyOwnAuthPath())
+    this.ownPath =
+      options.ownPath ??
+      (options.variant
+        ? join(resolveDshHome(), options.variant.ownFilename)
+        : workbuddyOwnAuthPath())
     this.keyProvider = options.keyProvider ?? new WorkBuddyAtRestKeyProvider()
     this.desktopPathOverride = options.desktopPath
   }
@@ -337,8 +384,9 @@ export class WorkBuddyCredentialStore {
    */
   private resolveDesktopCandidates(): string[] {
     const fromEnv = process.env[this.variant?.env ?? WORKBUDDY_AUTH_FILE_ENV]
-    const explicit = this.desktopPathOverride
-      ?? (fromEnv !== undefined && fromEnv.trim() !== '' ? fromEnv : undefined)
+    const explicit =
+      this.desktopPathOverride ??
+      (fromEnv !== undefined && fromEnv.trim() !== '' ? fromEnv : undefined)
     if (explicit !== undefined) return [explicit]
     return this.variant === undefined
       ? defaultDesktopAuthCandidates()
@@ -375,15 +423,18 @@ export class WorkBuddyCredentialStore {
     // region's token to the other's endpoint would leak it across products.
     // Naming the file and the expected region is what makes it fixable.
     if (this.variant !== undefined) {
-      for (const [label, credential] of [['desktop file', desktop], ['plugin copy', own]] as const) {
+      for (const [label, credential] of [
+        ['desktop file', desktop],
+        ['plugin copy', own],
+      ] as const) {
         if (credential === undefined) continue
         const region = regionOf(credential.domain)
         if (region !== this.variant.region) {
           throw new WorkBuddyElectronPathError(
             'credential-region-mismatch',
-            `${this.variant.displayName} received a ${region === 'cn' ? 'WorkBuddy (CN)' : 'WorkBuddy AI'} credential`
-            + ` in its ${label} (domain ${JSON.stringify(credential.domain)});`
-            + ` point ${this.variant.env} at the ${this.variant.appName} sign-in, or remove the mismatched file`,
+            `${this.variant.displayName} received a ${region === 'cn' ? 'WorkBuddy (CN)' : 'WorkBuddy AI'} credential` +
+              ` in its ${label} (domain ${JSON.stringify(credential.domain)});` +
+              ` point ${this.variant.env} at the ${this.variant.appName} sign-in, or remove the mismatched file`,
           )
         }
       }
@@ -409,18 +460,18 @@ export class WorkBuddyCredentialStore {
     const credential = await this.current()
     if (credential === undefined) {
       const candidates = this.resolveDesktopCandidates()
-      const desktop = candidates.length > 0 ? candidates.join(' or ') : '(no desktop path on this platform)'
+      const desktop =
+        candidates.length > 0 ? candidates.join(' or ') : '(no desktop path on this platform)'
       const app = this.variant?.appName ?? 'WorkBuddy'
       throw new Error(
-        `workbuddy: no signed-in ${app} account found; sign in once in the ${app} desktop app`
-        + ` (expected ${desktop} or ${this.variant?.env ?? WORKBUDDY_AUTH_FILE_ENV}), or refresh an existing session`,
+        `workbuddy: no signed-in ${app} account found; sign in once in the ${app} desktop app` +
+          ` (expected ${desktop} or ${this.variant?.env ?? WORKBUDDY_AUTH_FILE_ENV}), or refresh an existing session`,
       )
     }
     if (!this.needsRefresh(credential)) return credential
-    this.inflight ??= this.refreshNow(credential)
-      .finally(() => {
-        this.inflight = undefined
-      })
+    this.inflight ??= this.refreshNow(credential).finally(() => {
+      this.inflight = undefined
+    })
     return this.inflight
   }
 
@@ -432,9 +483,11 @@ export class WorkBuddyCredentialStore {
       return {
         state: 'signed-in',
         expiresAtMs: credential.expiresAtMs,
-        ...credential.refreshExpiresAtMs === undefined ? {} : { refreshExpiresAtMs: credential.refreshExpiresAtMs },
-        ...credential.nickname === undefined ? {} : { nickname: credential.nickname },
-        ...credential.domain === '' ? {} : { domain: credential.domain },
+        ...(credential.refreshExpiresAtMs === undefined
+          ? {}
+          : { refreshExpiresAtMs: credential.refreshExpiresAtMs }),
+        ...(credential.nickname === undefined ? {} : { nickname: credential.nickname }),
+        ...(credential.domain === '' ? {} : { domain: credential.domain }),
         source: credential.source,
       }
     } catch (error: unknown) {
@@ -449,9 +502,9 @@ export class WorkBuddyCredentialStore {
       return {
         state: 'signed-out',
         reason: error instanceof Error ? error.message : String(error),
-        ...reasonCodeOf(error) === undefined
+        ...(reasonCodeOf(error) === undefined
           ? {}
-          : { reasonCode: reasonCodeOf(error) as WorkBuddySignedOutReasonCode },
+          : { reasonCode: reasonCodeOf(error) as WorkBuddySignedOutReasonCode }),
       }
     }
   }
@@ -470,18 +523,23 @@ export class WorkBuddyCredentialStore {
   private async refreshNow(credential: WorkBuddyCredential): Promise<WorkBuddyCredential> {
     if (credential.refreshToken === '') {
       if (credential.expiresAtMs > Date.now() + 30_000) return credential
-      throw new Error('workbuddy: access token expired and no refresh token is stored; sign in again in the WorkBuddy desktop app')
+      throw new Error(
+        'workbuddy: access token expired and no refresh token is stored; sign in again in the WorkBuddy desktop app',
+      )
     }
     try {
       const outcome = await this.refresh(credential)
       const refreshed: WorkBuddyCredential = {
         ...credential,
         accessToken: outcome.accessToken,
-        ...outcome.refreshToken === undefined ? {} : { refreshToken: outcome.refreshToken },
-        expiresAtMs: outcome.expiresInSec !== undefined
-          ? Date.now() + outcome.expiresInSec * 1000
-          : credential.expiresAtMs,
-        ...outcome.domain === undefined || outcome.domain === '' ? {} : { domain: outcome.domain },
+        ...(outcome.refreshToken === undefined ? {} : { refreshToken: outcome.refreshToken }),
+        expiresAtMs:
+          outcome.expiresInSec !== undefined
+            ? Date.now() + outcome.expiresInSec * 1000
+            : credential.expiresAtMs,
+        ...(outcome.domain === undefined || outcome.domain === ''
+          ? {}
+          : { domain: outcome.domain }),
         source: 'dsh',
       }
       await this.saveOwn(refreshed)
@@ -489,8 +547,8 @@ export class WorkBuddyCredentialStore {
     } catch (error: unknown) {
       if (credential.expiresAtMs > Date.now() + 30_000) return credential
       throw new Error(
-        `workbuddy: token refresh failed and the access token is expired (${String(error)});`
-        + ' open the WorkBuddy desktop app once to sign in again',
+        `workbuddy: token refresh failed and the access token is expired (${String(error)});` +
+          ' open the WorkBuddy desktop app once to sign in again',
         { cause: error },
       )
     }
@@ -534,9 +592,9 @@ export class WorkBuddyCredentialStore {
       if (classification.format === 'absent') continue
       if (classification.format === 'unrecognized') {
         throw new Error(
-          `the desktop auth file at ${desktopPath} exists but is unreadable`
-          + ' (neither a plaintext credential nor a decodable WorkBuddy 5.6 envelope);'
-          + ' fix or remove the file — it outranks the plugin-owned credential copy',
+          `the desktop auth file at ${desktopPath} exists but is unreadable` +
+            ' (neither a plaintext credential nor a decodable WorkBuddy 5.6 envelope);' +
+            ' fix or remove the file — it outranks the plugin-owned credential copy',
         )
       }
       return await this.openEncryptedDesktop(classification)
@@ -550,14 +608,14 @@ export class WorkBuddyCredentialStore {
   ): Promise<WorkBuddyCredential | undefined> {
     const wrapped = classification.wrapped
     const key = await this.keyProvider.protectorKeyFor(keyIdsOf(wrapped.fields))
-    const text = unwrapDesktopAuthDocument(classification, field => {
+    const text = unwrapDesktopAuthDocument(classification, (field) => {
       const plaintext = openAuthField(key, field.envelope)
       if (plaintext === undefined) {
         throw new WorkBuddyElectronPathError(
           'encrypted-credential-unreadable',
-          `the encrypted desktop credential's ${field.field} could not be decrypted`
-          + ` (envelope key id ${field.envelope.keyId});`
-          + ' the WorkBuddy app may hold a different at-rest key — open it once to reseal the sign-in',
+          `the encrypted desktop credential's ${field.field} could not be decrypted` +
+            ` (envelope key id ${field.envelope.keyId});` +
+            ' the WorkBuddy app may hold a different at-rest key — open it once to reseal the sign-in',
         )
       }
       return plaintext
@@ -621,6 +679,6 @@ export class WorkBuddyCredentialStore {
 
   /** Whether any desktop-file candidate exists as a regular file; diagnostics only. */
   async desktopFilePresent(): Promise<boolean> {
-    return await this.resolvedDesktopAuthPath() !== undefined
+    return (await this.resolvedDesktopAuthPath()) !== undefined
   }
 }

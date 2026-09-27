@@ -58,7 +58,11 @@ export interface WorkBuddyProbeRouteOptions {
    * be written — a toggle the user pressed must never be reported as saved
    * when it was not.
    */
-  setModelVisibility?: (modelId: string, visible: boolean, expectedAccount: string) => Promise<{ state: string; reason?: string }>
+  setModelVisibility?: (
+    modelId: string,
+    visible: boolean,
+    expectedAccount: string,
+  ) => Promise<{ state: string; reason?: string }>
   /**
    * Route path to mount. Defaults to the CN variant's path so existing callers
    * and tests keep their behaviour; the international variant passes its own.
@@ -83,7 +87,10 @@ function keyMatches(expected: string, presented: string | undefined): boolean {
 
 function json(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) })
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(payload),
+  })
   res.end(payload)
 }
 
@@ -124,7 +131,12 @@ function parseAction(text: string): WorkBuddyProbeAction | undefined {
     if (typeof model !== 'string' || model.trim() === '') return undefined
     if (typeof wrapped['visible'] !== 'boolean') return undefined
     if (typeof account !== 'string' || account === '') return undefined
-    return { action: 'set-model-visibility', model: model.trim(), visible: wrapped['visible'], account }
+    return {
+      action: 'set-model-visibility',
+      model: model.trim(),
+      visible: wrapped['visible'],
+      account,
+    }
   }
   if (action === 'probe') {
     const model = wrapped['model']
@@ -184,11 +196,15 @@ export function workBuddyProbeHandler(
           json(res, 404, { error: 'visibility-setting-not-supported' })
           return
         }
-        json(res, 200, await deps.setModelVisibility(
-          action.model as string,
-          action.visible === true,
-          action.account as string,
-        ))
+        json(
+          res,
+          200,
+          await deps.setModelVisibility(
+            action.model as string,
+            action.visible === true,
+            action.account as string,
+          ),
+        )
         return
       }
       json(res, 200, await deps.probe(action.model as string))

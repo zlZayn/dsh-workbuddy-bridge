@@ -34,19 +34,25 @@ async function bundleWithCliPackage(pkg: unknown): Promise<string> {
   const root = await tempDir('wb-cli-')
   const cli = join(root, 'Contents', 'Resources', 'app.asar.unpacked', 'cli')
   await mkdir(cli, { recursive: true })
-  await writeFile(join(cli, 'package.json'), typeof pkg === 'string' ? pkg : JSON.stringify(pkg), 'utf8')
+  await writeFile(
+    join(cli, 'package.json'),
+    typeof pkg === 'string' ? pkg : JSON.stringify(pkg),
+    'utf8',
+  )
   return root
 }
 
 describe('chatUserAgent', () => {
   it('composes the CN desktop form with both product tokens and the CLI segment', () => {
-    expect(chatUserAgent({ clientVersion: '5.5.6', cliVersion: '2.137.1' }, 'cn'))
-      .toBe('WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1')
+    expect(chatUserAgent({ clientVersion: '5.5.6', cliVersion: '2.137.1' }, 'cn')).toBe(
+      'WorkBuddy/5.5.6 WorkBuddy/5.5.6 CLI/2.137.1',
+    )
   })
 
   it('names the international product in the second token only', () => {
-    expect(chatUserAgent({ clientVersion: '5.5.2', cliVersion: '5.5.2' }, 'global'))
-      .toBe('WorkBuddy/5.5.2 WorkBuddy AI/5.5.2 CLI/5.5.2')
+    expect(chatUserAgent({ clientVersion: '5.5.2', cliVersion: '5.5.2' }, 'global')).toBe(
+      'WorkBuddy/5.5.2 WorkBuddy AI/5.5.2 CLI/5.5.2',
+    )
   })
 
   it('omits the CLI segment when no CLI version resolved', () => {
@@ -56,7 +62,9 @@ describe('chatUserAgent', () => {
   it('rejects values that could break a header rather than interpolating them', () => {
     expect(() => chatUserAgent({ clientVersion: '5.5.6 x' }, 'cn')).toThrow()
     expect(() => chatUserAgent({ clientVersion: '5.5.6\nX: 1' }, 'cn')).toThrow()
-    expect(() => chatUserAgent({ clientVersion: '5.5.6', cliVersion: '2.137.1 rm' }, 'cn')).toThrow()
+    expect(() =>
+      chatUserAgent({ clientVersion: '5.5.6', cliVersion: '2.137.1 rm' }, 'cn'),
+    ).toThrow()
   })
 })
 
@@ -91,7 +99,9 @@ describe('readCliVersion', () => {
   it('yields undefined for unreadable, malformed, or invalid metadata', async () => {
     expect(await readCliVersion(join(await tempDir('wb-cli-'), 'no-such-bundle'))).toBeUndefined()
     expect(await readCliVersion(await bundleWithCliPackage('not json'))).toBeUndefined()
-    expect(await readCliVersion(await bundleWithCliPackage({ version: '2.137.1 oops' }))).toBeUndefined()
+    expect(
+      await readCliVersion(await bundleWithCliPackage({ version: '2.137.1 oops' })),
+    ).toBeUndefined()
   })
 })
 
@@ -118,69 +128,88 @@ describe('resolveChatIdentity (CN)', () => {
     const saved = join(dir, 'cn.json')
     // A legacy cache shape that happens to carry a cliVersion must not leak it.
     await writeFile(saved, JSON.stringify({ version: '5.5.5', cliVersion: '2.0.0' }), 'utf8')
-    await expect(resolveChatIdentity('cn', { installedCn: async () => undefined, cnSavedPath: saved }))
-      .resolves.toEqual({ clientVersion: '5.5.5' })
-    await expect(resolveChatIdentity('cn', { installedCn: async () => undefined, cnSavedPath: join(dir, 'absent.json') }))
-      .resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
+    await expect(
+      resolveChatIdentity('cn', { installedCn: async () => undefined, cnSavedPath: saved }),
+    ).resolves.toEqual({ clientVersion: '5.5.5' })
+    await expect(
+      resolveChatIdentity('cn', {
+        installedCn: async () => undefined,
+        cnSavedPath: join(dir, 'absent.json'),
+      }),
+    ).resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
   })
 
   it('treats a corrupt or wrong-shaped saved cache as absent', async () => {
     const dir = await tempDir('wb-cn-')
     const saved = join(dir, 'cn.json')
     await writeFile(saved, '{"version":"5.5.5","cliVersion":"res', 'utf8')
-    await expect(resolveChatIdentity('cn', { installedCn: async () => undefined, cnSavedPath: saved }))
-      .resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
+    await expect(
+      resolveChatIdentity('cn', { installedCn: async () => undefined, cnSavedPath: saved }),
+    ).resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
     await writeFile(saved, JSON.stringify({ nope: true }), 'utf8')
-    await expect(resolveChatIdentity('cn', { installedCn: async () => undefined, cnSavedPath: saved }))
-      .resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
+    await expect(
+      resolveChatIdentity('cn', { installedCn: async () => undefined, cnSavedPath: saved }),
+    ).resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
   })
 
   it('rejects an installed version that cannot reach a header', async () => {
     const dir = await tempDir('wb-cn-')
-    await expect(resolveChatIdentity('cn', {
-      installedCn: async () => ({ version: '5.5.6 x', bundle: dir }),
-      cliVersion: async () => '2.137.1',
-      cnSavedPath: join(dir, 'cn.json'),
-    })).resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
+    await expect(
+      resolveChatIdentity('cn', {
+        installedCn: async () => ({ version: '5.5.6 x', bundle: dir }),
+        cliVersion: async () => '2.137.1',
+        cnSavedPath: join(dir, 'cn.json'),
+      }),
+    ).resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
   })
 
   it('returns the identity even when the cache write fails', async () => {
     const dir = await tempDir('wb-cn-')
     const blocker = join(dir, 'blocker')
     await writeFile(blocker, 'regular file', 'utf8')
-    await expect(resolveChatIdentity('cn', {
-      installedCn: async () => ({ version: '5.5.6', bundle: dir }),
-      cliVersion: async () => '2.137.1',
-      cnSavedPath: join(blocker, 'under', 'a', 'file.json'),
-    })).resolves.toEqual({ clientVersion: '5.5.6', cliVersion: '2.137.1' })
+    await expect(
+      resolveChatIdentity('cn', {
+        installedCn: async () => ({ version: '5.5.6', bundle: dir }),
+        cliVersion: async () => '2.137.1',
+        cnSavedPath: join(blocker, 'under', 'a', 'file.json'),
+      }),
+    ).resolves.toEqual({ clientVersion: '5.5.6', cliVersion: '2.137.1' })
   })
 
   it('degrades a throwing reader to the built-in fallback instead of throwing', async () => {
     const dir = await tempDir('wb-cn-')
-    await expect(resolveChatIdentity('cn', {
-      installedCn: async () => {
-        throw new Error('unexpected fs error')
-      },
-      cnSavedPath: join(dir, 'cn.json'),
-    })).resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
-    await expect(resolveChatIdentity('global', {
-      resolveIntl: async () => {
-        throw new Error('unexpected fs error')
-      },
-    })).resolves.toEqual({ clientVersion: FALLBACK_APP_VERSION })
+    await expect(
+      resolveChatIdentity('cn', {
+        installedCn: async () => {
+          throw new Error('unexpected fs error')
+        },
+        cnSavedPath: join(dir, 'cn.json'),
+      }),
+    ).resolves.toEqual({ clientVersion: FALLBACK_CN_APP_VERSION })
+    await expect(
+      resolveChatIdentity('global', {
+        resolveIntl: async () => {
+          throw new Error('unexpected fs error')
+        },
+      }),
+    ).resolves.toEqual({ clientVersion: FALLBACK_APP_VERSION })
   })
 })
 
 describe('resolveChatIdentity (international)', () => {
   const INTL_BUNDLE = '/Applications/WorkBuddy AI.app'
-  const intlInstalled: AppVersionInfo = { version: '5.5.2', source: 'installed', bundle: INTL_BUNDLE }
+  const intlInstalled: AppVersionInfo = {
+    version: '5.5.2',
+    source: 'installed',
+    bundle: INTL_BUNDLE,
+  }
 
   it('reuses the app-version chain and reads the CLI version from the reported bundle', async () => {
     let cnProbeRuns = 0
     const dir = await tempDir('wb-intl-')
     const identity = await resolveChatIdentity('global', {
       resolveIntl: async () => intlInstalled,
-      cliVersion: async bundle => (bundle === INTL_BUNDLE ? '5.5.2' : undefined),
+      cliVersion: async (bundle) => (bundle === INTL_BUNDLE ? '5.5.2' : undefined),
       installedCn: async () => {
         cnProbeRuns += 1
         return undefined
@@ -194,11 +223,15 @@ describe('resolveChatIdentity (international)', () => {
   })
 
   it('drops the CLI segment when the chain reports no installed bundle (saved/fallback)', async () => {
-    await expect(resolveChatIdentity('global', {
-      resolveIntl: async () => ({ version: '5.5.2', source: 'saved' }),
-    })).resolves.toEqual({ clientVersion: '5.5.2' })
-    await expect(resolveChatIdentity('global', {
-      resolveIntl: async () => ({ version: 'garbage', source: 'saved' }),
-    })).resolves.toEqual({ clientVersion: FALLBACK_APP_VERSION })
+    await expect(
+      resolveChatIdentity('global', {
+        resolveIntl: async () => ({ version: '5.5.2', source: 'saved' }),
+      }),
+    ).resolves.toEqual({ clientVersion: '5.5.2' })
+    await expect(
+      resolveChatIdentity('global', {
+        resolveIntl: async () => ({ version: 'garbage', source: 'saved' }),
+      }),
+    ).resolves.toEqual({ clientVersion: FALLBACK_APP_VERSION })
   })
 })

@@ -78,7 +78,9 @@ export async function readBundleVersion(plistPath: string): Promise<string | und
     return undefined
   }
   // `<key>CFBundleShortVersionString</key>` followed by the next `<string>`.
-  const match = /<key>\s*CFBundleShortVersionString\s*<\/key>\s*<string>([^<]*)<\/string>/u.exec(text)
+  const match = /<key>\s*CFBundleShortVersionString\s*<\/key>\s*<string>([^<]*)<\/string>/u.exec(
+    text,
+  )
   const version = match?.[1]?.trim()
   return validAppVersion(version) ? version : undefined
 }
@@ -91,7 +93,9 @@ export async function readBundleVersion(plistPath: string): Promise<string | und
  * returns `undefined` there and the saved/fallback value is used instead of
  * guessing a path — the same discipline the credential discovery follows.
  */
-export async function installedAppVersion(): Promise<{ version: string; bundle: string } | undefined> {
+export async function installedAppVersion(): Promise<
+  { version: string; bundle: string } | undefined
+> {
   if (process.platform !== 'darwin') return undefined
   for (const root of macAppRoots()) {
     const bundle = join(root, 'WorkBuddy AI.app')
@@ -125,12 +129,16 @@ export interface ResolveAppVersionOptions {
  * on. The write is best-effort: failing to cache a version must never fail the
  * catalog request that asked for it.
  */
-export async function resolveAppVersion(options: ResolveAppVersionOptions = {}): Promise<AppVersionInfo> {
+export async function resolveAppVersion(
+  options: ResolveAppVersionOptions = {},
+): Promise<AppVersionInfo> {
   const path = options.path ?? appVersionPath()
   const installed = await (options.installed ?? installedAppVersion)()
   if (installed !== undefined && validAppVersion(installed.version)) {
-    const write = options.write ?? ((target: string, content: string) =>
-      writeFileAtomic(target, content, { mode: 0o600, dirMode: 0o700 }))
+    const write =
+      options.write ??
+      ((target: string, content: string) =>
+        writeFileAtomic(target, content, { mode: 0o600, dirMode: 0o700 }))
     try {
       await write(
         path,
@@ -161,6 +169,7 @@ export async function resolveAppVersion(options: ResolveAppVersionOptions = {}):
  * version rather than sending a malformed header.
  */
 export function appUserAgent(version: string): string {
-  if (!validAppVersion(version)) throw new Error(`invalid WorkBuddy AI version for User-Agent: ${JSON.stringify(version)}`)
+  if (!validAppVersion(version))
+    throw new Error(`invalid WorkBuddy AI version for User-Agent: ${JSON.stringify(version)}`)
   return `WorkBuddyAI/${version}`
 }

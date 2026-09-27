@@ -10,7 +10,11 @@ import { visibilityAccountOf } from '../src/index.ts'
 import { workBuddyWebStatus, type WorkBuddyStatusRouteOptions } from '../src/web/status.ts'
 import type { WorkBuddyCredentialStore } from '../src/credential/store.ts'
 import type { WorkBuddyShim } from '../src/llm/shim.ts'
-import { createProbeKey, workBuddyProbeHandler, type WorkBuddyProbeRouteOptions } from '../src/web/probe-route.ts'
+import {
+  createProbeKey,
+  workBuddyProbeHandler,
+  type WorkBuddyProbeRouteOptions,
+} from '../src/web/probe-route.ts'
 import type { WorkBuddyVariant } from '../src/variants.ts'
 import { WORKBUDDY_VARIANTS } from '../src/variants.ts'
 
@@ -37,9 +41,30 @@ function tempDir(prefix: string): string {
 }
 
 const MODELS: readonly WorkBuddyModelInfo[] = [
-  { id: 'glm-5.3', name: 'GLM-5.3', contextWindow: 1_000, maxTokens: 32_000, supportsImages: true, billing: { free: false } },
-  { id: 'hy3', name: 'Hy3', contextWindow: 1_000, maxTokens: 32_000, supportsImages: true, billing: { free: false } },
-  { id: 'auto', name: 'Auto', contextWindow: 1_000, maxTokens: 32_000, supportsImages: true, billing: { free: false } },
+  {
+    id: 'glm-5.3',
+    name: 'GLM-5.3',
+    contextWindow: 1_000,
+    maxTokens: 32_000,
+    supportsImages: true,
+    billing: { free: false },
+  },
+  {
+    id: 'hy3',
+    name: 'Hy3',
+    contextWindow: 1_000,
+    maxTokens: 32_000,
+    supportsImages: true,
+    billing: { free: false },
+  },
+  {
+    id: 'auto',
+    name: 'Auto',
+    contextWindow: 1_000,
+    maxTokens: 32_000,
+    supportsImages: true,
+    billing: { free: false },
+  },
 ]
 
 /** The fake shim from `adapter.spec.ts`: never listens, only answers strings. */
@@ -59,16 +84,25 @@ describe('A. hidden-list semantics (visibility store)', () => {
   it('reads the first field name (disabled) from an old file so saved hides survive the rename', () => {
     const dir = tempDir('wb-vis-old-')
     const path = join(dir, 'v.json')
-    writeFileSync(path, JSON.stringify({
-      version: 1,
-      accounts: { 'uid-a:': { account: 'uid-a:', disabled: ['glm-5.3'], updatedAtMs: 1 } },
-    }, null, 2))
+    writeFileSync(
+      path,
+      JSON.stringify(
+        {
+          version: 1,
+          accounts: { 'uid-a:': { account: 'uid-a:', disabled: ['glm-5.3'], updatedAtMs: 1 } },
+        },
+        null,
+        2,
+      ),
+    )
     const store = new WorkBuddyVisibilityStore(path)
     expect(store.hidden('uid-a:')).toEqual(['glm-5.3'])
     // A write through the new name rewrites the entry wholly, so old files
     // converge on the new field on first toggle.
     store.setVisible('uid-a:', 'hy3', false)
-    const written = JSON.parse(readFileSync(path, 'utf8')) as { accounts: Record<string, { hidden?: string[]; disabled?: string[] }> }
+    const written = JSON.parse(readFileSync(path, 'utf8')) as {
+      accounts: Record<string, { hidden?: string[]; disabled?: string[] }>
+    }
     expect(written.accounts['uid-a:']?.hidden).toEqual(['glm-5.3', 'hy3'])
     expect(written.accounts['uid-a:']?.disabled).toBeUndefined()
   })
@@ -84,15 +118,23 @@ describe('A. hidden-list semantics (visibility store)', () => {
       hidden: () => hidden,
     })
 
-    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'hy3', 'auto'])
+    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map((m) => m.id)).toEqual([
+      'glm-5.3',
+      'hy3',
+      'auto',
+    ])
 
     store.setVisible('uid-a:', 'glm-5.3', false)
     hidden = store.hidden('uid-a:')
-    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['hy3', 'auto'])
+    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map((m) => m.id)).toEqual(['hy3', 'auto'])
 
     store.setVisible('uid-a:', 'glm-5.3', true)
     hidden = store.hidden('uid-a:')
-    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'hy3', 'auto'])
+    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map((m) => m.id)).toEqual([
+      'glm-5.3',
+      'hy3',
+      'auto',
+    ])
   })
 
   it('a model newly added to the catalog is visible by default', () => {
@@ -136,7 +178,7 @@ describe('A. hidden-list semantics (visibility store)', () => {
     const path = join(tempDir('wb-vis-'), 'v.json')
     new WorkBuddyVisibilityStore(path).setVisible('uid-a:', 'hy3', false)
     // Owner read/write only, matching the credential/catalog stores.
-    expect((statSync(path).mode & 0o777) & 0o077).toBe(0)
+    expect(statSync(path).mode & 0o777 & 0o077).toBe(0)
   })
 })
 
@@ -149,7 +191,7 @@ describe('B. resolve compatibility (hidden but resolvable)', () => {
       shim: SHIM,
       hidden: () => ['glm-5.3'],
     })
-    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).not.toContain('glm-5.3')
+    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map((m) => m.id)).not.toContain('glm-5.3')
     // The session still on glm-5.3 resolves as before — same snapshot, unfiltered.
     const resolved = await adapter.resolveModel(WORKBUDDY_PROVIDER, 'glm-5.3')
     expect(resolved.id).toBe('glm-5.3')
@@ -167,11 +209,21 @@ describe('B. resolve compatibility (hidden but resolvable)', () => {
       shim: SHIM,
       hidden: () => (account === undefined ? [] : store.hidden(account)),
     })
-    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'auto'])
+    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map((m) => m.id)).toEqual([
+      'glm-5.3',
+      'auto',
+    ])
     account = 'uid-b:'
-    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'hy3'])
+    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map((m) => m.id)).toEqual([
+      'glm-5.3',
+      'hy3',
+    ])
     account = undefined
-    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map(m => m.id)).toEqual(['glm-5.3', 'hy3', 'auto'])
+    expect((await adapter.listModels(WORKBUDDY_PROVIDER)).map((m) => m.id)).toEqual([
+      'glm-5.3',
+      'hy3',
+      'auto',
+    ])
   })
 })
 
@@ -206,7 +258,9 @@ describe('C/D. per-account and per-variant isolation', () => {
     for (const variant of WORKBUDDY_VARIANTS as readonly WorkBuddyVariant[]) {
       expect(variant.visibilityFilename).toMatch(/^\.workbuddy(-ai)?-model-visibility\.json$/)
     }
-    expect(WORKBUDDY_VARIANTS[0]!.visibilityFilename).not.toBe(WORKBUDDY_VARIANTS[1]!.visibilityFilename)
+    expect(WORKBUDDY_VARIANTS[0]!.visibilityFilename).not.toBe(
+      WORKBUDDY_VARIANTS[1]!.visibilityFilename,
+    )
   })
 })
 
@@ -252,7 +306,9 @@ describe('F. signed-out and uid-less degradation', () => {
 
   it('the status document carries no visibility section when none is in effect', async () => {
     const deps: WorkBuddyStatusRouteOptions = {
-      store: { status: async () => ({ state: 'signed-out' }) } as unknown as WorkBuddyCredentialStore,
+      store: {
+        status: async () => ({ state: 'signed-out' }),
+      } as unknown as WorkBuddyCredentialStore,
       client: { fetchCredits: async () => ({ total: 0, accounts: [] }) },
       models: () => [],
       visibility: () => ({ account: 'u1:', hidden: ['hy3'] }),
@@ -287,7 +343,10 @@ describe('F. signed-out and uid-less degradation', () => {
       visibility: () => ({ account: 'u1:ent', hidden: ['hy3', 'gone-upstream'] }),
     }
     const doc = await workBuddyWebStatus(deps)
-    expect(doc.status === 'signed-in' && doc.visibility).toEqual({ account: 'u1:ent', hidden: ['hy3', 'gone-upstream'] })
+    expect(doc.status === 'signed-in' && doc.visibility).toEqual({
+      account: 'u1:ent',
+      hidden: ['hy3', 'gone-upstream'],
+    })
   })
 })
 
@@ -296,34 +355,45 @@ describe('control route: set-model-visibility', () => {
 
   afterEach(async () => {
     if (server !== undefined) {
-      await new Promise<void>(resolve => server?.close(() => resolve()))
+      await new Promise<void>((resolve) => server?.close(() => resolve()))
       server = undefined
     }
   })
 
   /** Mount the handler on an ephemeral port; probe/clear are inert stubs. */
-  async function mount(deps?: Partial<WorkBuddyProbeRouteOptions>): Promise<{ origin: string; key: string }> {
+  async function mount(
+    deps?: Partial<WorkBuddyProbeRouteOptions>,
+  ): Promise<{ origin: string; key: string }> {
     const key = createProbeKey()
-    const handler = workBuddyProbeHandler({
-      probe: async () => ({ state: 'ok' }),
-      clear: () => {},
-      ...deps,
-    }, key)
-    const created = createServer((req, res) => { void handler(req, res) })
+    const handler = workBuddyProbeHandler(
+      {
+        probe: async () => ({ state: 'ok' }),
+        clear: () => {},
+        ...deps,
+      },
+      key,
+    )
+    const created = createServer((req, res) => {
+      void handler(req, res)
+    })
     server = created
-    await new Promise<void>(resolve => created.listen(0, '127.0.0.1', () => resolve()))
+    await new Promise<void>((resolve) => created.listen(0, '127.0.0.1', () => resolve()))
     const address = created.address()
     if (address === null || typeof address === 'string') throw new Error('no port')
     return { origin: `http://127.0.0.1:${address.port}`, key }
   }
 
-  async function post(origin: string, key: string, body: unknown): Promise<{ status: number; body: Record<string, unknown> }> {
+  async function post(
+    origin: string,
+    key: string,
+    body: unknown,
+  ): Promise<{ status: number; body: Record<string, unknown> }> {
     const response = await fetch(origin, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Workbuddy-Probe-Key': key },
       body: JSON.stringify(body),
     })
-    return { status: response.status, body: await response.json() as Record<string, unknown> }
+    return { status: response.status, body: (await response.json()) as Record<string, unknown> }
   }
 
   it('persists a hide through the wired handler and reports updated', async () => {
@@ -336,7 +406,12 @@ describe('control route: set-model-visibility', () => {
         return { state: 'updated' }
       },
     })
-    const { status, body } = await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: false, account: 'u1:' })
+    const { status, body } = await post(origin, key, {
+      action: 'set-model-visibility',
+      model: 'hy3',
+      visible: false,
+      account: 'u1:',
+    })
     expect(status).toBe(200)
     expect(body['state']).toBe('updated')
     // The expected account travels with the write; nothing is bucketed by guess.
@@ -344,26 +419,40 @@ describe('control route: set-model-visibility', () => {
     expect(store.hidden('u1:')).toEqual(['hy3'])
   })
 
-  it('an expected-account mismatch is the host guard\'s stale-account refusal', async () => {
+  it("an expected-account mismatch is the host guard's stale-account refusal", async () => {
     // The exact guard index.ts wires: compare the expected account against the
     // account now in effect, refuse on mismatch. A stale card from before an
     // account switch must not write into the new account's bucket.
     const current = 'uid-b:'
     const { origin, key } = await mount({
       setModelVisibility: async (_modelId, _visible, expectedAccount) => {
-        if (expectedAccount !== current) return { state: 'stale-account', reason: 'the signed-in account changed' }
+        if (expectedAccount !== current)
+          return { state: 'stale-account', reason: 'the signed-in account changed' }
         return { state: 'updated' }
       },
     })
-    const { body } = await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: false, account: 'uid-a:' })
+    const { body } = await post(origin, key, {
+      action: 'set-model-visibility',
+      model: 'hy3',
+      visible: false,
+      account: 'uid-a:',
+    })
     expect(body['state']).toBe('stale-account')
   })
 
   it('reports the handler failure reason instead of pretending it saved', async () => {
     const { origin, key } = await mount({
-      setModelVisibility: async () => ({ state: 'failed', reason: 'model visibility needs a signed-in account with a stable user id' }),
+      setModelVisibility: async () => ({
+        state: 'failed',
+        reason: 'model visibility needs a signed-in account with a stable user id',
+      }),
     })
-    const { status, body } = await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: false, account: 'u1:' })
+    const { status, body } = await post(origin, key, {
+      action: 'set-model-visibility',
+      model: 'hy3',
+      visible: false,
+      account: 'u1:',
+    })
     expect(status).toBe(200)
     expect(body['state']).toBe('failed')
     expect(String(body['reason'])).toContain('stable user id')
@@ -371,14 +460,55 @@ describe('control route: set-model-visibility', () => {
 
   it('rejects malformed actions and unsupported variants', async () => {
     const { origin, key } = await mount()
-    expect((await post(origin, key, { action: 'set-model-visibility', model: 'hy3' })).status).toBe(400)
-    expect((await post(origin, key, { action: 'set-model-visibility', model: '', visible: true, account: 'u1:' })).status).toBe(400)
-    expect((await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: 'yes', account: 'u1:' })).status).toBe(400)
+    expect((await post(origin, key, { action: 'set-model-visibility', model: 'hy3' })).status).toBe(
+      400,
+    )
+    expect(
+      (
+        await post(origin, key, {
+          action: 'set-model-visibility',
+          model: '',
+          visible: true,
+          account: 'u1:',
+        })
+      ).status,
+    ).toBe(400)
+    expect(
+      (
+        await post(origin, key, {
+          action: 'set-model-visibility',
+          model: 'hy3',
+          visible: 'yes',
+          account: 'u1:',
+        })
+      ).status,
+    ).toBe(400)
     // Without an expected account there is nothing to guard, so there is no
     // write at all — required, not defaulted.
-    expect((await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: true })).status).toBe(400)
-    expect((await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: true, account: '' })).status).toBe(400)
+    expect(
+      (await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: true }))
+        .status,
+    ).toBe(400)
+    expect(
+      (
+        await post(origin, key, {
+          action: 'set-model-visibility',
+          model: 'hy3',
+          visible: true,
+          account: '',
+        })
+      ).status,
+    ).toBe(400)
     // Deps without the action answer 404, matching set-maximum-context-window.
-    expect((await post(origin, key, { action: 'set-model-visibility', model: 'hy3', visible: true, account: 'u1:' })).status).toBe(404)
+    expect(
+      (
+        await post(origin, key, {
+          action: 'set-model-visibility',
+          model: 'hy3',
+          visible: true,
+          account: 'u1:',
+        })
+      ).status,
+    ).toBe(404)
   })
 })

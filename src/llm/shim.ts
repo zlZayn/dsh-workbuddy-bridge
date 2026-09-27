@@ -21,7 +21,11 @@ import { Readable } from 'node:stream'
 import type { WorkBuddyCredentialStore } from '../credential/store.ts'
 import type { WorkBuddyCatalog } from '../catalog/index.ts'
 import { hostIsLoopback, originIsLoopback } from '../llm/loopback.ts'
-import { prepareChatBody, WorkBuddyUpstreamClient, type UpstreamErrorKind } from '../protocol/client.ts'
+import {
+  prepareChatBody,
+  WorkBuddyUpstreamClient,
+  type UpstreamErrorKind,
+} from '../protocol/client.ts'
 
 /** Minimal logger surface the plugin context already provides. */
 export interface ShimLogger {
@@ -74,11 +78,19 @@ const KIND_STATUS: Readonly<Record<UpstreamErrorKind, number>> = {
 
 function writeJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) })
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(payload),
+  })
   res.end(payload)
 }
 
-function writeOpenAIError(res: ServerResponse, status: number, kind: string, message: string): void {
+function writeOpenAIError(
+  res: ServerResponse,
+  status: number,
+  kind: string,
+  message: string,
+): void {
   writeJson(res, status, { error: { message, type: kind, code: kind } })
 }
 
@@ -155,7 +167,12 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       // always satisfies both; DNS-rebinding pages and cross-origin POSTs
       // do not.
       if (!hostIsLoopback(req.headers.host)) {
-        writeOpenAIError(res, 403, 'host_not_allowed', 'Host header must name the loopback interface')
+        writeOpenAIError(
+          res,
+          403,
+          'host_not_allowed',
+          'Host header must name the loopback interface',
+        )
         return
       }
       if (!originIsLoopback(req.headers.origin)) {
@@ -174,7 +191,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       if (req.method === 'GET' && (url === '/v1/models' || url === '/v1/models/')) {
         writeJson(res, 200, {
           object: 'list',
-          data: catalog.current().map(model => ({
+          data: catalog.current().map((model) => ({
             id: model.id,
             object: 'model',
             created: 0,
@@ -183,7 +200,10 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
         })
         return
       }
-      if (req.method === 'POST' && (url === '/v1/chat/completions' || url === '/v1/chat/completions/')) {
+      if (
+        req.method === 'POST' &&
+        (url === '/v1/chat/completions' || url === '/v1/chat/completions/')
+      ) {
         await chatCompletions(req, res)
         return
       }
@@ -230,7 +250,7 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'X-Accel-Buffering': 'no',
     })
     let sawDone = false
@@ -249,10 +269,11 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
     ready,
     baseUrl,
     token: () => SHARED_SECRET,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close(() => resolve())
-      server.closeAllConnections()
-      server.once('error', reject)
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close(() => resolve())
+        server.closeAllConnections()
+        server.once('error', reject)
+      }),
   }
 }

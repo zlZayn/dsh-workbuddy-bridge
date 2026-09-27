@@ -5,47 +5,120 @@ import type { SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 /** Every copy key the browser half renders. */
 export type WorkBuddyLocaleKey =
   // Card frame
-  | 'title' | 'intro' | 'titleAI'
+  | 'title'
+  | 'intro'
+  | 'titleAI'
   // Account state
-  | 'loading' | 'signedOut' | 'signedOutHint' | 'signedOutHintAI' | 'signedIn' | 'signedInAs' | 'accessTokenExpires'
+  | 'loading'
+  | 'signedOut'
+  | 'signedOutHint'
+  | 'signedOutHintAI'
+  | 'signedIn'
+  | 'signedInAs'
+  | 'accessTokenExpires'
   | 'accountHeading'
   // Read failures
-  | 'requestFailed' | 'statusRefreshFailed' | 'statusResponseInvalid'
+  | 'requestFailed'
+  | 'statusRefreshFailed'
+  | 'statusResponseInvalid'
   // Catalog provenance
-  | 'catalogLive' | 'catalogSaved' | 'catalogFallback' | 'catalogError' | 'catalogAppVersion'
+  | 'catalogLive'
+  | 'catalogSaved'
+  | 'catalogFallback'
+  | 'catalogError'
+  | 'catalogAppVersion'
   // Actions
-  | 'refresh' | 'refreshing' | 'refreshModels' | 'refreshingModels'
+  | 'refresh'
+  | 'refreshing'
+  | 'refreshModels'
+  | 'refreshingModels'
   // Tabs
-  | 'tabLabel' | 'tabCredits' | 'tabModels' | 'tabProbe'
+  | 'tabLabel'
+  | 'tabCredits'
+  | 'tabModels'
+  | 'tabProbe'
   // Credit
-  | 'creditsTotal' | 'creditsTotalUnlimited'
-  | 'unlimitedQuota' | 'packageEnterprise' | 'cycleResetAt' | 'percentRemaining' | 'percentUnknown'
-  | 'exactRemaining' | 'creditPackageUnknownSize' | 'creditsError'
+  | 'creditsTotal'
+  | 'creditsTotalUnlimited'
+  | 'unlimitedQuota'
+  | 'packageEnterprise'
+  | 'cycleResetAt'
+  | 'percentRemaining'
+  | 'percentUnknown'
+  | 'exactRemaining'
+  | 'creditPackageUnknownSize'
+  | 'creditsError'
   // Model offers
-  | 'freeModel' | 'badgeLimitedFree' | 'badgeNightDiscount' | 'badgeFreeNow' | 'rate' | 'rateUnknown'
+  | 'freeModel'
+  | 'badgeLimitedFree'
+  | 'badgeNightDiscount'
+  | 'badgeFreeNow'
+  | 'rate'
+  | 'rateUnknown'
   // Model list
-  | 'contextUpTo' | 'contextDefault' | 'contextUnknown'
-  | 'visibilityIntro' | 'visibilityStaleAccount'
+  | 'contextUpTo'
+  | 'contextDefault'
+  | 'contextUnknown'
+  | 'visibilityIntro'
+  | 'visibilityStaleAccount'
   // Reasoning-effort detection (card tab)
-  | 'probeCostNote' | 'probeStart' | 'probeRedetect'
-  | 'probeRunning' | 'probeClear'
-  | 'probeResultNotValidating' | 'probeResultUnknown' | 'probeResultAt'
-  | 'probeResultEmpty' | 'probeFailed'
+  | 'probeCostNote'
+  | 'probeStart'
+  | 'probeRedetect'
+  | 'probeRunning'
+  | 'probeClear'
+  | 'probeResultNotValidating'
+  | 'probeResultUnknown'
+  | 'probeResultAt'
+  | 'probeResultEmpty'
+  | 'probeFailed'
   // The composer control's own panel. Unlike the card, it has one action and no
   // confirmation step: the panel explains, the button acts.
-  | 'probePanelLevels' | 'probePanelNone' | 'probePanelNote' | 'probePanelDetect'
-  | 'probePanelDetecting' | 'probePanelRedetect' | 'probePanelNotValidating' | 'probePanelFailed'
-  | 'probeLabel' | 'probeTooltipIdle' | 'probeTooltipLevels' | 'probeTooltipNotValidating'
+  | 'probePanelLevels'
+  | 'probePanelNone'
+  | 'probePanelNote'
+  | 'probePanelDetect'
+  | 'probePanelDetecting'
+  | 'probePanelRedetect'
+  | 'probePanelNotValidating'
+  | 'probePanelFailed'
+  | 'probeLabel'
+  | 'probeTooltipIdle'
+  | 'probeTooltipLevels'
+  | 'probeTooltipNotValidating'
   | 'probeTooltipFailed'
   // Settings form
-  | 'authFile' | 'authFileHint' | 'authFileAI' | 'authFileAIHint'
-  | 'probeConsent' | 'probeConsentHint' | 'maximumContextWindow' | 'maximumContextWindowHint'
-  | 'overridden' | 'reset' | 'readOnly' | 'unavailable' | 'save' | 'saving' | 'saveFailed'
+  | 'authFile'
+  | 'authFileHint'
+  | 'authFileAI'
+  | 'authFileAIHint'
+  | 'probeConsent'
+  | 'probeConsentHint'
+  | 'maximumContextWindow'
+  | 'maximumContextWindowHint'
+  | 'overridden'
+  | 'reset'
+  | 'readOnly'
+  | 'unavailable'
+  | 'save'
+  | 'saving'
+  | 'saveFailed'
   // Agent assist
-  | 'assistantHeading' | 'assistantIntro' | 'assistantCopy' | 'assistantCopied'
-  | 'assistantCopyFailed' | 'assistantAfter' | 'assistantRecheck' | 'assistantRechecking'
-  | 'assistantPrompt' | 'assistNotFound' | 'assistAmbiguous' | 'assistIncomplete'
-  | 'assistPathInvalid' | 'assistUnavailableCN' | 'assistUnavailableAI'
+  | 'assistantHeading'
+  | 'assistantIntro'
+  | 'assistantCopy'
+  | 'assistantCopied'
+  | 'assistantCopyFailed'
+  | 'assistantAfter'
+  | 'assistantRecheck'
+  | 'assistantRechecking'
+  | 'assistantPrompt'
+  | 'assistNotFound'
+  | 'assistAmbiguous'
+  | 'assistIncomplete'
+  | 'assistPathInvalid'
+  | 'assistUnavailableCN'
+  | 'assistUnavailableAI'
 
 /** English copy. */
 export const en: Record<WorkBuddyLocaleKey, string> = {
@@ -54,8 +127,10 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   titleAI: 'WorkBuddy AI (Global)',
   loading: 'Loading account…',
   signedOut: 'Not signed in',
-  signedOutHint: 'Sign in once in the WorkBuddy desktop app; this plugin follows that sign-in automatically.',
-  signedOutHintAI: 'Sign in once in the WorkBuddy AI desktop app; this plugin follows that sign-in automatically.',
+  signedOutHint:
+    'Sign in once in the WorkBuddy desktop app; this plugin follows that sign-in automatically.',
+  signedOutHintAI:
+    'Sign in once in the WorkBuddy AI desktop app; this plugin follows that sign-in automatically.',
   signedIn: 'Signed in',
   signedInAs: 'Signed in as {nickname}',
   accessTokenExpires: 'Sign-in expires {time}; it renews automatically.',
@@ -95,9 +170,11 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   contextUpTo: 'up to {size}',
   contextDefault: 'default {size}',
   contextUnknown: 'no declared context window',
-  visibilityIntro: 'Uncheck a model to hide it from the picker. The choice is saved per signed-in account; chats already using a hidden model keep working.',
+  visibilityIntro:
+    'Uncheck a model to hide it from the picker. The choice is saved per signed-in account; chats already using a hidden model keep working.',
   visibilityStaleAccount: 'The signed-in account changed — this change was not saved.',
-  probeCostNote: 'Some models reason but declare no selectable effort levels. Detecting sends a few real requests to one model and may consume a small amount of credit.',
+  probeCostNote:
+    'Some models reason but declare no selectable effort levels. Detecting sends a few real requests to one model and may consume a small amount of credit.',
   probeStart: 'Detect',
   probeRedetect: 'Detect again',
   probeRunning: 'Detecting {model}…',
@@ -110,7 +187,8 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeLabel: 'Reasoning levels',
   probePanelLevels: 'Supported levels',
   probePanelNone: 'Not detected yet',
-  probePanelNote: 'Detection sends a few requests to this model and may consume a small amount of credit.',
+  probePanelNote:
+    'Detection sends a few requests to this model and may consume a small amount of credit.',
   probePanelDetect: 'Detect',
   probePanelDetecting: 'Detecting…',
   probePanelRedetect: 'Detect again',
@@ -121,11 +199,14 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeTooltipNotValidating: 'This model ignores the reasoning-level parameter',
   probeTooltipFailed: 'Detection did not finish · click to run it again',
   authFile: 'WorkBuddy auth file',
-  authFileHint: 'Path to the WorkBuddy desktop auth file. Leave blank to use the app’s own location.',
+  authFileHint:
+    'Path to the WorkBuddy desktop auth file. Leave blank to use the app’s own location.',
   authFileAI: 'WorkBuddy AI auth file',
-  authFileAIHint: 'Path to the WorkBuddy AI desktop auth file. Leave blank to use the app’s own location.',
+  authFileAIHint:
+    'Path to the WorkBuddy AI desktop auth file. Leave blank to use the app’s own location.',
   probeConsent: 'Allow reasoning-effort detection',
-  probeConsentHint: 'Lets the plugin send test requests to a model to confirm which effort levels it accepts; each detection may consume a small amount of credit.',
+  probeConsentHint:
+    'Lets the plugin send test requests to a model to confirm which effort levels it accepts; each detection may consume a small amount of credit.',
   maximumContextWindow: 'Use the largest declared context window',
   maximumContextWindowHint: 'Applies to WorkBuddy AI models that offer a larger window.',
   overridden: 'Overridden',
@@ -136,17 +217,20 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   saving: 'Saving…',
   saveFailed: 'The deployment did not accept these values; they were left for you to correct.',
   assistantHeading: 'Let an Agent sort this out',
-  assistantIntro: 'Send the request below to your Agent; it will check the app location and the launch configuration for you.',
+  assistantIntro:
+    'Send the request below to your Agent; it will check the app location and the launch configuration for you.',
   assistantCopy: 'Copy for Agent',
   assistantCopied: 'Copied',
   assistantCopyFailed: 'Copy failed — select the text above and copy it manually',
-  assistantAfter: 'When your Agent is done, come back and check again. If the DSH launch environment was changed, restart DSH first as instructed.',
+  assistantAfter:
+    'When your Agent is done, come back and check again. If the DSH launch environment was changed, restart DSH first as instructed.',
   assistantRecheck: 'Done — check again',
   assistantRechecking: 'Checking…',
   // The prompt is a request to the user's Agent, not a promise by this plugin:
   // it must not name a specific env var (the right fix depends on how DSH was
   // launched) and must not claim a search happened.
-  assistantPrompt: 'DSH\'s dsh-workbuddy-bridge cannot use my {appName}: {failureSummary}. Please check the actual installation location and any existing path configuration, help the plugin use it correctly, and verify recovery. If the DSH launch environment must be changed or DSH restarted, give me clear steps; do not only set an environment variable temporarily in the current shell.',
+  assistantPrompt:
+    "DSH's dsh-workbuddy-bridge cannot use my {appName}: {failureSummary}. Please check the actual installation location and any existing path configuration, help the plugin use it correctly, and verify recovery. If the DSH launch environment must be changed or DSH restarted, give me clear steps; do not only set an environment variable temporarily in the current shell.",
   // Per-code summaries. `unavailable*` says only that nothing is configured —
   // never that a search was performed, because on those paths none was.
   assistNotFound: 'no usable decryption program was found',
@@ -205,9 +289,11 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   contextUpTo: '最高 {size}',
   contextDefault: '默认 {size}',
   contextUnknown: '未声明上下文窗口',
-  visibilityIntro: '取消勾选即可将该模型从选择器中隐藏；按登录账号分别保存，已在用该模型的会话不受影响。',
+  visibilityIntro:
+    '取消勾选即可将该模型从选择器中隐藏；按登录账号分别保存，已在用该模型的会话不受影响。',
   visibilityStaleAccount: '登录账号已切换——本次修改未保存。',
-  probeCostNote: '部分模型具备思考能力，但没有声明可选档位。检测会向一个模型发送少量真实请求以确认可用档位，可能消耗少量积分。',
+  probeCostNote:
+    '部分模型具备思考能力，但没有声明可选档位。检测会向一个模型发送少量真实请求以确认可用档位，可能消耗少量积分。',
   probeStart: '开始检测',
   probeRedetect: '重新检测',
   probeRunning: '正在检测 {model}…',
@@ -235,7 +321,8 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   authFileAI: 'WorkBuddy AI 登录文件',
   authFileAIHint: 'WorkBuddy AI 桌面 App 登录文件的路径。留空表示使用应用自身的位置。',
   probeConsent: '允许推理档位检测',
-  probeConsentHint: '允许插件向模型发送检测请求，以确认它接受哪些推理档位；每次检测可能消耗少量积分。',
+  probeConsentHint:
+    '允许插件向模型发送检测请求，以确认它接受哪些推理档位；每次检测可能消耗少量积分。',
   maximumContextWindow: '使用上游声明的最大上下文窗口',
   maximumContextWindowHint: '仅作用于 WorkBuddy AI 中声明了更大窗口的模型。',
   overridden: '已覆盖',
@@ -250,10 +337,12 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   assistantCopy: '复制给 Agent',
   assistantCopied: '已复制',
   assistantCopyFailed: '复制失败，请手动选择上方文字复制',
-  assistantAfter: 'Agent 处理完成后，回到这里重新检查；如果修改了 DSH 的启动环境，请先按指引重启 DSH。',
+  assistantAfter:
+    'Agent 处理完成后，回到这里重新检查；如果修改了 DSH 的启动环境，请先按指引重启 DSH。',
   assistantRecheck: '已处理，重新检查',
   assistantRechecking: '正在检查…',
-  assistantPrompt: 'DSH 的 dsh-workbuddy-bridge 无法使用我的 {appName}：{failureSummary}。请帮我检查实际安装位置和已有路径配置，让插件能正确使用它，并验证恢复结果；如果需要修改 DSH 的启动环境或重启，请给我明确的操作步骤，不要只在当前 shell 临时设置环境变量。',
+  assistantPrompt:
+    'DSH 的 dsh-workbuddy-bridge 无法使用我的 {appName}：{failureSummary}。请帮我检查实际安装位置和已有路径配置，让插件能正确使用它，并验证恢复结果；如果需要修改 DSH 的启动环境或重启，请给我明确的操作步骤，不要只在当前 shell 临时设置环境变量。',
   assistNotFound: '没有找到可用的解密程序',
   assistAmbiguous: '找到了多个 WorkBuddy 副本，无法安全自动选择',
   assistIncomplete: '自动定位未能完成',
@@ -269,9 +358,18 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
  * plugin names one of the keys above, so an unknown key is a compile error
  * rather than a rendered key name.
  */
-export type WorkBuddyTranslate = (key: WorkBuddyLocaleKey, params?: Record<string, unknown>) => string
+export type WorkBuddyTranslate = (
+  key: WorkBuddyLocaleKey,
+  params?: Record<string, unknown>,
+) => string
 
 /** The form frame's copy, read from this plugin's dictionary. */
 export function formLabels(t: (key: WorkBuddyLocaleKey) => string): SettingsFormLabels {
-  return { unavailable: t('unavailable'), readOnly: t('readOnly'), saveFailed: t('saveFailed'), save: t('save'), saving: t('saving') }
+  return {
+    unavailable: t('unavailable'),
+    readOnly: t('readOnly'),
+    saveFailed: t('saveFailed'),
+    save: t('save'),
+    saving: t('saving'),
+  }
 }

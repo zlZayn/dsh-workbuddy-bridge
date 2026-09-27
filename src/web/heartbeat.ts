@@ -79,10 +79,10 @@ export async function readHostHeartbeat(): Promise<WorkBuddyHostHeartbeat | unde
   try {
     const parsed = JSON.parse(raw) as Partial<WorkBuddyHostHeartbeat>
     if (
-      parsed.version === HEARTBEAT_FORMAT_VERSION
-      && parsed.package === 'dsh-workbuddy-bridge'
-      && typeof parsed.registeredAt === 'number'
-      && typeof parsed.pid === 'number'
+      parsed.version === HEARTBEAT_FORMAT_VERSION &&
+      parsed.package === 'dsh-workbuddy-bridge' &&
+      typeof parsed.registeredAt === 'number' &&
+      typeof parsed.pid === 'number'
     ) {
       return {
         version: HEARTBEAT_FORMAT_VERSION,
@@ -111,18 +111,22 @@ export async function readHostHeartbeat(): Promise<WorkBuddyHostHeartbeat | unde
  * is not part of the format and is rejected rather than partially matched.
  */
 export function parseWmiCreationDate(value: string): number | undefined {
-  const m = value
-    .trim()
-    .match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\.(\d+)([+-]\d{3})$/)
+  const m = value.trim().match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\.(\d+)([+-]\d{3})$/)
   if (m === null) return undefined
   const [, y, mo, d, h, mi, s, , offset] = m
-  const [year, month, day, hour, minute, second] = [y, mo, d, h, mi, s].map(Number) as [number, number, number, number, number, number]
+  const [year, month, day, hour, minute, second] = [y, mo, d, h, mi, s].map(Number) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ]
   // Structural sanity beyond the digit shape: reject values Date.UTC would
   // silently roll over (month 13, day 32, hour 99, …).
   if (month < 1 || month > 12 || day < 1 || day > 31) return undefined
   if (hour > 23 || minute > 59 || second > 59) return undefined
-  const epoch = Date.UTC(year, month - 1, day, hour, minute, second)
-    - Number(offset) * 60_000
+  const epoch = Date.UTC(year, month - 1, day, hour, minute, second) - Number(offset) * 60_000
   return Number.isFinite(epoch) ? epoch : undefined
 }
 
@@ -162,11 +166,10 @@ export function processStartTimeMs(pid: number): number | undefined {
       if (token === undefined) return undefined
       return parseWmiCreationDate(token)
     }
-    const out = execFileSync(
-      'ps',
-      ['-o', 'lstart=', '-p', String(pid)],
-      { encoding: 'utf8', env: { ...process.env, LC_ALL: 'C', LANG: 'C' } },
-    ).trim()
+    const out = execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+      encoding: 'utf8',
+      env: { ...process.env, LC_ALL: 'C', LANG: 'C' },
+    }).trim()
     if (out === '') return undefined
     const ms = Date.parse(out)
     return Number.isFinite(ms) ? ms : undefined

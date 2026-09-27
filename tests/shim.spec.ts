@@ -11,7 +11,7 @@ import type { WorkBuddyChatResult } from '../src/protocol/client.ts'
 const CLEANUP: (() => Promise<void>)[] = []
 
 afterEach(async () => {
-  await Promise.all(CLEANUP.splice(0).map(clean => clean()))
+  await Promise.all(CLEANUP.splice(0).map((clean) => clean()))
 })
 
 interface Harness {
@@ -28,22 +28,27 @@ function rawRequest(options: {
   path: string
   headers: Record<string, string>
   body?: string
-}): Promise<{ status: number, body: string }> {
+}): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
-    const req = request({
-      host: '127.0.0.1',
-      port: options.port,
-      method: options.method,
-      path: options.path,
-      headers: options.headers,
-    }, (res) => {
-      const chunks: Buffer[] = []
-      res.on('data', (chunk: Buffer) => chunks.push(chunk))
-      res.on('end', () => resolve({
-        status: res.statusCode ?? 0,
-        body: Buffer.concat(chunks).toString('utf8'),
-      }))
-    })
+    const req = request(
+      {
+        host: '127.0.0.1',
+        port: options.port,
+        method: options.method,
+        path: options.path,
+        headers: options.headers,
+      },
+      (res) => {
+        const chunks: Buffer[] = []
+        res.on('data', (chunk: Buffer) => chunks.push(chunk))
+        res.on('end', () =>
+          resolve({
+            status: res.statusCode ?? 0,
+            body: Buffer.concat(chunks).toString('utf8'),
+          }),
+        )
+      },
+    )
     req.on('error', reject)
     if (options.body !== undefined) req.write(options.body)
     req.end()
@@ -54,10 +59,18 @@ async function startShim(upstreamResponse: () => WorkBuddyChatResult): Promise<H
   const dir = await mkdtemp(join(tmpdir(), 'wb-shim-'))
   CLEANUP.push(() => rm(dir, { recursive: true, force: true }))
   const desktop = join(dir, 'workbuddy-desktop.info')
-  await writeFile(desktop, JSON.stringify({
-    auth: { accessToken: 'at', refreshToken: 'rt', expiresAt: Date.now() + 3600_000, domain: 'www.codebuddy.cn' },
-    account: { uid: 'uid-1' },
-  }))
+  await writeFile(
+    desktop,
+    JSON.stringify({
+      auth: {
+        accessToken: 'at',
+        refreshToken: 'rt',
+        expiresAt: Date.now() + 3600_000,
+        domain: 'www.codebuddy.cn',
+      },
+      account: { uid: 'uid-1' },
+    }),
+  )
   const store = new WorkBuddyCredentialStore({
     desktopPath: desktop,
     ownPath: join(dir, 'own.json'),
@@ -86,13 +99,18 @@ async function startShim(upstreamResponse: () => WorkBuddyChatResult): Promise<H
 
 describe('WorkBuddy shim', () => {
   it('lists the catalog on /v1/models', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const response = await fetch(`${harness.shim.baseUrl()}/v1/models`, {
       headers: { authorization: `Bearer ${harness.shim.token()}` },
     })
     expect(response.status).toBe(200)
-    const body = await response.json() as { data: { id: string }[] }
-    const ids = body.data.map(model => model.id)
+    const body = (await response.json()) as { data: { id: string }[] }
+    const ids = body.data.map((model) => model.id)
     expect(ids).toContain('hy3')
     expect(ids).toContain('deepseek-v4-pro')
     // The fallback roster tracks the live `cli` agent's 16 models.
@@ -104,14 +122,20 @@ describe('WorkBuddy shim', () => {
   it('streams a successful chat completion and normalizes the body', async () => {
     const harness = await startShim(() => ({
       ok: true,
-      response: new Response('data: {"choices":[{"delta":{"content":"你好"}}]}\n\ndata: [DONE]\n\n', {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
+      response: new Response(
+        'data: {"choices":[{"delta":{"content":"你好"}}]}\n\ndata: [DONE]\n\n',
+        {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        },
+      ),
     }))
     const response = await fetch(`${harness.shim.baseUrl()}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${harness.shim.token()}` },
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: `Bearer ${harness.shim.token()}`,
+      },
       body: JSON.stringify({
         model: 'hy3',
         stream: false,
@@ -140,7 +164,10 @@ describe('WorkBuddy shim', () => {
     }))
     const response = await fetch(`${harness.shim.baseUrl()}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${harness.shim.token()}` },
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: `Bearer ${harness.shim.token()}`,
+      },
       body: JSON.stringify({
         model: 'glm-5.3',
         messages: [{ role: 'user', content: 'hi' }],
@@ -162,17 +189,25 @@ describe('WorkBuddy shim', () => {
     }))
     const response = await fetch(`${harness.shim.baseUrl()}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', authorization: `Bearer ${harness.shim.token()}` },
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: `Bearer ${harness.shim.token()}`,
+      },
       body: JSON.stringify({ model: 'hy3', messages: [] }),
     })
     expect(response.status).toBe(402)
-    const body = await response.json() as { error: { type: string, message: string } }
+    const body = (await response.json()) as { error: { type: string; message: string } }
     expect(body.error.type).toBe('hard_credit')
     expect(body.error.message).toContain('积分不足')
   })
 
   it('answers unknown routes with 404', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const response = await fetch(`${harness.shim.baseUrl()}/v1/nothing`, {
       headers: { authorization: `Bearer ${harness.shim.token()}` },
     })
@@ -180,12 +215,22 @@ describe('WorkBuddy shim', () => {
   })
 
   it('binds loopback only', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     expect(harness.shim.baseUrl()).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
   })
 
   it('rejects a non-loopback Host header (DNS rebinding)', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const port = Number(new URL(harness.shim.baseUrl()).port)
     // A rebinding page resolves evil.com to 127.0.0.1; the browser then sends
     // Host: evil.com:<port>. fetch() forbids overriding Host, so use raw http.
@@ -200,7 +245,12 @@ describe('WorkBuddy shim', () => {
   })
 
   it('accepts Host with a loopback name plus port', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const port = Number(new URL(harness.shim.baseUrl()).port)
     const res = await rawRequest({
       port,
@@ -212,7 +262,12 @@ describe('WorkBuddy shim', () => {
   })
 
   it('rejects a browser Origin from a non-loopback site', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const port = Number(new URL(harness.shim.baseUrl()).port)
     const res = await rawRequest({
       port,
@@ -234,7 +289,10 @@ describe('WorkBuddy shim', () => {
   it('accepts a loopback browser Origin', async () => {
     const harness = await startShim(() => ({
       ok: true,
-      response: new Response('data: [DONE]\n\n', { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+      response: new Response('data: [DONE]\n\n', {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
     }))
     const port = Number(new URL(harness.shim.baseUrl()).port)
     const res = await rawRequest({
@@ -253,7 +311,12 @@ describe('WorkBuddy shim', () => {
   })
 
   it('rejects a chat POST with a non-JSON Content-Type (simple-request CSRF)', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const port = Number(new URL(harness.shim.baseUrl()).port)
     const res = await rawRequest({
       port,
@@ -273,7 +336,12 @@ describe('WorkBuddy shim', () => {
   })
 
   it('rejects a loopback request without a bearer (local process without the secret)', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const port = Number(new URL(harness.shim.baseUrl()).port)
     // Everything else about this request is legitimate: loopback Host, no
     // Origin (a local process, not a browser), JSON body. Only the bearer is
@@ -294,7 +362,12 @@ describe('WorkBuddy shim', () => {
   })
 
   it('rejects a loopback request with a wrong bearer', async () => {
-    const harness = await startShim(() => ({ ok: false, status: 500, kind: 'server', message: 'unused' }))
+    const harness = await startShim(() => ({
+      ok: false,
+      status: 500,
+      kind: 'server',
+      message: 'unused',
+    }))
     const port = Number(new URL(harness.shim.baseUrl()).port)
     const res = await rawRequest({
       port,

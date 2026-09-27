@@ -76,30 +76,33 @@ describe('host heartbeat', () => {
     expect(await readHostHeartbeat()).toBeUndefined()
   })
 
-  it.skipIf(process.platform === 'win32')('detects a recycled PID as dead (registeredAt after this process started)', async () => {
-    // The current process started at some point in the past. If a stale
-    // heartbeat claims a `registeredAt` that is *older* than this process's
-    // own start time, the PID cannot be the original host — it has been
-    // recycled by an unrelated process. Even though `kill(pid, 0)` says the
-    // PID is alive, the age check must report dead.
-    const startAtMs = processStartTimeMs(process.pid)
-    expect(startAtMs).toBeDefined()
+  it.skipIf(process.platform === 'win32')(
+    'detects a recycled PID as dead (registeredAt after this process started)',
+    async () => {
+      // The current process started at some point in the past. If a stale
+      // heartbeat claims a `registeredAt` that is *older* than this process's
+      // own start time, the PID cannot be the original host — it has been
+      // recycled by an unrelated process. Even though `kill(pid, 0)` says the
+      // PID is alive, the age check must report dead.
+      const startAtMs = processStartTimeMs(process.pid)
+      expect(startAtMs).toBeDefined()
 
-    // A heartbeat registered *before* this process began (the recycled-PID case).
-    const recycled = {
-      version: 1 as const,
-      package: 'dsh-workbuddy-bridge' as const,
-      pluginVersion: '0.0.0-test',
-      registeredAt: (startAtMs as number) - 60_000, // 1 min before this process started
-      pid: process.pid,
-    }
-    expect(isHeartbeatProcessAlive(recycled)).toBe(false)
+      // A heartbeat registered *before* this process began (the recycled-PID case).
+      const recycled = {
+        version: 1 as const,
+        package: 'dsh-workbuddy-bridge' as const,
+        pluginVersion: '0.0.0-test',
+        registeredAt: (startAtMs as number) - 60_000, // 1 min before this process started
+        pid: process.pid,
+      }
+      expect(isHeartbeatProcessAlive(recycled)).toBe(false)
 
-    // A heartbeat registered *after* this process started (a genuine host on
-    // this very PID) is alive.
-    const genuine = { ...recycled, registeredAt: Date.now() }
-    expect(isHeartbeatProcessAlive(genuine)).toBe(true)
-  })
+      // A heartbeat registered *after* this process started (a genuine host on
+      // this very PID) is alive.
+      const genuine = { ...recycled, registeredAt: Date.now() }
+      expect(isHeartbeatProcessAlive(genuine)).toBe(true)
+    },
+  )
 
   it('treats a malformed heartbeat file as absent', async () => {
     root = await mkdtemp(join(tmpdir(), 'wb-heartbeat-malformed-'))
@@ -115,7 +118,12 @@ describe('host heartbeat', () => {
     const { writeFile } = await import('node:fs/promises')
     await writeFile(
       workbuddyHostHeartbeatPath(),
-      JSON.stringify({ version: 99, package: 'dsh-workbuddy-bridge', registeredAt: Date.now(), pid: process.pid }),
+      JSON.stringify({
+        version: 99,
+        package: 'dsh-workbuddy-bridge',
+        registeredAt: Date.now(),
+        pid: process.pid,
+      }),
       'utf8',
     )
     expect(await readHostHeartbeat()).toBeUndefined()
@@ -133,22 +141,28 @@ describe('parseWmiCreationDate (CIM_DATETIME)', () => {
 
   it('parses the listed offsets into the correct epoch', () => {
     // Zero offset: fields are already UTC.
-    expect(new Date(parseWmiCreationDate('20260923104314.239907+000')!).toISOString())
-      .toBe('2026-09-23T10:43:14.000Z')
+    expect(new Date(parseWmiCreationDate('20260923104314.239907+000')!).toISOString()).toBe(
+      '2026-09-23T10:43:14.000Z',
+    )
     // UTC+8: local 10:43:14 is 02:43:14Z.
-    expect(new Date(parseWmiCreationDate('20260923104314.239907+480')!).toISOString())
-      .toBe('2026-09-23T02:43:14.000Z')
+    expect(new Date(parseWmiCreationDate('20260923104314.239907+480')!).toISOString()).toBe(
+      '2026-09-23T02:43:14.000Z',
+    )
     // UTC+5:30 (India): 10:43:14 − 5h30m.
-    expect(new Date(parseWmiCreationDate('20260923104314.239907+330')!).toISOString())
-      .toBe('2026-09-23T05:13:14.000Z')
+    expect(new Date(parseWmiCreationDate('20260923104314.239907+330')!).toISOString()).toBe(
+      '2026-09-23T05:13:14.000Z',
+    )
     // UTC−5: 10:43:14 + 5h.
-    expect(new Date(parseWmiCreationDate('20260923104314.239907-300')!).toISOString())
-      .toBe('2026-09-23T15:43:14.000Z')
+    expect(new Date(parseWmiCreationDate('20260923104314.239907-300')!).toISOString()).toBe(
+      '2026-09-23T15:43:14.000Z',
+    )
     // Extreme offsets cross the day boundary and stay finite.
-    expect(new Date(parseWmiCreationDate('20260923104314.239907+840')!).toISOString())
-      .toBe('2026-09-22T20:43:14.000Z')
-    expect(new Date(parseWmiCreationDate('20260923104314.239907-720')!).toISOString())
-      .toBe('2026-09-23T22:43:14.000Z')
+    expect(new Date(parseWmiCreationDate('20260923104314.239907+840')!).toISOString()).toBe(
+      '2026-09-22T20:43:14.000Z',
+    )
+    expect(new Date(parseWmiCreationDate('20260923104314.239907-720')!).toISOString()).toBe(
+      '2026-09-23T22:43:14.000Z',
+    )
   })
 
   it('rejects malformed input and 4-digit offsets instead of partially matching', () => {

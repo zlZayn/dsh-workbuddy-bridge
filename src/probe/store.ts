@@ -139,13 +139,15 @@ function isRecord(value: unknown): value is WorkBuddyProbeRecord {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const wrapped = value as Record<string, unknown>
   const validation = wrapped['validation']
-  if (validation !== 'validating' && validation !== 'non-validating' && validation !== 'unknown') return false
+  if (validation !== 'validating' && validation !== 'non-validating' && validation !== 'unknown')
+    return false
   if (typeof wrapped['fingerprint'] !== 'string') return false
-  if (typeof wrapped['probedAtMs'] !== 'number' || !Number.isFinite(wrapped['probedAtMs'])) return false
+  if (typeof wrapped['probedAtMs'] !== 'number' || !Number.isFinite(wrapped['probedAtMs']))
+    return false
   if (typeof wrapped['pluginVersion'] !== 'string') return false
   if (typeof wrapped['account'] !== 'string' || wrapped['account'] === '') return false
   const efforts = wrapped['efforts']
-  if (!Array.isArray(efforts) || efforts.some(effort => typeof effort !== 'string')) return false
+  if (!Array.isArray(efforts) || efforts.some((effort) => typeof effort !== 'string')) return false
   return true
 }
 
@@ -176,9 +178,8 @@ export class WorkBuddyProbeStore {
   constructor(options: WorkBuddyProbeStoreOptions | string) {
     // A bare string stays accepted for the pre-plan call sites that only cared
     // about the path.
-    const opts: WorkBuddyProbeStoreOptions = typeof options === 'string'
-      ? { path: options, pluginVersion: '0.0.0' }
-      : options
+    const opts: WorkBuddyProbeStoreOptions =
+      typeof options === 'string' ? { path: options, pluginVersion: '0.0.0' } : options
     this.path = opts.path ?? workbuddyProbePath()
     this.ttlMs = opts.ttlMs ?? DEFAULT_TTL_MS
     this.pluginVersion = opts.pluginVersion
@@ -237,10 +238,10 @@ export class WorkBuddyProbeStore {
     const bucket = records[record.account] ?? (records[record.account] = {})
     const existing = bucket[modelId]
     if (
-      record.validation === 'unknown'
-      && existing !== undefined
-      && existing.fingerprint === record.fingerprint
-      && existing.validation !== 'unknown'
+      record.validation === 'unknown' &&
+      existing !== undefined &&
+      existing.fingerprint === record.fingerprint &&
+      existing.validation !== 'unknown'
     ) {
       return
     }
@@ -257,7 +258,9 @@ export class WorkBuddyProbeStore {
   /** Every record currently held, grouped by account, for status display. */
   all(): Readonly<Record<string, Readonly<Record<string, WorkBuddyProbeRecord>>>> {
     const records = this.load()
-    return Object.fromEntries(Object.entries(records).map(([account, bucket]) => [account, { ...bucket }]))
+    return Object.fromEntries(
+      Object.entries(records).map(([account, bucket]) => [account, { ...bucket }]),
+    )
   }
 
   /** Build a record stamped with this store's clock, version, and account. */

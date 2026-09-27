@@ -15,7 +15,12 @@
  * @module dsh-workbuddy-bridge/variants
  */
 
-import { WORKBUDDY_AI_STATUS_PATH, WORKBUDDY_AI_PROBE_PATH, WORKBUDDY_PROBE_PATH, WORKBUDDY_STATUS_PATH } from './shared/paths.ts'
+import {
+  WORKBUDDY_AI_STATUS_PATH,
+  WORKBUDDY_AI_PROBE_PATH,
+  WORKBUDDY_PROBE_PATH,
+  WORKBUDDY_STATUS_PATH,
+} from './shared/paths.ts'
 import type { WorkBuddyRegion } from './protocol/client.ts'
 
 /** One WorkBuddy product variant. */
@@ -99,5 +104,5 @@ export const AI_VARIANT: WorkBuddyVariant = WORKBUDDY_VARIANTS[1]!
 
 /** Look up a variant by provider id. */
 export function variantFor(id: string): WorkBuddyVariant | undefined {
-  return WORKBUDDY_VARIANTS.find(variant => variant.id === id)
+  return WORKBUDDY_VARIANTS.find((variant) => variant.id === id)
 }

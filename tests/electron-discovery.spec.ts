@@ -35,7 +35,9 @@ const KEY = deriveProtectorKey(SECRET)
 const KEY_ID = createHash('sha256').update(KEY).digest('hex').slice(0, 16)
 
 /** A discovery-tool stand-in that records every call. */
-function fakeTools(overrides: Partial<WorkBuddyDiscoveryTools> = {}): WorkBuddyDiscoveryTools & { calls: string[] } {
+function fakeTools(
+  overrides: Partial<WorkBuddyDiscoveryTools> = {},
+): WorkBuddyDiscoveryTools & { calls: string[] } {
   const calls: string[] = []
   return {
     calls,
@@ -47,7 +49,11 @@ function fakeTools(overrides: Partial<WorkBuddyDiscoveryTools> = {}): WorkBuddyD
 }
 
 /** Count how many times a tool was entered, without changing its behaviour. */
-function counting<T extends (...args: never[]) => unknown>(fn: T, calls: string[], label: string): T {
+function counting<T extends (...args: never[]) => unknown>(
+  fn: T,
+  calls: string[],
+  label: string,
+): T {
   return ((...args: never[]) => {
     calls.push(label)
     return fn(...args)
@@ -59,11 +65,13 @@ const cleanups: (() => Promise<void>)[] = []
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'wb-electron-discovery-'))
-  cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
+  cleanups.push(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
 })
 
 afterEach(async () => {
-  await Promise.all(cleanups.splice(0).map(clean => clean()))
+  await Promise.all(cleanups.splice(0).map((clean) => clean()))
   vi.unstubAllEnvs()
 })
 
@@ -76,7 +84,7 @@ async function executableAt(...segments: string[]): Promise<string> {
 }
 
 /** A `.app` bundle whose Electron is executable. */
-async function fakeApp(name: string): Promise<{ bundlePath: string, electronPath: string }> {
+async function fakeApp(name: string): Promise<{ bundlePath: string; electronPath: string }> {
   const bundlePath = join(root, name)
   const electronPath = join(bundlePath, 'Contents', 'MacOS', 'Electron')
   await mkdir(join(bundlePath, 'Contents', 'MacOS'), { recursive: true })
@@ -95,7 +103,9 @@ describe('#48 explicit configuration is authoritative', () => {
       defaultElectronPath: await executableAt('default-Electron'),
       tools,
     })
-    await expect(provider.protectorKeyFor([KEY_ID])).rejects.toThrow(/not available at \/nonexistent/)
+    await expect(provider.protectorKeyFor([KEY_ID])).rejects.toThrow(
+      /not available at \/nonexistent/,
+    )
     expect(tools.calls).toEqual([])
     expect(reasonCodeOf(new Error('x'))).toBeUndefined()
   })
@@ -108,7 +118,9 @@ describe('#48 explicit configuration is authoritative', () => {
       defaultElectronPath: await executableAt('default-Electron'),
       tools,
     })
-    await expect(provider.protectorKeyFor([KEY_ID])).rejects.toThrow(/not available at \/nonexistent\/from-env/)
+    await expect(provider.protectorKeyFor([KEY_ID])).rejects.toThrow(
+      /not available at \/nonexistent\/from-env/,
+    )
     expect(tools.calls).toEqual([])
   })
 
@@ -181,20 +193,25 @@ describe('#48 identity is proved before execution', () => {
     expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
   })
 
-  it.skipIf(process.platform === 'win32')('rejects a matching bundle whose Electron is not executable', async () => {
-    const bundlePath = join(root, 'WorkBuddy.app')
-    // Present but not executable: identity alone is not enough to execute it.
-    await mkdir(join(bundlePath, 'Contents', 'MacOS'), { recursive: true })
-    await writeFile(join(bundlePath, 'Contents', 'MacOS', 'Electron'), '#!/bin/sh\n', { mode: 0o644 })
-    const provider = new WorkBuddyAtRestKeyProvider({
-      discovery: 'macos-workbuddy',
-      defaultElectronPath: join(root, 'absent', 'Electron'),
-      tools: fakeTools({ findApps: async () => [bundlePath] }),
-      spawnHelper: async () => PAYLOAD_TEXT,
-    })
-    const error = await provider.protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
-    expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
-  })
+  it.skipIf(process.platform === 'win32')(
+    'rejects a matching bundle whose Electron is not executable',
+    async () => {
+      const bundlePath = join(root, 'WorkBuddy.app')
+      // Present but not executable: identity alone is not enough to execute it.
+      await mkdir(join(bundlePath, 'Contents', 'MacOS'), { recursive: true })
+      await writeFile(join(bundlePath, 'Contents', 'MacOS', 'Electron'), '#!/bin/sh\n', {
+        mode: 0o644,
+      })
+      const provider = new WorkBuddyAtRestKeyProvider({
+        discovery: 'macos-workbuddy',
+        defaultElectronPath: join(root, 'absent', 'Electron'),
+        tools: fakeTools({ findApps: async () => [bundlePath] }),
+        spawnHelper: async () => PAYLOAD_TEXT,
+      })
+      const error = await provider.protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
+      expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
+    },
+  )
 })
 
 describe('#48 candidate counting', () => {
@@ -253,7 +270,11 @@ describe('#48 an unfinished check is not an absent app', () => {
     const provider = new WorkBuddyAtRestKeyProvider({
       discovery: 'macos-workbuddy',
       defaultElectronPath: join(root, 'absent', 'Electron'),
-      tools: fakeTools({ findApps: async () => { throw new Error('mdfind is unavailable') } }),
+      tools: fakeTools({
+        findApps: async () => {
+          throw new Error('mdfind is unavailable')
+        },
+      }),
     })
     const error = await provider.protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
     expect(reasonCodeOf(error)).toBe('electron-discovery-incomplete')
@@ -274,7 +295,8 @@ describe('#48 an unfinished check is not an absent app', () => {
         findApps: async () => [good.bundlePath, unreadable.bundlePath],
         // The plutil seam answers `undefined` for "could not read", which is
         // not the same as "this one is a different product".
-        bundleIdentifier: async path => path === unreadable.bundlePath ? undefined : WORKBUDDY_CN_BUNDLE_ID,
+        bundleIdentifier: async (path) =>
+          path === unreadable.bundlePath ? undefined : WORKBUDDY_CN_BUNDLE_ID,
       }),
       spawnHelper: async () => PAYLOAD_TEXT,
     })
@@ -295,7 +317,7 @@ describe('#48 an unfinished check is not an absent app', () => {
       findApps: async () => [deleted, good.bundlePath],
       // Reading plutil for the deleted row would mean we failed to notice it
       // was gone; throw so the regression is unambiguous.
-      bundleIdentifier: async path => {
+      bundleIdentifier: async (path) => {
         if (path === deleted) throw new Error('plutil must not run for a deleted bundle')
         return WORKBUDDY_CN_BUNDLE_ID
       },
@@ -310,40 +332,43 @@ describe('#48 an unfinished check is not an absent app', () => {
     expect(provider.helperPath()).toBe(good.electronPath)
   })
 
-  it.skipIf(process.platform === 'win32')('never treats an uninspectable candidate as absent, even beside a usable app', async () => {
-    // A candidate the process may not stat is *not* a deleted one. Reading
-    // only ENOENT as "gone" is what keeps a live app from being chosen over a
-    // candidate we merely could not inspect: `existsSync` answers `false` for
-    // EACCES/EPERM too and would silently drop it, which is the bug this pins
-    // (issue #48 review).
-    //
-    // The EACCES is real rather than mocked: mode 000 on the parent directory
-    // blocks traversal into it, so stat on the bundle below fails even for its
-    // owner. That keeps the test honest about the syscall's actual behaviour.
-    const good = await fakeApp('WorkBuddy.app')
-    const deniedParent = join(root, 'NoAccess')
-    const unreadable = join(deniedParent, 'WorkBuddy.app')
-    await mkdir(unreadable, { recursive: true })
-    await chmod(deniedParent, 0o000)
-    try {
-      const provider = new WorkBuddyAtRestKeyProvider({
-        discovery: 'macos-workbuddy',
-        defaultElectronPath: join(root, 'absent', 'Electron'),
-        tools: fakeTools({
-          findApps: async () => [good.bundlePath, unreadable],
-          bundleIdentifier: async () => WORKBUDDY_CN_BUNDLE_ID,
-        }),
-        spawnHelper: async () => PAYLOAD_TEXT,
-      })
-      const error = await provider.protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
-      // The usable app must NOT be selected: the other candidate might be a
-      // second copy, so this is an unfinished check.
-      expect(reasonCodeOf(error)).toBe('electron-discovery-incomplete')
-    } finally {
-      // Restore the mode so cleanup can remove the tree.
-      await chmod(deniedParent, 0o755)
-    }
-  })
+  it.skipIf(process.platform === 'win32')(
+    'never treats an uninspectable candidate as absent, even beside a usable app',
+    async () => {
+      // A candidate the process may not stat is *not* a deleted one. Reading
+      // only ENOENT as "gone" is what keeps a live app from being chosen over a
+      // candidate we merely could not inspect: `existsSync` answers `false` for
+      // EACCES/EPERM too and would silently drop it, which is the bug this pins
+      // (issue #48 review).
+      //
+      // The EACCES is real rather than mocked: mode 000 on the parent directory
+      // blocks traversal into it, so stat on the bundle below fails even for its
+      // owner. That keeps the test honest about the syscall's actual behaviour.
+      const good = await fakeApp('WorkBuddy.app')
+      const deniedParent = join(root, 'NoAccess')
+      const unreadable = join(deniedParent, 'WorkBuddy.app')
+      await mkdir(unreadable, { recursive: true })
+      await chmod(deniedParent, 0o000)
+      try {
+        const provider = new WorkBuddyAtRestKeyProvider({
+          discovery: 'macos-workbuddy',
+          defaultElectronPath: join(root, 'absent', 'Electron'),
+          tools: fakeTools({
+            findApps: async () => [good.bundlePath, unreadable],
+            bundleIdentifier: async () => WORKBUDDY_CN_BUNDLE_ID,
+          }),
+          spawnHelper: async () => PAYLOAD_TEXT,
+        })
+        const error = await provider.protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
+        // The usable app must NOT be selected: the other candidate might be a
+        // second copy, so this is an unfinished check.
+        expect(reasonCodeOf(error)).toBe('electron-discovery-incomplete')
+      } finally {
+        // Restore the mode so cleanup can remove the tree.
+        await chmod(deniedParent, 0o755)
+      }
+    },
+  )
 
   it('gives up on the whole search once the discovery budget is spent', async () => {
     // A hang must not extend the wait forever: the shared budget covers the
@@ -351,7 +376,7 @@ describe('#48 an unfinished check is not an absent app', () => {
     // check rather than a missing app.
     const app = await fakeApp('WorkBuddy.app')
     const tools = fakeTools({
-      findApps: async signal => {
+      findApps: async (signal) => {
         // Never resolves on its own; only the budget's abort ends it.
         await new Promise((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(signal.reason), { once: true })
@@ -392,14 +417,20 @@ describe('#48 an unfinished check is not an absent app', () => {
       spawnHelper: async () => PAYLOAD_TEXT,
     })
     // An envelope sealed by a different install names a key we cannot derive.
-    const error = await provider.protectorKeyFor(['ffffffffffffffff']).catch((caught: unknown) => caught)
+    const error = await provider
+      .protectorKeyFor(['ffffffffffffffff'])
+      .catch((caught: unknown) => caught)
     expect(reasonCodeOf(error)).toBe('encrypted-credential-unreadable')
   })
 })
 
 describe('#48 discoverability is a per-variant setting', () => {
   it('never discovers, and never takes the CN default, for a none-discovery provider', async () => {
-    const tools = fakeTools({ findApps: async () => { throw new Error('must not be called') } })
+    const tools = fakeTools({
+      findApps: async () => {
+        throw new Error('must not be called')
+      },
+    })
     const defaultPath = await executableAt('default-Electron')
     const provider = new WorkBuddyAtRestKeyProvider({
       discovery: 'none',
@@ -419,7 +450,11 @@ describe('#48 discoverability is a per-variant setting', () => {
     vi.stubEnv(WORKBUDDY_ELECTRON_BIN_ENV, binary)
     const provider = new WorkBuddyAtRestKeyProvider({
       discovery: 'none',
-      tools: fakeTools({ findApps: async () => { throw new Error('must not be called') } }),
+      tools: fakeTools({
+        findApps: async () => {
+          throw new Error('must not be called')
+        },
+      }),
       spawnHelper: async () => PAYLOAD_TEXT,
     })
     // The env var is a deliberate user choice, so it stays available even
@@ -450,7 +485,7 @@ describe('#48 a failed discovery is retried, a successful one is cached', () => 
     // DSH restart.
     found = true
     await expect(provider.protectorKeyFor([KEY_ID])).resolves.toBeInstanceOf(Buffer)
-    expect(calls.filter(call => call === 'findApps')).toHaveLength(2)
+    expect(calls.filter((call) => call === 'findApps')).toHaveLength(2)
   })
 
   it('re-checks a cached discovery path and re-discovers when it went away', async () => {
@@ -460,7 +495,10 @@ describe('#48 a failed discovery is retried, a successful one is cached', () => 
       discovery: 'macos-workbuddy',
       defaultElectronPath: join(root, 'absent', 'Electron'),
       tools: fakeTools({
-        findApps: async () => { searches += 1; return [app.bundlePath] },
+        findApps: async () => {
+          searches += 1
+          return [app.bundlePath]
+        },
       }),
       spawnHelper: async () => PAYLOAD_TEXT,
     })
@@ -470,7 +508,9 @@ describe('#48 a failed discovery is retried, a successful one is cached', () => 
     // resolved forces the helper path again (a cached key would short-circuit
     // before resolution, which is its own, correct, behaviour).
     await rm(join(app.bundlePath, 'Contents', 'MacOS', 'Electron'), { force: true })
-    const second = await provider.protectorKeyFor(['0123456789abcdef']).catch((caught: unknown) => caught)
+    const second = await provider
+      .protectorKeyFor(['0123456789abcdef'])
+      .catch((caught: unknown) => caught)
     expect(reasonCodeOf(second)).toBe('electron-binary-not-found')
     expect(searches).toBe(2)
   })
@@ -482,7 +522,7 @@ describe('#48 discovery failures reach the status document as reasonCode', () =>
       variant: CN_VARIANT,
       desktopPath: join(root, 'workbuddy-desktop.info'),
       ownPath: join(root, 'own.json'),
-      refresh: async credential => ({ accessToken: credential.accessToken }),
+      refresh: async (credential) => ({ accessToken: credential.accessToken }),
       keyProvider: new WorkBuddyAtRestKeyProvider({
         discovery: 'macos-workbuddy',
         defaultElectronPath: join(root, 'absent', 'Electron'),
@@ -500,7 +540,7 @@ describe('#48 discovery failures reach the status document as reasonCode', () =>
       variant: AI_VARIANT,
       desktopPath: join(root, 'workbuddy-desktop-ai.info'),
       ownPath: join(root, 'own-ai.json'),
-      refresh: async credential => ({ accessToken: credential.accessToken }),
+      refresh: async (credential) => ({ accessToken: credential.accessToken }),
       keyProvider: new WorkBuddyAtRestKeyProvider({ discovery: 'none' }),
     })
     await writeFile(join(root, 'workbuddy-desktop-ai.info'), encryptedEnvelopeFixture())
@@ -516,7 +556,7 @@ describe('#48 discovery failures reach the status document as reasonCode', () =>
       variant: CN_VARIANT,
       desktopPath: join(root, 'missing.info'),
       ownPath: join(root, 'own.json'),
-      refresh: async credential => ({ accessToken: credential.accessToken }),
+      refresh: async (credential) => ({ accessToken: credential.accessToken }),
     })
     expect(await store.status()).toEqual({ state: 'signed-out', reasonCode: 'no-credential' })
   })
@@ -528,13 +568,16 @@ function encryptedEnvelopeFixture(): string {
     auth: {
       accessToken: {
         $wbEncrypted: 1,
-        envelope: Buffer.from(JSON.stringify({
-          suite: 1,
-          keyId: KEY_ID,
-          nonce: Buffer.alloc(12, 1).toString('base64'),
-          authTag: Buffer.alloc(16, 2).toString('base64'),
-          ciphertext: Buffer.alloc(24, 3).toString('base64'),
-        }), 'utf8').toString('base64'),
+        envelope: Buffer.from(
+          JSON.stringify({
+            suite: 1,
+            keyId: KEY_ID,
+            nonce: Buffer.alloc(12, 1).toString('base64'),
+            authTag: Buffer.alloc(16, 2).toString('base64'),
+            ciphertext: Buffer.alloc(24, 3).toString('base64'),
+          }),
+          'utf8',
+        ).toString('base64'),
       },
       refreshToken: 'refresh-token-value',
       uid: 'uid-1',
@@ -605,39 +648,57 @@ describe('Windows discovery: against the real registry', () => {
    * incomplete, which is exactly how this failed the first time it ran on a real
    * machine. A stand-in cannot catch that; only the real tool can.
    */
-  it.skipIf(process.platform !== 'win32')('reads the hives without faulting, whatever they hold', async () => {
-    const roots = await workBuddyWindowsDiscoveryTools().findInstallRoots(new AbortController().signal)
-    expect(Array.isArray(roots)).toBe(true)
-    for (const root of roots) expect(root.trim()).not.toBe('')
-  })
+  it.skipIf(process.platform !== 'win32')(
+    'reads the hives without faulting, whatever they hold',
+    async () => {
+      const roots = await workBuddyWindowsDiscoveryTools().findInstallRoots(
+        new AbortController().signal,
+      )
+      expect(Array.isArray(roots)).toBe(true)
+      for (const root of roots) expect(root.trim()).not.toBe('')
+    },
+  )
 
-  it.skipIf(process.platform !== 'win32')('treats an already-aborted budget as incomplete', async () => {
-    const controller = new AbortController()
-    controller.abort()
-    await expect(workBuddyWindowsDiscoveryTools().findInstallRoots(controller.signal)).rejects.toThrow()
-  })
+  it.skipIf(process.platform !== 'win32')(
+    'treats an already-aborted budget as incomplete',
+    async () => {
+      const controller = new AbortController()
+      controller.abort()
+      await expect(
+        workBuddyWindowsDiscoveryTools().findInstallRoots(controller.signal),
+      ).rejects.toThrow()
+    },
+  )
 })
 
 describe('Windows discovery: resolution order and outcomes', () => {
   /** One registered installation whose \`WorkBuddy.exe\` really exists. */
-  async function registeredInstall(name: string): Promise<{ root: string, electronPath: string }> {
+  async function registeredInstall(name: string): Promise<{ root: string; electronPath: string }> {
     const root = await executableAt(name, 'WorkBuddy.exe')
     return { root: dirname(root), electronPath: root }
   }
 
-  function providerFor(roots: string[], spawn: (path: string) => void = () => {}): WorkBuddyAtRestKeyProvider {
+  function providerFor(
+    roots: string[],
+    spawn: (path: string) => void = () => {},
+  ): WorkBuddyAtRestKeyProvider {
     return new WorkBuddyAtRestKeyProvider({
       discovery: 'windows-workbuddy',
       defaultElectronPath: join(root, 'absent', 'WorkBuddy.exe'),
       windowsTools: { findInstallRoots: async () => roots },
-      spawnHelper: async path => { spawn(path); return PAYLOAD_TEXT },
+      spawnHelper: async (path) => {
+        spawn(path)
+        return PAYLOAD_TEXT
+      },
     })
   }
 
   it('uses the registered install when the platform default is absent', async () => {
     const install = await registeredInstall('registered')
     let spawned: string | undefined
-    await providerFor([install.root], path => { spawned = path }).protectorKeyFor([KEY_ID])
+    await providerFor([install.root], (path) => {
+      spawned = path
+    }).protectorKeyFor([KEY_ID])
     expect(spawned).toBe(install.electronPath)
   })
 
@@ -648,7 +709,10 @@ describe('Windows discovery: resolution order and outcomes', () => {
       discovery: 'windows-workbuddy',
       defaultElectronPath: preferred,
       windowsTools: { findInstallRoots: async () => [(await registeredInstall('ignored')).root] },
-      spawnHelper: async path => { spawned = path; return PAYLOAD_TEXT },
+      spawnHelper: async (path) => {
+        spawned = path
+        return PAYLOAD_TEXT
+      },
     })
     await provider.protectorKeyFor([KEY_ID])
     expect(spawned).toBe(preferred)
@@ -658,12 +722,15 @@ describe('Windows discovery: resolution order and outcomes', () => {
     const first = await registeredInstall('one')
     const second = await registeredInstall('two')
     const error = await providerFor([first.root, second.root])
-      .protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
+      .protectorKeyFor([KEY_ID])
+      .catch((caught: unknown) => caught)
     expect(reasonCodeOf(error)).toBe('electron-binary-ambiguous')
   })
 
   it('classifies an empty registry as not-found', async () => {
-    const error = await providerFor([]).protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
+    const error = await providerFor([])
+      .protectorKeyFor([KEY_ID])
+      .catch((caught: unknown) => caught)
     expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
   })
 
@@ -671,7 +738,11 @@ describe('Windows discovery: resolution order and outcomes', () => {
     const provider = new WorkBuddyAtRestKeyProvider({
       discovery: 'windows-workbuddy',
       defaultElectronPath: join(root, 'absent', 'WorkBuddy.exe'),
-      windowsTools: { findInstallRoots: async () => { throw new Error('reg.exe unavailable') } },
+      windowsTools: {
+        findInstallRoots: async () => {
+          throw new Error('reg.exe unavailable')
+        },
+      },
       spawnHelper: async () => PAYLOAD_TEXT,
     })
     const error = await provider.protectorKeyFor([KEY_ID]).catch((caught: unknown) => caught)
@@ -679,4 +750,3 @@ describe('Windows discovery: resolution order and outcomes', () => {
     expect(reasonCodeOf(error)).not.toBe('electron-binary-not-found')
   })
 })
-

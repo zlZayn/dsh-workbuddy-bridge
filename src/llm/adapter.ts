@@ -7,7 +7,15 @@
  */
 
 import { createProvider } from '@earendil-works/pi-ai'
-import type { Api, AuthContext, CredentialStore, Model, ModelThinkingLevel, Provider, ThinkingLevelMap } from '@earendil-works/pi-ai'
+import type {
+  Api,
+  AuthContext,
+  CredentialStore,
+  Model,
+  ModelThinkingLevel,
+  Provider,
+  ThinkingLevelMap,
+} from '@earendil-works/pi-ai'
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
 import { resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
 import type { LlmModelInfo, LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
@@ -46,16 +54,24 @@ const REQUEST_IMAGE_BUDGETS = {
  */
 const INERT_AUTH: { credentials: CredentialStore; authContext: AuthContext } = {
   credentials: {
-    async read() { return undefined },
-    async list() { return [] },
+    async read() {
+      return undefined
+    },
+    async list() {
+      return []
+    },
     async modify() {
       throw new Error('dsh-workbuddy-bridge: the workbuddy route has no pi-ai credential lifecycle')
     },
     async delete() {},
   },
   authContext: {
-    async env() { return undefined },
-    async fileExists() { return false },
+    async env() {
+      return undefined
+    },
+    async fileExists() {
+      return false
+    },
   },
 }
 
@@ -97,10 +113,9 @@ const RATE_SEPARATOR = ' · '
  * picker grows a localized badge slot.
  */
 function displaySuffix(info: WorkBuddyModelInfo): string | undefined {
-  const parts = [
-    normalizeCredits(info.billing?.credits),
-    ...(info.billing?.badges ?? []),
-  ].filter((part): part is string => part !== undefined && part !== '')
+  const parts = [normalizeCredits(info.billing?.credits), ...(info.billing?.badges ?? [])].filter(
+    (part): part is string => part !== undefined && part !== '',
+  )
   return parts.length === 0 ? undefined : parts.join(' · ')
 }
 
@@ -183,13 +198,14 @@ export function reasoningFields(
     return { reasoning: false }
   }
   const declared = reasoning.supportedEfforts
-  const efforts = declared !== undefined && declared.length > 0
-    ? declared
-    // Only a validating observation may supply a set, and only for rows the
-    // upstream left undeclared.
-    : observed?.validation === 'validating' && observed.efforts.length > 0
-      ? observed.efforts
-      : undefined
+  const efforts =
+    declared !== undefined && declared.length > 0
+      ? declared
+      : // Only a validating observation may supply a set, and only for rows the
+        // upstream left undeclared.
+        observed?.validation === 'validating' && observed.efforts.length > 0
+        ? observed.efforts
+        : undefined
   if (efforts === undefined) {
     // Undeclared and unobserved (or observed as non-validating): no thinking
     // control, and no `reasoning_effort` on the wire.
@@ -197,7 +213,10 @@ export function reasoningFields(
   }
   const map: Record<ModelThinkingLevel, string | null> = {
     // Probing never grants `off`; only an explicit declaration does.
-    off: reasoning.canDisableThinking === true && declared !== undefined && declared.length > 0 ? 'off' : null,
+    off:
+      reasoning.canDisableThinking === true && declared !== undefined && declared.length > 0
+        ? 'off'
+        : null,
     // `minimal` is not in the upstream effort vocabulary (low / medium / high /
     // xhigh / max), so no declared set — and no probe candidate — can contain it.
     minimal: null,
@@ -211,7 +230,12 @@ export function reasoningFields(
 }
 
 /** Build one pi-ai model descriptor pointing at the loopback shim. */
-function toPiModel(info: WorkBuddyModelInfo, baseUrl: string, observed?: WorkBuddyProbeRecord, providerId = WORKBUDDY_PROVIDER): Model<Api> {
+function toPiModel(
+  info: WorkBuddyModelInfo,
+  baseUrl: string,
+  observed?: WorkBuddyProbeRecord,
+  providerId = WORKBUDDY_PROVIDER,
+): Model<Api> {
   return {
     id: info.id,
     name: info.name,
@@ -250,7 +274,7 @@ export function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBu
     // The OpenAI SDK pi-ai drives appends `/chat/completions` to baseURL,
     // so the shim's routes line up with the `/v1` prefix in place.
     const baseUrl = `${shim.baseUrl()}/v1`
-    return catalog.current().map(info => toPiModel(info, baseUrl, observe?.(info.id), providerId))
+    return catalog.current().map((info) => toPiModel(info, baseUrl, observe?.(info.id), providerId))
   }
 
   const base = createProvider({
@@ -299,7 +323,7 @@ export function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBu
     // validates this before forwarding and resolves the real WorkBuddy token
     // itself via the store, so the secret never reaches upstream.
     resolveApiKey: async () => shim.token(),
-    ...resolveAttachments === undefined ? {} : { resolveAttachments },
+    ...(resolveAttachments === undefined ? {} : { resolveAttachments }),
   })
 
   return {
@@ -337,7 +361,7 @@ class WorkBuddyPiAiAdapter extends PiAiAdapter {
 
   /** Catalog entry for one model id, or undefined when the catalog omits it. */
   private infoFor(model: string): WorkBuddyModelInfo | undefined {
-    return this.catalog.current().find(entry => entry.id === model)
+    return this.catalog.current().find((entry) => entry.id === model)
   }
 
   override async listModels(provider: string): Promise<readonly LlmModelInfo[]> {
@@ -346,7 +370,7 @@ class WorkBuddyPiAiAdapter extends PiAiAdapter {
     // `llm/adapters-updated`, so an account switch or a toggle takes effect on
     // the next read without rebuilding anything.
     const hidden = new Set(this.hidden())
-    return models.flatMap(model => {
+    return models.flatMap((model) => {
       // Selectability only — `resolveModel` below deliberately does not apply
       // this filter, so a session already using a hidden model keeps working.
       if (hidden.has(model.id)) return []
@@ -356,7 +380,11 @@ class WorkBuddyPiAiAdapter extends PiAiAdapter {
     })
   }
 
-  override async resolveModel(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
+  override async resolveModel(
+    provider: string,
+    model: string,
+    signal?: AbortSignal,
+  ): Promise<LlmResolvedModelInfo> {
     const resolved = await super.resolveModel(provider, model, signal)
     const info = this.infoFor(model)
     if (info === undefined) return resolved

@@ -27,10 +27,9 @@ import type { WorkBuddyConfigFace } from './config-controller.ts'
 import css from './workbuddy.module.css'
 
 /** Props the Plugins page binds for this bundle's configuration entry. */
-export type WorkBuddyConfigPageProps =
-  PropsRuntime<'plugins.bundle.config'>
-  & PropsLocale<'settings.workbuddy'>
-  & InjectFace<WorkBuddyConfigFace>
+export type WorkBuddyConfigPageProps = PropsRuntime<'plugins.bundle.config'> &
+  PropsLocale<'settings.workbuddy'> &
+  InjectFace<WorkBuddyConfigFace>
 
 /** Stable field ids, so the labels and the panel ids agree across renders. */
 const FIELD_IDS = {
@@ -45,11 +44,16 @@ const FIELD_IDS = {
 export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode {
   const { t } = props
   if (props.view === 'summary') return t('intro')
-  const state = props.useWorkbuddyConfig(snapshot => snapshot)
+  const state = props.useWorkbuddyConfig((snapshot) => snapshot)
   const disabled = !state.writable
   return (
     <div className={css.page}>
-      <SettingsForm labels={formLabels(t)} state={state} onSave={props.save} onDiscard={props.discard}>
+      <SettingsForm
+        labels={formLabels(t)}
+        state={state}
+        onSave={props.save}
+        onDiscard={props.discard}
+      >
         <SettingsValueField
           id={FIELD_IDS.authFile}
           label={t('authFile')}
@@ -59,8 +63,12 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
           invalidLabel={t('saveFailed')}
           disabled={disabled}
           {...state.authFile}
-          onEdit={text => { props.edit('authFile', text) }}
-          onReset={() => { props.resetField('authFile') }}
+          onEdit={(text) => {
+            props.edit('authFile', text)
+          }}
+          onReset={() => {
+            props.resetField('authFile')
+          }}
         />
         <SettingsValueField
           id={FIELD_IDS.authFileAI}
@@ -71,8 +79,12 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
           invalidLabel={t('saveFailed')}
           disabled={disabled}
           {...state.authFileAI}
-          onEdit={text => { props.edit('authFileAI', text) }}
-          onReset={() => { props.resetField('authFileAI') }}
+          onEdit={(text) => {
+            props.edit('authFileAI', text)
+          }}
+          onReset={() => {
+            props.resetField('authFileAI')
+          }}
         />
         <div className={css.toggleRow}>
           <span className={css.toggleLabel}>
@@ -83,7 +95,9 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
             checked={state.probeConsent.text === 'true'}
             disabled={disabled}
             label={t('probeConsent')}
-            onChange={next => { props.edit('probeConsent', next ? 'true' : 'false') }}
+            onChange={(next) => {
+              props.edit('probeConsent', next ? 'true' : 'false')
+            }}
           />
         </div>
         <div className={css.toggleRow}>
@@ -95,7 +109,9 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
             checked={state.useMaximumContextWindow.text === 'true'}
             disabled={disabled}
             label={t('maximumContextWindow')}
-            onChange={next => { props.edit('useMaximumContextWindow', next ? 'true' : 'false') }}
+            onChange={(next) => {
+              props.edit('useMaximumContextWindow', next ? 'true' : 'false')
+            }}
           />
         </div>
       </SettingsForm>
@@ -103,7 +119,9 @@ export function WorkBuddyConfigPage(props: WorkBuddyConfigPageProps): ReactNode 
           form is the page's first question ("is this plugin wired up?") and these
           answer what it is currently reading. */}
       <div className={css.cards}>
-        {CARD_VARIANTS.map(variant => <WorkBuddyCard key={variant.id} variant={variant} t={t} />)}
+        {CARD_VARIANTS.map((variant) => (
+          <WorkBuddyCard key={variant.id} variant={variant} t={t} />
+        ))}
       </div>
     </div>
   )

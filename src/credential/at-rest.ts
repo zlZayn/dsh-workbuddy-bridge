@@ -71,7 +71,9 @@ const WINDOWS_LOCAL_PROGRAM_SUFFIX = ['Programs', 'WorkBuddy', WINDOWS_ELECTRON_
  * {@link WORKBUDDY_ELECTRON_BIN_ENV} explicitly — guessing would spawn the wrong
  * app's binary.
  */
-export function defaultWorkBuddyElectronPath(discovery: WorkBuddyElectronDiscovery = 'none'): string | undefined {
+export function defaultWorkBuddyElectronPath(
+  discovery: WorkBuddyElectronDiscovery = 'none',
+): string | undefined {
   if (discovery === 'macos-workbuddy' && process.platform === 'darwin') return MACOS_ELECTRON_PATH
   if (discovery === 'windows-workbuddy' && process.platform === 'win32') {
     const localAppData = process.env['LOCALAPPDATA']?.trim()
@@ -106,12 +108,15 @@ export interface WrappedAuthField {
 export type DesktopAuthClassification =
   | { format: 'absent' }
   | { format: 'plaintext' }
-  | { format: 'encrypted', wrapped: { document: Record<string, unknown>, fields: readonly WrappedAuthField[] } }
+  | {
+      format: 'encrypted'
+      wrapped: { document: Record<string, unknown>; fields: readonly WrappedAuthField[] }
+    }
   | { format: 'unrecognized' }
 
 /** Distinct key ids across the wrapped fields, in field order. */
 export function keyIdsOf(fields: readonly WrappedAuthField[]): string[] {
-  return [...new Set(fields.map(wrapped => wrapped.envelope.keyId))]
+  return [...new Set(fields.map((wrapped) => wrapped.envelope.keyId))]
 }
 
 /**
@@ -121,7 +126,10 @@ export function keyIdsOf(fields: readonly WrappedAuthField[]): string[] {
  * envelope cannot be decoded makes the whole document unrecognized rather
  * than encrypted, because no key could ever open it.
  */
-function parseWrappedField(field: 'accessToken' | 'refreshToken', value: unknown): WrappedAuthField | undefined {
+function parseWrappedField(
+  field: 'accessToken' | 'refreshToken',
+  value: unknown,
+): WrappedAuthField | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
   const wrapped = value as Record<string, unknown>
   if (wrapped['$wbEncrypted'] !== 1 || typeof wrapped['envelope'] !== 'string') return undefined
@@ -143,7 +151,8 @@ function parseWrappedField(field: 'accessToken' | 'refreshToken', value: unknown
   // claimed as encrypted — the document then reads as unrecognized and the
   // store reports a diagnosis instead of attempting a blind open.
   if (parts['suite'] !== 1) return undefined
-  if (typeof parts['keyId'] !== 'string' || !/^[0-9a-f]{16}$/u.test(parts['keyId'])) return undefined
+  if (typeof parts['keyId'] !== 'string' || !/^[0-9a-f]{16}$/u.test(parts['keyId']))
+    return undefined
   return {
     field,
     envelope: {
@@ -167,7 +176,11 @@ function parseBase64(value: unknown, length?: number): Buffer | undefined {
   }
   // Buffer.from is lenient about stray characters; require the round-trip so a
   // tampered envelope is rejected before any key material is involved.
-  if (decoded.length === 0 || decoded.toString('base64').replace(/=+$/u, '') !== value.replace(/=+$/u, '')) return undefined
+  if (
+    decoded.length === 0 ||
+    decoded.toString('base64').replace(/=+$/u, '') !== value.replace(/=+$/u, '')
+  )
+    return undefined
   return length === undefined || decoded.length === length ? decoded : undefined
 }
 
@@ -188,11 +201,13 @@ export function classifyDesktopAuthDocument(text: string): DesktopAuthClassifica
   } catch {
     return { format: 'unrecognized' }
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return { format: 'unrecognized' }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+    return { format: 'unrecognized' }
   const document = parsed as Record<string, unknown>
-  const auth = typeof document['auth'] === 'object' && document['auth'] !== null
-    ? document['auth'] as Record<string, unknown>
-    : document
+  const auth =
+    typeof document['auth'] === 'object' && document['auth'] !== null
+      ? (document['auth'] as Record<string, unknown>)
+      : document
   const fields: WrappedAuthField[] = []
   for (const field of AUTH_FIELDS) {
     const value = auth[field]
@@ -218,9 +233,10 @@ export function unwrapDesktopAuthDocument(
 ): string {
   const wrapped = classification.wrapped
   const rebuilt = structuredClone(wrapped.document) as Record<string, unknown>
-  const auth = typeof rebuilt['auth'] === 'object' && rebuilt['auth'] !== null
-    ? rebuilt['auth'] as Record<string, unknown>
-    : rebuilt
+  const auth =
+    typeof rebuilt['auth'] === 'object' && rebuilt['auth'] !== null
+      ? (rebuilt['auth'] as Record<string, unknown>)
+      : rebuilt
   for (const field of wrapped.fields) {
     auth[field.field] = openField(field)
   }
@@ -249,7 +265,8 @@ export function buildAuthenticatedContextAad(keyId: string, suite: number): Buff
   // No sequence numbers on credential fields; the final byte 0 mirrors the
   // reference script's default context.
   return Buffer.concat([
-    prefix, Buffer.from([1]),
+    prefix,
+    Buffer.from([1]),
     lengthPrefixed('WBEV1'),
     lengthPrefixed('sym-v1'),
     suiteBytes,
@@ -278,7 +295,11 @@ export function openAuthField(key: Buffer, envelope: WorkBuddyEnvelope): string 
 }
 
 /** Seal one field with the exact format `openAuthField` reads. Test helper. */
-export function sealAuthFieldForTest(key: Buffer, plaintext: string, suite = 1): { '$wbEncrypted': 1, envelope: string } {
+export function sealAuthFieldForTest(
+  key: Buffer,
+  plaintext: string,
+  suite = 1,
+): { $wbEncrypted: 1; envelope: string } {
   const keyId = createHash('sha256').update(key).digest('hex').slice(0, 16)
   const nonce = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key, nonce, { authTagLength: 16 })
@@ -291,7 +312,10 @@ export function sealAuthFieldForTest(key: Buffer, plaintext: string, suite = 1):
     authTag: cipher.getAuthTag().toString('base64'),
     ciphertext: ciphertext.toString('base64'),
   }
-  return { '$wbEncrypted': 1, envelope: Buffer.from(JSON.stringify(inner), 'utf8').toString('base64') }
+  return {
+    $wbEncrypted: 1,
+    envelope: Buffer.from(JSON.stringify(inner), 'utf8').toString('base64'),
+  }
 }
 
 /** The validated `loggerGet()` payload: the sealed at-rest secret. */
@@ -323,7 +347,7 @@ export function parseAtRestPayload(text: string): WorkBuddyAtRestPayload | undef
   }
   if (decoded.length !== 32) return undefined
   if (decoded.toString('base64') !== secret) return undefined
-  if (decoded.every(byte => byte === 0)) return undefined
+  if (decoded.every((byte) => byte === 0)) return undefined
   return { atRestSecretKey: secret }
 }
 
@@ -540,7 +564,10 @@ export function windowsInstallsFromRegistry(output: string): string[] {
  */
 function unwrapRegistryPath(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
-  const path = value.trim().replace(/^"(.*)"(?:,-?\d+)?$/u, '$1').replace(/,-?\d+$/u, '')
+  const path = value
+    .trim()
+    .replace(/^"(.*)"(?:,-?\d+)?$/u, '$1')
+    .replace(/,-?\d+$/u, '')
   return path === '' ? undefined : path
 }
 
@@ -585,34 +612,45 @@ function locationRootOf(value: string | undefined): string | undefined {
  */
 export function workBuddyWindowsDiscoveryTools(): WorkBuddyWindowsDiscoveryTools {
   return {
-    findInstallRoots: async signal => {
+    findInstallRoots: async (signal) => {
       const found: string[] = []
       for (const hive of WINDOWS_UNINSTALL_HIVES) {
         if (signal.aborted) {
-          throw new DiscoveryIncompleteError('the Windows registry search was not started: the discovery budget was already spent')
+          throw new DiscoveryIncompleteError(
+            'the Windows registry search was not started: the discovery budget was already spent',
+          )
         }
         const output = await new Promise<string>((resolve, reject) => {
-          execFile(REG_BIN, ['query', hive, '/s', '/f', 'WorkBuddy'], {
-            maxBuffer: WINDOWS_REGISTRY_MAX_OUTPUT_BYTES,
-            timeout: WORKBUDDY_DISCOVERY_STEP_TIMEOUT_MS,
-            windowsHide: true,
-          }, (error, stdout) => {
-            if (error === null || error === undefined) {
-              resolve(stdout)
-              return
-            }
-            // `reg` reports "nothing matched" as exit code 1, in two shapes the
-            // plugin must treat alike: a key that holds no WorkBuddy entry prints a
-            // localised "0 matches" on stdout, while an absent key prints its message
-            // on stderr instead. Both are answers about this hive, so only a killed
-            // process (a timeout) or one that never started (ENOENT/EACCES — a string
-            // code, not a number) means "we could not check".
-            if (error.killed !== true && typeof error.code !== 'string') {
-              resolve(stdout)
-              return
-            }
-            reject(new DiscoveryIncompleteError(`the Windows registry query for ${hive} could not complete (${error.killed === true ? 'timed out' : String(error.code)})`))
-          })
+          execFile(
+            REG_BIN,
+            ['query', hive, '/s', '/f', 'WorkBuddy'],
+            {
+              maxBuffer: WINDOWS_REGISTRY_MAX_OUTPUT_BYTES,
+              timeout: WORKBUDDY_DISCOVERY_STEP_TIMEOUT_MS,
+              windowsHide: true,
+            },
+            (error, stdout) => {
+              if (error === null || error === undefined) {
+                resolve(stdout)
+                return
+              }
+              // `reg` reports "nothing matched" as exit code 1, in two shapes the
+              // plugin must treat alike: a key that holds no WorkBuddy entry prints a
+              // localised "0 matches" on stdout, while an absent key prints its message
+              // on stderr instead. Both are answers about this hive, so only a killed
+              // process (a timeout) or one that never started (ENOENT/EACCES — a string
+              // code, not a number) means "we could not check".
+              if (error.killed !== true && typeof error.code !== 'string') {
+                resolve(stdout)
+                return
+              }
+              reject(
+                new DiscoveryIncompleteError(
+                  `the Windows registry query for ${hive} could not complete (${error.killed === true ? 'timed out' : String(error.code)})`,
+                ),
+              )
+            },
+          )
         })
         found.push(...windowsInstallsFromRegistry(output))
       }
@@ -627,22 +665,40 @@ export function workBuddyWindowsDiscoveryTools(): WorkBuddyWindowsDiscoveryTools
  * so it can never be silently read as "no such app".
  */
 export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
-  const runTool = (bin: string, args: readonly string[], maxBytes: number, signal: AbortSignal): Promise<string> =>
+  const runTool = (
+    bin: string,
+    args: readonly string[],
+    maxBytes: number,
+    signal: AbortSignal,
+  ): Promise<string> =>
     new Promise<string>((resolve, reject) => {
       if (signal.aborted) {
-        reject(new DiscoveryIncompleteError(`${bin} was not started: the discovery budget was already spent`))
+        reject(
+          new DiscoveryIncompleteError(
+            `${bin} was not started: the discovery budget was already spent`,
+          ),
+        )
         return
       }
       let settled = false
-      const child = execFile(bin, [...args], { maxBuffer: maxBytes, timeout: WORKBUDDY_DISCOVERY_STEP_TIMEOUT_MS }, (error, stdout) => {
-        if (settled) return
-        settled = true
-        if (error !== null && error !== undefined) {
-          reject(new DiscoveryIncompleteError(`${bin} could not complete (${error.killed === true ? 'timed out' : String(error.code ?? 'unavailable')})`))
-          return
-        }
-        resolve(stdout)
-      })
+      const child = execFile(
+        bin,
+        [...args],
+        { maxBuffer: maxBytes, timeout: WORKBUDDY_DISCOVERY_STEP_TIMEOUT_MS },
+        (error, stdout) => {
+          if (settled) return
+          settled = true
+          if (error !== null && error !== undefined) {
+            reject(
+              new DiscoveryIncompleteError(
+                `${bin} could not complete (${error.killed === true ? 'timed out' : String(error.code ?? 'unavailable')})`,
+              ),
+            )
+            return
+          }
+          resolve(stdout)
+        },
+      )
       const abort = (): void => {
         if (settled) return
         settled = true
@@ -650,24 +706,36 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
         reject(new DiscoveryIncompleteError(`${bin} was abandoned: the discovery budget was spent`))
       }
       signal.addEventListener('abort', abort, { once: true })
-      child.on('close', () => { signal.removeEventListener('abort', abort) })
+      child.on('close', () => {
+        signal.removeEventListener('abort', abort)
+      })
     })
 
   return {
-    findApps: async signal => {
+    findApps: async (signal) => {
       const out = await runTool(
         MDFIND_BIN,
         [`kMDItemCFBundleIdentifier == '${WORKBUDDY_CN_BUNDLE_ID}'`],
         MDFIND_MAX_OUTPUT_BYTES,
         signal,
       )
-      return out.split('\n').map(line => line.trim()).filter(line => line.endsWith('.app'))
+      return out
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.endsWith('.app'))
     },
     bundleIdentifier: async (bundlePath, signal) => {
       try {
         const out = await runTool(
           PLUTIL_BIN,
-          ['-extract', 'CFBundleIdentifier', 'raw', '-o', '-', join(bundlePath, 'Contents', 'Info.plist')],
+          [
+            '-extract',
+            'CFBundleIdentifier',
+            'raw',
+            '-o',
+            '-',
+            join(bundlePath, 'Contents', 'Info.plist'),
+          ],
           PLUTIL_MAX_OUTPUT_BYTES,
           signal,
         )
@@ -683,7 +751,14 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
       try {
         const out = await runTool(
           PLUTIL_BIN,
-          ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', join(bundlePath, 'Contents', 'Info.plist')],
+          [
+            '-extract',
+            'CFBundleShortVersionString',
+            'raw',
+            '-o',
+            '-',
+            join(bundlePath, 'Contents', 'Info.plist'),
+          ],
           PLUTIL_MAX_OUTPUT_BYTES,
           signal,
         )
@@ -700,7 +775,7 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
  * In-memory protector-key resolver: one spawn per key id, single-flight, never
  * persisted. The cache is keyed by the id envelopes ask for, so an envelope
  * sealed under a rotated key triggers exactly one fresh resolution.
- */export class WorkBuddyAtRestKeyProvider {
+ */ export class WorkBuddyAtRestKeyProvider {
   /**
    * The explicit binary, when one was configured. `undefined` here means "the
    * caller did not name one", which is what lets discovery run — an explicit
@@ -737,16 +812,17 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
     // an error, not an invitation to go looking for another app.
     this.explicitPath = options.electronPath ?? envPath
     this.discovery = options.discovery ?? 'none'
-    this.defaultPath = options.defaultElectronPath === undefined
-      ? defaultWorkBuddyElectronPath(this.discovery)
-      : options.defaultElectronPath ?? undefined
+    this.defaultPath =
+      options.defaultElectronPath === undefined
+        ? defaultWorkBuddyElectronPath(this.discovery)
+        : (options.defaultElectronPath ?? undefined)
     this.tools = options.tools ?? workBuddyDiscoveryTools()
     this.toolsAreInjected = options.tools !== undefined
     this.windowsTools = options.windowsTools ?? workBuddyWindowsDiscoveryTools()
     this.windowsToolsAreInjected = options.windowsTools !== undefined
     this.discoveryBudgetMs = options.discoveryBudgetMs ?? WORKBUDDY_DISCOVERY_BUDGET_MS
     this.timeoutMs = options.timeoutMs ?? 10_000
-    this.spawnHelper = options.spawnHelper ?? (path => this.spawnAt(path))
+    this.spawnHelper = options.spawnHelper ?? ((path) => this.spawnAt(path))
     this.source = options.source ?? (() => this.spawnPayload())
   }
 
@@ -781,7 +857,8 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
     }
     const cached = this.cache
     if (cached !== undefined && requested.includes(cached.keyId)) return cached.key
-    this.inflight ??= this.source().then(text => this.ingest(text))
+    this.inflight ??= this.source()
+      .then((text) => this.ingest(text))
       .finally(() => {
         this.inflight = undefined
       })
@@ -789,8 +866,8 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
     if (!requested.includes(resolved.keyId)) {
       throw new WorkBuddyElectronPathError(
         'encrypted-credential-unreadable',
-        `WorkBuddy's current at-rest key (id ${resolved.keyId}) does not match the credential's envelope (id ${requested.join(' or ')});`
-        + ' the desktop credential was sealed by a different WorkBuddy installation',
+        `WorkBuddy's current at-rest key (id ${resolved.keyId}) does not match the credential's envelope (id ${requested.join(' or ')});` +
+          ' the desktop credential was sealed by a different WorkBuddy installation',
       )
     }
     return resolved.key
@@ -825,8 +902,8 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
       if (!isExecutable(this.explicitPath)) {
         throw new WorkBuddyElectronPathError(
           'electron-path-invalid',
-          `the configured WorkBuddy Electron binary is not available at ${this.explicitPath};`
-          + ` check ${WORKBUDDY_ELECTRON_BIN_ENV} or unset it to let the plugin look for the app itself`,
+          `the configured WorkBuddy Electron binary is not available at ${this.explicitPath};` +
+            ` check ${WORKBUDDY_ELECTRON_BIN_ENV} or unset it to let the plugin look for the app itself`,
         )
       }
       return this.explicitPath
@@ -836,8 +913,8 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
       // are "not configured", never "we searched and failed".
       throw new WorkBuddyElectronPathError(
         'electron-binary-unavailable',
-        `no WorkBuddy Electron binary is configured for this platform;`
-        + ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
+        `no WorkBuddy Electron binary is configured for this platform;` +
+          ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
       )
     }
     // The default path is the ordinary case and costs one stat; discovery is
@@ -849,9 +926,10 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
       if (isExecutable(this.discoveredPath)) return this.discoveredPath
       this.discoveredPath = undefined
     }
-    const found = this.discovery === 'windows-workbuddy'
-      ? await this.discoverWindowsApp()
-      : await this.discoverMacosApp()
+    const found =
+      this.discovery === 'windows-workbuddy'
+        ? await this.discoverWindowsApp()
+        : await this.discoverMacosApp()
     this.discoveredPath = found
     return found
   }
@@ -871,8 +949,8 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
     if (process.platform !== 'darwin' && !this.toolsAreInjected) {
       throw new WorkBuddyElectronPathError(
         'electron-binary-unavailable',
-        `no WorkBuddy Electron binary is configured for this platform;`
-        + ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
+        `no WorkBuddy Electron binary is configured for this platform;` +
+          ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
       )
     }
     const controller = new AbortController()
@@ -939,16 +1017,22 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
           // otherwise identified candidate.
           version = undefined
         }
-        seen.set(identity, { bundlePath: candidate, electronPath, ...version === undefined ? {} : { version } })
+        seen.set(identity, {
+          bundlePath: candidate,
+          electronPath,
+          ...(version === undefined ? {} : { version }),
+        })
       }
       if (seen.size > 1) {
         const listed = [...seen.values()]
-          .map(app => `  - ${app.bundlePath}${app.version === undefined ? '' : ` (${app.version})`}`)
+          .map(
+            (app) => `  - ${app.bundlePath}${app.version === undefined ? '' : ` (${app.version})`}`,
+          )
           .join('\n')
         throw new WorkBuddyElectronPathError(
           'electron-binary-ambiguous',
-          `more than one WorkBuddy application was found, so none was chosen:\n${listed}\n`
-          + ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the one to use`,
+          `more than one WorkBuddy application was found, so none was chosen:\n${listed}\n` +
+            ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the one to use`,
         )
       }
       // A candidate nobody could check might have been a second copy, so its
@@ -959,8 +1043,8 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
       if (seen.size === 0) {
         throw new WorkBuddyElectronPathError(
           'electron-binary-not-found',
-          'no WorkBuddy application was found in the default location or the system index;'
-          + ' if WorkBuddy is installed elsewhere, it may not be indexed yet',
+          'no WorkBuddy application was found in the default location or the system index;' +
+            ' if WorkBuddy is installed elsewhere, it may not be indexed yet',
         )
       }
       return [...seen.values()][0]!.electronPath
@@ -984,8 +1068,8 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
     if (process.platform !== 'win32' && !this.windowsToolsAreInjected) {
       throw new WorkBuddyElectronPathError(
         'electron-binary-unavailable',
-        `no WorkBuddy Electron binary is configured for this platform;`
-        + ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
+        `no WorkBuddy Electron binary is configured for this platform;` +
+          ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
       )
     }
     const controller = new AbortController()
@@ -1010,18 +1094,18 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
         seen.set(identity, electronPath)
       }
       if (seen.size > 1) {
-        const listed = [...seen.values()].map(path => `  - ${path}`).join('\n')
+        const listed = [...seen.values()].map((path) => `  - ${path}`).join('\n')
         throw new WorkBuddyElectronPathError(
           'electron-binary-ambiguous',
-          `more than one WorkBuddy application was found, so none was chosen:\n${listed}\n`
-          + ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the one to use`,
+          `more than one WorkBuddy application was found, so none was chosen:\n${listed}\n` +
+            ` set ${WORKBUDDY_ELECTRON_BIN_ENV} to the one to use`,
         )
       }
       if (seen.size === 0) {
         throw new WorkBuddyElectronPathError(
           'electron-binary-not-found',
-          `no WorkBuddy application was found in the default location or its Windows registration;`
-          + ` if WorkBuddy is installed elsewhere, set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
+          `no WorkBuddy application was found in the default location or its Windows registration;` +
+            ` if WorkBuddy is installed elsewhere, set ${WORKBUDDY_ELECTRON_BIN_ENV} to the app's Electron binary`,
         )
       }
       return [...seen.values()][0]!
@@ -1037,36 +1121,46 @@ export function workBuddyDiscoveryTools(): WorkBuddyDiscoveryTools {
 
   private async spawnAt(electronPath: string): Promise<string> {
     return await new Promise<string>((resolve, reject) => {
-      execFile(electronPath, [HELPER_SCRIPT_ARGUMENT_FLAG, HELPER_SCRIPT], {
-        timeout: this.timeoutMs,
-        maxBuffer: 1024 * 1024,
-        windowsHide: true,
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-      }, (error, stdout) => {
-        if (error !== null && error !== undefined) {
-          // Code and reason only: stdout/stderr can carry paths or crash dumps,
-          // and the payload must never appear in a message.
-          const reason = error.killed === true
-            ? `timed out or was killed after ${String(this.timeoutMs)}ms`
-            : error.code !== undefined
-              ? `exited with code ${String(error.code)}`
-              : 'could not be started'
-          reject(new WorkBuddyElectronPathError(
-            'encrypted-credential-unreadable',
-            `the WorkBuddy key helper (${electronPath}) ${reason}`,
-          ))
-          return
-        }
-        const output = stdout.trim()
-        if (output === '') {
-          reject(new WorkBuddyElectronPathError(
-            'encrypted-credential-unreadable',
-            `the WorkBuddy key helper (${electronPath}) produced no payload`,
-          ))
-          return
-        }
-        resolve(output)
-      })
+      execFile(
+        electronPath,
+        [HELPER_SCRIPT_ARGUMENT_FLAG, HELPER_SCRIPT],
+        {
+          timeout: this.timeoutMs,
+          maxBuffer: 1024 * 1024,
+          windowsHide: true,
+          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+        },
+        (error, stdout) => {
+          if (error !== null && error !== undefined) {
+            // Code and reason only: stdout/stderr can carry paths or crash dumps,
+            // and the payload must never appear in a message.
+            const reason =
+              error.killed === true
+                ? `timed out or was killed after ${String(this.timeoutMs)}ms`
+                : error.code !== undefined
+                  ? `exited with code ${String(error.code)}`
+                  : 'could not be started'
+            reject(
+              new WorkBuddyElectronPathError(
+                'encrypted-credential-unreadable',
+                `the WorkBuddy key helper (${electronPath}) ${reason}`,
+              ),
+            )
+            return
+          }
+          const output = stdout.trim()
+          if (output === '') {
+            reject(
+              new WorkBuddyElectronPathError(
+                'encrypted-credential-unreadable',
+                `the WorkBuddy key helper (${electronPath}) produced no payload`,
+              ),
+            )
+            return
+          }
+          resolve(output)
+        },
+      )
     })
   }
 }
@@ -1109,8 +1203,8 @@ function isENOENT(error: unknown): boolean {
 function discoveryIncomplete(detail: string): WorkBuddyElectronPathError {
   return new WorkBuddyElectronPathError(
     'electron-discovery-incomplete',
-    `the WorkBuddy application search did not finish (${detail});`
-    + ' this is not proof that the app is missing',
+    `the WorkBuddy application search did not finish (${detail});` +
+      ' this is not proof that the app is missing',
   )
 }
 
@@ -1119,5 +1213,6 @@ function discoveryIncomplete(detail: string): WorkBuddyElectronPathError {
  * private `workbuddyStorage` binding exists, and print only the payload. It
  * writes nothing else, so whatever reaches stdout is the payload.
  */
-const HELPER_SCRIPT = 'process.stdout.write(String(process._linkedBinding("electron_browser_workbuddy_storage").loggerGet()))'
+const HELPER_SCRIPT =
+  'process.stdout.write(String(process._linkedBinding("electron_browser_workbuddy_storage").loggerGet()))'
 const HELPER_SCRIPT_ARGUMENT_FLAG = '-e'

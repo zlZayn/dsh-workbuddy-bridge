@@ -101,13 +101,16 @@ export async function readCliVersion(bundle: string): Promise<string | undefined
   const declared = pkg['version']
   if (validCliVersion(declared) && declared !== '0.0.0') return declared
   const publishConfig = pkg['publishConfig']
-  const customPackage = typeof publishConfig === 'object' && publishConfig !== null && !Array.isArray(publishConfig)
-    ? publishConfig as Record<string, unknown>
-    : undefined
-  const custom = typeof customPackage?.['customPackage'] === 'object' && customPackage['customPackage'] !== null
-    && !Array.isArray(customPackage['customPackage'])
-    ? customPackage['customPackage'] as Record<string, unknown>
-    : undefined
+  const customPackage =
+    typeof publishConfig === 'object' && publishConfig !== null && !Array.isArray(publishConfig)
+      ? (publishConfig as Record<string, unknown>)
+      : undefined
+  const custom =
+    typeof customPackage?.['customPackage'] === 'object' &&
+    customPackage['customPackage'] !== null &&
+    !Array.isArray(customPackage['customPackage'])
+      ? (customPackage['customPackage'] as Record<string, unknown>)
+      : undefined
   const customVersion = custom?.['version']
   return validCliVersion(customVersion) ? customVersion : undefined
 }
@@ -121,10 +124,14 @@ export async function readCliVersion(bundle: string): Promise<string | undefined
  */
 export function chatUserAgent(identity: ChatIdentity, region: WorkBuddyRegion): string {
   if (!validAppVersion(identity.clientVersion)) {
-    throw new Error(`invalid client version for chat User-Agent: ${JSON.stringify(identity.clientVersion)}`)
+    throw new Error(
+      `invalid client version for chat User-Agent: ${JSON.stringify(identity.clientVersion)}`,
+    )
   }
   if (identity.cliVersion !== undefined && !validCliVersion(identity.cliVersion)) {
-    throw new Error(`invalid CLI version for chat User-Agent: ${JSON.stringify(identity.cliVersion)}`)
+    throw new Error(
+      `invalid CLI version for chat User-Agent: ${JSON.stringify(identity.cliVersion)}`,
+    )
   }
   const product = region === 'global' ? 'WorkBuddy AI' : 'WorkBuddy'
   const parts = [`WorkBuddy/${identity.clientVersion}`, `${product}/${identity.clientVersion}`]
@@ -174,19 +181,19 @@ export async function resolveChatIdentity(
   region: WorkBuddyRegion,
   options: ResolveChatIdentityOptions = {},
 ): Promise<ChatIdentity> {
-  const injectable = options.installedCn !== undefined
-    || options.resolveIntl !== undefined
-    || options.cliVersion !== undefined
-    || options.cnSavedPath !== undefined
+  const injectable =
+    options.installedCn !== undefined ||
+    options.resolveIntl !== undefined ||
+    options.cliVersion !== undefined ||
+    options.cnSavedPath !== undefined
   if (!injectable) {
     const cached = cache.get(region)
     if (cached !== undefined) return cached
   }
   let identity: ChatIdentity
   try {
-    identity = region === 'global'
-      ? await resolveGlobalIdentity(options)
-      : await resolveCnIdentity(options)
+    identity =
+      region === 'global' ? await resolveGlobalIdentity(options) : await resolveCnIdentity(options)
   } catch {
     // A reader that throws (unexpected filesystem error, injected test
     // double) must not block a message and must not pin this degraded
@@ -264,5 +271,5 @@ async function resolveGlobalIdentity(options: ResolveChatIdentityOptions): Promi
     const read = await (options.cliVersion ?? readCliVersion)(info.bundle)
     if (read !== undefined && validCliVersion(read)) cliVersion = read
   }
-  return { clientVersion, ...cliVersion === undefined ? {} : { cliVersion } }
+  return { clientVersion, ...(cliVersion === undefined ? {} : { cliVersion }) }
 }

@@ -218,46 +218,48 @@ const SIGNED_OUT_REASON_CODES: readonly WorkBuddySignedOutReasonCode[] = [
 ]
 
 /** Whether a value is one of the closed set of signed-out reason codes. */
-export function isWorkBuddySignedOutReasonCode(value: unknown): value is WorkBuddySignedOutReasonCode {
+export function isWorkBuddySignedOutReasonCode(
+  value: unknown,
+): value is WorkBuddySignedOutReasonCode {
   return typeof value === 'string' && (SIGNED_OUT_REASON_CODES as readonly string[]).includes(value)
 }
 
 /** The JSON document the plugin card renders. */
 export type WorkBuddyWebStatus =
   | {
-    status: 'signed-out'
-    /**
-     * Why no credential is usable, when that is diagnosable rather than simply
-     * "nobody signed in" — today a credential belonging to the other product.
-     * The card renders it in place of the generic sign-in hint.
-     */
-    reason?: string
-    /** Machine-readable companion to `reason`; see {@link WorkBuddySignedOutReasonCode}. */
-    reasonCode?: WorkBuddySignedOutReasonCode
-  }
+      status: 'signed-out'
+      /**
+       * Why no credential is usable, when that is diagnosable rather than simply
+       * "nobody signed in" — today a credential belonging to the other product.
+       * The card renders it in place of the generic sign-in hint.
+       */
+      reason?: string
+      /** Machine-readable companion to `reason`; see {@link WorkBuddySignedOutReasonCode}. */
+      reasonCode?: WorkBuddySignedOutReasonCode
+    }
   | {
-    status: 'signed-in'
-    nickname?: string
-    domain?: string
-    source?: 'desktop' | 'dsh'
-    expiresAt?: number
-    credits?: WorkBuddyWebCredits
-    creditsError?: string
-    /** Billing convenience facts for the models the plugin serves. */
-    models?: readonly WorkBuddyWebModelBadge[]
-    /** Where those models came from, and whether the last fetch failed. */
-    catalog?: WorkBuddyWebCatalog
-    /** Reasoning-effort probe state, consent, and recorded observations. */
-    probe?: WorkBuddyWebProbeSection
-    /** International-card preference selecting larger declared context windows. */
-    useMaximumContextWindow?: boolean
-    /** Per-account hidden-model state for the card's visibility controls. */
-    visibility?: WorkBuddyWebVisibilitySection
-    /**
-     * In-process key authorizing probe control writes. Handed to the card with
-     * the status document (the card is same-origin and already had to pass the
-     * loopback guard); it is never persisted and rotates per process.
-     */
-    probeKey?: string
-  }
+      status: 'signed-in'
+      nickname?: string
+      domain?: string
+      source?: 'desktop' | 'dsh'
+      expiresAt?: number
+      credits?: WorkBuddyWebCredits
+      creditsError?: string
+      /** Billing convenience facts for the models the plugin serves. */
+      models?: readonly WorkBuddyWebModelBadge[]
+      /** Where those models came from, and whether the last fetch failed. */
+      catalog?: WorkBuddyWebCatalog
+      /** Reasoning-effort probe state, consent, and recorded observations. */
+      probe?: WorkBuddyWebProbeSection
+      /** International-card preference selecting larger declared context windows. */
+      useMaximumContextWindow?: boolean
+      /** Per-account hidden-model state for the card's visibility controls. */
+      visibility?: WorkBuddyWebVisibilitySection
+      /**
+       * In-process key authorizing probe control writes. Handed to the card with
+       * the status document (the card is same-origin and already had to pass the
+       * loopback guard); it is never persisted and rotates per process.
+       */
+      probeKey?: string
+    }
   | { status: 'error'; message: string }

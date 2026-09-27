@@ -16,7 +16,7 @@ import {
 
 const client = new WorkBuddyUpstreamClient()
 const store = new WorkBuddyCredentialStore({
-  refresh: credential => client.refreshToken(credential),
+  refresh: (credential) => client.refreshToken(credential),
 })
 const catalog = new WorkBuddyCatalog()
 const shim = createWorkBuddyShim({ store, client, catalog })
@@ -26,7 +26,7 @@ console.log('shim listening:', shim.baseUrl())
 const { adapter, invalidate } = createWorkBuddyAdapter({ shim, store, catalog })
 
 const staticList = await adapter.listModels('workbuddy')
-console.log('static catalog:', staticList.map(model => model.id).join(', '))
+console.log('static catalog:', staticList.map((model) => model.id).join(', '))
 
 const credential = await store.current()
 if (credential === undefined) {
@@ -37,7 +37,7 @@ const refreshed = await client.fetchModels(credential)
 catalog.set([...refreshed])
 invalidate()
 const liveList = await adapter.listModels('workbuddy')
-console.log('upstream catalog:', liveList.map(model => model.id).join(', '))
+console.log('upstream catalog:', liveList.map((model) => model.id).join(', '))
 
 const resolved = await adapter.resolveModel('workbuddy', 'auto')
 console.log('resolved auto:', JSON.stringify(resolved))
@@ -49,12 +49,14 @@ for await (const chunk of adapter.stream({
   provider: 'workbuddy',
   model: 'auto',
   system: '你是简洁的中文助手。',
-  messages: [{
-    id: 'e2e-1',
-    role: 'user',
-    content: [{ type: 'text', text: '只回复八个字以内：链路验证成功' }],
-    source: { kind: 'user' },
-  }],
+  messages: [
+    {
+      id: 'e2e-1',
+      role: 'user',
+      content: [{ type: 'text', text: '只回复八个字以内：链路验证成功' }],
+      source: { kind: 'user' },
+    },
+  ],
 })) {
   if (chunk.type === 'text-delta' || chunk.type === 'text') {
     text += chunk.text ?? chunk.delta ?? ''

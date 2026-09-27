@@ -8,7 +8,12 @@
  */
 
 import { appUserAgent, resolveAppVersion, type AppVersionInfo } from './app-version.ts'
-import { chatUserAgent, fallbackChatIdentity, resolveChatIdentity, type ChatIdentity } from './client-identity.ts'
+import {
+  chatUserAgent,
+  fallbackChatIdentity,
+  resolveChatIdentity,
+  type ChatIdentity,
+} from './client-identity.ts'
 import { classifyUpstreamError } from './errors.ts'
 import type { WorkBuddyCredential } from '../credential/store.ts'
 import type { ProbeAttempt } from '../probe/probe.ts'
@@ -22,12 +27,7 @@ export type WorkBuddyRegion = 'cn' | 'global'
 
 /** Upstream failure classes the shim maps onto distinct HTTP answers. */
 export type UpstreamErrorKind =
-  | 'hard_credit'
-  | 'soft_rate'
-  | 'session_dead'
-  | 'not_found'
-  | 'server'
-  | 'client'
+  'hard_credit' | 'soft_rate' | 'session_dead' | 'not_found' | 'server' | 'client'
 
 /** One CLI-usable model as the upstream catalog describes it. */
 export interface WorkBuddyUpstreamModel {
@@ -171,7 +171,9 @@ function describeShape(document: unknown): string {
   const record = document as Record<string, unknown>
   const at = (source: Record<string, unknown>): string => {
     const keys = Object.keys(source).slice(0, 24)
-    return keys.length === 0 ? '(empty)' : keys.map(key => `${key}:${typeof source[key]}`).join(', ')
+    return keys.length === 0
+      ? '(empty)'
+      : keys.map((key) => `${key}:${typeof source[key]}`).join(', ')
   }
   const top = `top-level { ${at(record)} }`
   const data = record['data']
@@ -191,7 +193,9 @@ const EFFORT_VALUES: readonly WorkBuddyEffort[] = ['low', 'medium', 'high', 'xhi
 const BADGE_PREFIX = 'badge:'
 
 /** Parse the upstream `reasoning` object into {@link WorkBuddyModelReasoning}. */
-function resolveUpstreamReasoning(wrapped: Record<string, unknown>): { reasoning: WorkBuddyModelReasoning } {
+function resolveUpstreamReasoning(wrapped: Record<string, unknown>): {
+  reasoning: WorkBuddyModelReasoning
+} {
   const supports = wrapped['supportsReasoning'] === true
   const onlyReasoning = wrapped['onlyReasoning'] === true
   const rawReasoning = wrapped['reasoning']
@@ -202,15 +206,21 @@ function resolveUpstreamReasoning(wrapped: Record<string, unknown>): { reasoning
     const reasoning = rawReasoning as Record<string, unknown>
     const rawEfforts = reasoning['supportedEfforts']
     if (Array.isArray(rawEfforts)) {
-      const efforts = rawEfforts.filter((value): value is WorkBuddyEffort =>
-        typeof value === 'string' && (EFFORT_VALUES as readonly string[]).includes(value))
+      const efforts = rawEfforts.filter(
+        (value): value is WorkBuddyEffort =>
+          typeof value === 'string' && (EFFORT_VALUES as readonly string[]).includes(value),
+      )
       if (efforts.length > 0) supportedEfforts = efforts
     }
-    if (typeof reasoning['defaultEffort'] === 'string'
-      && (EFFORT_VALUES as readonly string[]).includes(reasoning['defaultEffort'] as string)) {
+    if (
+      typeof reasoning['defaultEffort'] === 'string' &&
+      (EFFORT_VALUES as readonly string[]).includes(reasoning['defaultEffort'] as string)
+    ) {
       defaultEffort = reasoning['defaultEffort'] as WorkBuddyEffort
-    } else if (typeof reasoning['effort'] === 'string'
-      && (EFFORT_VALUES as readonly string[]).includes(reasoning['effort'] as string)) {
+    } else if (
+      typeof reasoning['effort'] === 'string' &&
+      (EFFORT_VALUES as readonly string[]).includes(reasoning['effort'] as string)
+    ) {
       defaultEffort = reasoning['effort'] as WorkBuddyEffort
     }
     // Only an explicit `canDisableThinking: true` offers "thinking off"; older
@@ -222,8 +232,8 @@ function resolveUpstreamReasoning(wrapped: Record<string, unknown>): { reasoning
     reasoning: {
       supports,
       onlyReasoning,
-      ...supportedEfforts === undefined ? {} : { supportedEfforts },
-      ...defaultEffort === undefined ? {} : { defaultEffort },
+      ...(supportedEfforts === undefined ? {} : { supportedEfforts }),
+      ...(defaultEffort === undefined ? {} : { defaultEffort }),
       canDisableThinking,
     },
   }
@@ -267,9 +277,13 @@ function resolveUpstreamBilling(
   extraTags?: readonly string[],
 ): { billing: WorkBuddyModelBilling } {
   const rawCredits = wrapped['credits']
-  const credits = typeof rawCredits === 'string' && rawCredits.trim() !== '' ? rawCredits.trim() : undefined
+  const credits =
+    typeof rawCredits === 'string' && rawCredits.trim() !== '' ? rawCredits.trim() : undefined
   const badges: string[] = []
-  const rawTags: readonly unknown[] = [...Array.isArray(wrapped['tags']) ? wrapped['tags'] : [], ...extraTags ?? []]
+  const rawTags: readonly unknown[] = [
+    ...(Array.isArray(wrapped['tags']) ? wrapped['tags'] : []),
+    ...(extraTags ?? []),
+  ]
   for (const tag of rawTags) {
     if (typeof tag !== 'string') continue
     const lowered = tag.toLowerCase()
@@ -284,8 +298,8 @@ function resolveUpstreamBilling(
   const free = multiplier !== undefined && /^x?0\.0+$/u.test(multiplier)
   return {
     billing: {
-      ...credits === undefined ? {} : { credits },
-      ...badges.length === 0 ? {} : { badges },
+      ...(credits === undefined ? {} : { credits }),
+      ...(badges.length === 0 ? {} : { badges }),
       free,
     },
   }
@@ -313,10 +327,10 @@ function originReferer(credential: WorkBuddyCredential): string {
 /** Headers every upstream request shares. */
 function commonHeaders(credential: WorkBuddyCredential): Record<string, string> {
   return {
-    'Accept': 'application/json, text/plain, */*',
+    Accept: 'application/json, text/plain, */*',
     'X-Requested-With': 'XMLHttpRequest',
-    'Origin': originReferer(credential),
-    'Referer': `${originReferer(credential)}/`,
+    Origin: originReferer(credential),
+    Referer: `${originReferer(credential)}/`,
     'User-Agent': CLIENT_UA,
   }
 }
@@ -331,14 +345,16 @@ function commonHeaders(credential: WorkBuddyCredential): Record<string, string> 
 function chatHeaders(credential: WorkBuddyCredential, userAgent?: string): Record<string, string> {
   const headers: Record<string, string> = {
     ...commonHeaders(credential),
-    ...userAgent === undefined ? {} : { 'User-Agent': userAgent },
+    ...(userAgent === undefined ? {} : { 'User-Agent': userAgent }),
     'Content-Type': 'application/json',
     // 安全红线：chat 请求绝不携带 refresh token。
-    ...credential.uid === '' ? { 'X-No-User-Id': '1' } : { 'X-User-Id': credential.uid },
-    ...credential.enterpriseId === undefined || credential.enterpriseId === ''
+    ...(credential.uid === '' ? { 'X-No-User-Id': '1' } : { 'X-User-Id': credential.uid }),
+    ...(credential.enterpriseId === undefined || credential.enterpriseId === ''
       ? { 'X-No-Enterprise-Id': '1' }
-      : { 'X-Enterprise-Id': credential.enterpriseId },
-    ...credential.domain === '' ? { 'X-No-Department-Info': '1' } : { 'X-Domain': credential.domain },
+      : { 'X-Enterprise-Id': credential.enterpriseId }),
+    ...(credential.domain === ''
+      ? { 'X-No-Department-Info': '1' }
+      : { 'X-Domain': credential.domain }),
     'X-Product': 'SaaS',
   }
   return headers
@@ -360,8 +376,8 @@ function refreshHeaders(credential: WorkBuddyCredential): Record<string, string>
 /** Billing request headers. */
 function billingHeaders(credential: WorkBuddyCredential): Record<string, string> {
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${credential.accessToken}`,
-    'Accept': 'application/json',
+    Authorization: `Bearer ${credential.accessToken}`,
+    Accept: 'application/json',
     'Content-Type': 'application/json',
   }
   if (credential.uid !== '') headers['X-User-Id'] = credential.uid
@@ -436,9 +452,10 @@ function normalizeToolChoice(obj: Record<string, unknown>): void {
     } else if (type === 'auto' || type === 'required') {
       obj['tool_choice'] = type
     } else if (type === 'function') {
-      const fn = typeof wrapped['function'] === 'object' && wrapped['function'] !== null
-        ? (wrapped['function'] as Record<string, unknown>)
-        : undefined
+      const fn =
+        typeof wrapped['function'] === 'object' && wrapped['function'] !== null
+          ? (wrapped['function'] as Record<string, unknown>)
+          : undefined
       let name = typeof fn?.['name'] === 'string' ? fn['name'] : ''
       if (name === '' && typeof wrapped['name'] === 'string') name = wrapped['name']
       name = name.trim()
@@ -474,7 +491,9 @@ async function readEnvelope(response: Response): Promise<Envelope> {
   try {
     parsed = JSON.parse(text)
   } catch {
-    throw new Error(`workbuddy upstream returned non-JSON (http ${response.status}): ${text.slice(0, 160)}`)
+    throw new Error(
+      `workbuddy upstream returned non-JSON (http ${response.status}): ${text.slice(0, 160)}`,
+    )
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error(`workbuddy upstream returned an unexpected document (http ${response.status})`)
@@ -538,7 +557,8 @@ export class WorkBuddyUpstreamClient {
 
   constructor(options: WorkBuddyUpstreamClientOptions = {}) {
     this.resolveAppVersion = options.resolveAppVersion ?? (() => resolveAppVersion())
-    this.resolveChatIdentity = options.resolveChatIdentity ?? (region => resolveChatIdentity(region))
+    this.resolveChatIdentity =
+      options.resolveChatIdentity ?? ((region) => resolveChatIdentity(region))
   }
 
   /** POST the chat endpoint; a successful answer is the raw SSE response. */
@@ -561,9 +581,12 @@ export class WorkBuddyUpstreamClient {
     try {
       response = await fetch(`${chatBase(credential)}/v2/chat/completions`, {
         method: 'POST',
-        headers: { ...chatHeaders(credential, userAgent), 'Authorization': `Bearer ${credential.accessToken}` },
+        headers: {
+          ...chatHeaders(credential, userAgent),
+          Authorization: `Bearer ${credential.accessToken}`,
+        },
         body: region === 'global' ? prepareInternationalChatBody(bodyJson) : bodyJson,
-        ...signal === undefined ? {} : { signal },
+        ...(signal === undefined ? {} : { signal }),
       })
     } catch (error: unknown) {
       return { ok: false, status: 0, kind: 'server', message: `transport error: ${String(error)}` }
@@ -587,14 +610,20 @@ export class WorkBuddyUpstreamClient {
     })
     const envelope = await readEnvelope(response)
     if (!response.ok || envelope.code !== 0) throw envelopeError(response.status, envelope)
-    const data = typeof envelope.data === 'object' && envelope.data !== null
-      ? envelope.data as Record<string, unknown>
-      : {}
+    const data =
+      typeof envelope.data === 'object' && envelope.data !== null
+        ? (envelope.data as Record<string, unknown>)
+        : {}
     const accessToken = typeof data['accessToken'] === 'string' ? data['accessToken'] : ''
-    if (accessToken === '') throw new Error('workbuddy token refresh returned no accessToken; sign in again in the WorkBuddy app')
+    if (accessToken === '')
+      throw new Error(
+        'workbuddy token refresh returned no accessToken; sign in again in the WorkBuddy app',
+      )
     const outcome: WorkBuddyRefreshOutcome = { accessToken }
-    if (typeof data['refreshToken'] === 'string' && data['refreshToken'] !== '') outcome.refreshToken = data['refreshToken']
-    if (typeof data['expiresIn'] === 'number' && data['expiresIn'] > 0) outcome.expiresInSec = data['expiresIn']
+    if (typeof data['refreshToken'] === 'string' && data['refreshToken'] !== '')
+      outcome.refreshToken = data['refreshToken']
+    if (typeof data['expiresIn'] === 'number' && data['expiresIn'] > 0)
+      outcome.expiresInSec = data['expiresIn']
     if (typeof data['domain'] === 'string' && data['domain'] !== '') outcome.domain = data['domain']
     return outcome
   }
@@ -627,7 +656,10 @@ export class WorkBuddyUpstreamClient {
    * `envelopeError` — so an expired session or exhausted credit is reported as
    * such rather than as a generic catalog failure.
    */
-  async fetchModels(credential: WorkBuddyCredential, signal?: AbortSignal): Promise<readonly WorkBuddyUpstreamModel[]> {
+  async fetchModels(
+    credential: WorkBuddyCredential,
+    signal?: AbortSignal,
+  ): Promise<readonly WorkBuddyUpstreamModel[]> {
     const international = regionOf(credential.domain) === 'global'
     // `this.resolveAppVersion`, not the module-level function: the constructor
     // injects a resolver so tests never read the real filesystem, and calling
@@ -639,12 +671,13 @@ export class WorkBuddyUpstreamClient {
         Accept: 'application/json',
         Origin: originReferer(credential),
         Referer: `${originReferer(credential)}/`,
-        ...international ? { 'X-Requested-With': 'XMLHttpRequest', 'X-Product': 'SaaS' } : {},
+        ...(international ? { 'X-Requested-With': 'XMLHttpRequest', 'X-Product': 'SaaS' } : {}),
         'User-Agent': appVersion === undefined ? CLIENT_UA : appUserAgent(appVersion.version),
       },
-      signal: signal === undefined
-        ? AbortSignal.timeout(JSON_TIMEOUT_MS)
-        : AbortSignal.any([signal, AbortSignal.timeout(JSON_TIMEOUT_MS)]),
+      signal:
+        signal === undefined
+          ? AbortSignal.timeout(JSON_TIMEOUT_MS)
+          : AbortSignal.any([signal, AbortSignal.timeout(JSON_TIMEOUT_MS)]),
     })
     const envelope = await readEnvelope(response)
     if (!response.ok || envelope.code !== 0) throw envelopeError(response.status, envelope)
@@ -655,9 +688,11 @@ export class WorkBuddyUpstreamClient {
     // spurious "no cli agent models", so a body that itself looks like a
     // catalog (it carries models or agents) is used as the answer. A body with
     // neither shape still falls through to the empty-parse error below.
-    const data = isObject(envelope.data) ? envelope.data
-      : 'models' in envelope.document || 'agents' in envelope.document ? envelope.document
-      : {}
+    const data = isObject(envelope.data)
+      ? envelope.data
+      : 'models' in envelope.document || 'agents' in envelope.document
+        ? envelope.document
+        : {}
     // Promo badges exist only in the console document, so CN merges them in.
     // The read is best-effort and separate: its failure costs the badges and
     // never the catalog.
@@ -666,7 +701,7 @@ export class WorkBuddyUpstreamClient {
     this.lastCatalog = {
       fetchedAtMs: Date.now(),
       source: international ? 'workbuddy-ai:app' : 'workbuddy:cli',
-      ...appVersion === undefined ? {} : { appVersion },
+      ...(appVersion === undefined ? {} : { appVersion }),
     }
     return models
   }
@@ -698,9 +733,10 @@ export class WorkBuddyUpstreamClient {
           Referer: `${originReferer(credential)}/`,
           'User-Agent': CLIENT_UA,
         },
-        signal: signal === undefined
-          ? AbortSignal.timeout(JSON_TIMEOUT_MS)
-          : AbortSignal.any([signal, AbortSignal.timeout(JSON_TIMEOUT_MS)]),
+        signal:
+          signal === undefined
+            ? AbortSignal.timeout(JSON_TIMEOUT_MS)
+            : AbortSignal.any([signal, AbortSignal.timeout(JSON_TIMEOUT_MS)]),
       })
       if (!response.ok) return undefined
       const envelope = await readEnvelope(response)
@@ -712,8 +748,10 @@ export class WorkBuddyUpstreamClient {
         const id = typeof model['id'] === 'string' ? model['id'] : ''
         if (id === '') continue
         const tags = Array.isArray(model['tags'])
-          ? model['tags'].filter((tag): tag is string =>
-            typeof tag === 'string' && tag.toLowerCase().startsWith(BADGE_PREFIX))
+          ? model['tags'].filter(
+              (tag): tag is string =>
+                typeof tag === 'string' && tag.toLowerCase().startsWith(BADGE_PREFIX),
+            )
           : []
         if (tags.length > 0) badges.set(id, tags)
       }
@@ -741,20 +779,26 @@ export class WorkBuddyUpstreamClient {
    * moved onto an unmeasured one.
    */
   async fetchCredits(credential: WorkBuddyCredential): Promise<WorkBuddyCredits> {
-    if (regionOf(credential.domain) === 'cn'
-      && credential.enterpriseId !== undefined && credential.enterpriseId !== '') {
+    if (
+      regionOf(credential.domain) === 'cn' &&
+      credential.enterpriseId !== undefined &&
+      credential.enterpriseId !== ''
+    ) {
       return await this.fetchEnterpriseCredits(credential)
     }
     const now = new Date()
-    const format = (date: Date): string => [
-      date.getFullYear().toString().padStart(4, '0'),
-      (date.getMonth() + 1).toString().padStart(2, '0'),
-      date.getDate().toString().padStart(2, '0'),
-    ].join('-') + ' ' + [
-      date.getHours().toString().padStart(2, '0'),
-      date.getMinutes().toString().padStart(2, '0'),
-      date.getSeconds().toString().padStart(2, '0'),
-    ].join(':')
+    const format = (date: Date): string =>
+      [
+        date.getFullYear().toString().padStart(4, '0'),
+        (date.getMonth() + 1).toString().padStart(2, '0'),
+        date.getDate().toString().padStart(2, '0'),
+      ].join('-') +
+      ' ' +
+      [
+        date.getHours().toString().padStart(2, '0'),
+        date.getMinutes().toString().padStart(2, '0'),
+        date.getSeconds().toString().padStart(2, '0'),
+      ].join(':')
     const response = await fetch(`${billingBase(credential)}/v2/billing/meter/get-user-resource`, {
       method: 'POST',
       headers: billingHeaders(credential),
@@ -770,22 +814,26 @@ export class WorkBuddyUpstreamClient {
     })
     const envelope = await readEnvelope(response)
     if (!response.ok || envelope.code !== 0) throw envelopeError(response.status, envelope)
-    const responseWrapper = typeof envelope.data === 'object' && envelope.data !== null
-      ? envelope.data as Record<string, unknown>
-      : {}
-    const data = typeof responseWrapper['Response'] === 'object' && responseWrapper['Response'] !== null
-      ? responseWrapper['Response'] as Record<string, unknown>
-      : {}
-    const inner = typeof data['Data'] === 'object' && data['Data'] !== null
-      ? data['Data'] as Record<string, unknown>
-      : {}
+    const responseWrapper =
+      typeof envelope.data === 'object' && envelope.data !== null
+        ? (envelope.data as Record<string, unknown>)
+        : {}
+    const data =
+      typeof responseWrapper['Response'] === 'object' && responseWrapper['Response'] !== null
+        ? (responseWrapper['Response'] as Record<string, unknown>)
+        : {}
+    const inner =
+      typeof data['Data'] === 'object' && data['Data'] !== null
+        ? (data['Data'] as Record<string, unknown>)
+        : {}
     const rawAccounts = Array.isArray(inner['Accounts']) ? inner['Accounts'] : []
     const accounts: WorkBuddyCreditAccount[] = []
     let total = 0
     for (const raw of rawAccounts) {
       if (typeof raw !== 'object' || raw === null) continue
       const account = raw as Record<string, unknown>
-      const numberField = (key: string): number => (typeof account[key] === 'number' ? account[key] as number : 0)
+      const numberField = (key: string): number =>
+        typeof account[key] === 'number' ? (account[key] as number) : 0
       const size = numberField('CycleCapacitySize')
       const cycleRemain = numberField('CycleCapacityRemain')
       const cycleUsed = numberField('CycleCapacityUsed')
@@ -797,7 +845,8 @@ export class WorkBuddyUpstreamClient {
       if (remain < 0) remain = 0
       total += remain
       accounts.push({
-        packageName: typeof account['PackageName'] === 'string' ? account['PackageName'] : '(unnamed)',
+        packageName:
+          typeof account['PackageName'] === 'string' ? account['PackageName'] : '(unnamed)',
         remain,
         size: size > 0 ? size : numberField('CapacitySize'),
       })
@@ -836,13 +885,17 @@ export class WorkBuddyUpstreamClient {
     for (const candidate of [envelope.data, envelope.document]) {
       if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) continue
       const record = candidate as Record<string, unknown>
-      if (typeof record['data'] === 'object' && record['data'] !== null && !Array.isArray(record['data'])) {
+      if (
+        typeof record['data'] === 'object' &&
+        record['data'] !== null &&
+        !Array.isArray(record['data'])
+      ) {
         sources.push(record['data'] as Record<string, unknown>)
       }
       sources.push(record)
     }
     const numberAt = (source: Record<string, unknown>, key: string): number | undefined =>
-      typeof source[key] === 'number' ? source[key] as number : undefined
+      typeof source[key] === 'number' ? (source[key] as number) : undefined
     let limit: number | undefined
     let used: number | undefined
     let resetTime: string | undefined
@@ -857,7 +910,9 @@ export class WorkBuddyUpstreamClient {
       break
     }
     if (limit === undefined) {
-      throw new Error(`workbuddy enterprise billing response carried no recognised quota field (expected limitNum/limit_num + credit/used_num; received ${describeShape(envelope.document)})`)
+      throw new Error(
+        `workbuddy enterprise billing response carried no recognised quota field (expected limitNum/limit_num + credit/used_num; received ${describeShape(envelope.document)})`,
+      )
     }
     // `-1` is the upstream's "no cap" marker, not a balance. Carried as an
     // explicit flag so no renderer can mistake it for a number. The used amount
@@ -867,7 +922,7 @@ export class WorkBuddyUpstreamClient {
         total: 0,
         accounts: [{ packageName: enterprisePackageName, remain: 0, size: 0, unlimited: true }],
         unlimited: true,
-        ...resetTime === undefined ? {} : { cycleResetTime: resetTime },
+        ...(resetTime === undefined ? {} : { cycleResetTime: resetTime }),
       }
     }
     // A limit with no usable amount must fail rather than assume zero used.
@@ -875,17 +930,18 @@ export class WorkBuddyUpstreamClient {
     // response we could not read — the same species of wrong-but-plausible
     // number as the bug this branch exists to fix.
     if (used === undefined) {
-      throw new Error(`workbuddy enterprise billing response carried a quota limit but no recognised usage field (expected credit/used_num alongside limitNum/limit_num; received ${describeShape(envelope.document)})`)
+      throw new Error(
+        `workbuddy enterprise billing response carried a quota limit but no recognised usage field (expected credit/used_num alongside limitNum/limit_num; received ${describeShape(envelope.document)})`,
+      )
     }
     let remain = limit - used
     if (remain < 0) remain = 0
     return {
       total: remain,
       accounts: [{ packageName: enterprisePackageName, remain, size: limit }],
-      ...resetTime === undefined ? {} : { cycleResetTime: resetTime },
+      ...(resetTime === undefined ? {} : { cycleResetTime: resetTime }),
     }
   }
-
 
   /**
    * One probe request: a real streaming chat call carrying the effort under
@@ -923,15 +979,21 @@ export class WorkBuddyUpstreamClient {
     // the desktop fallback form exactly as in `chatStream`.
     let userAgent: string
     try {
-      userAgent = chatUserAgent(await this.resolveChatIdentity(international ? 'global' : 'cn'), international ? 'global' : 'cn')
+      userAgent = chatUserAgent(
+        await this.resolveChatIdentity(international ? 'global' : 'cn'),
+        international ? 'global' : 'cn',
+      )
     } catch {
-      userAgent = chatUserAgent(fallbackChatIdentity(international ? 'global' : 'cn'), international ? 'global' : 'cn')
+      userAgent = chatUserAgent(
+        fallbackChatIdentity(international ? 'global' : 'cn'),
+        international ? 'global' : 'cn',
+      )
     }
     const payload: Record<string, unknown> = {
       model,
       stream: true,
       messages: [
-        ...international ? [{ role: 'system', content: INTERNATIONAL_SYSTEM_PROMPT }] : [],
+        ...(international ? [{ role: 'system', content: INTERNATIONAL_SYSTEM_PROMPT }] : []),
         { role: 'user', content: PROBE_PROMPT },
       ],
       max_tokens: international ? INTERNATIONAL_PROBE_MAX_TOKENS : PROBE_MAX_TOKENS,
@@ -942,7 +1004,10 @@ export class WorkBuddyUpstreamClient {
     try {
       response = await fetch(`${chatBase(credential)}/v2/chat/completions`, {
         method: 'POST',
-        headers: { ...chatHeaders(credential, userAgent), 'Authorization': `Bearer ${credential.accessToken}` },
+        headers: {
+          ...chatHeaders(credential, userAgent),
+          Authorization: `Bearer ${credential.accessToken}`,
+        },
         body: JSON.stringify(payload),
         signal,
       })
@@ -1033,54 +1098,65 @@ export function parseModelCatalog(
   international = false,
   promoBadges?: ReadonlyMap<string, readonly string[]>,
 ): readonly WorkBuddyUpstreamModel[] {
-    const rawModels = Array.isArray(data['models']) ? data['models'] : []
-    const agents = Array.isArray(data['agents']) ? data['agents'] : []
-    let cliIds: readonly string[] | undefined
-    for (const agent of agents) {
-      if (typeof agent === 'object' && agent !== null) {
-        const wrapped = agent as Record<string, unknown>
-        if (wrapped['name'] === 'cli' && Array.isArray(wrapped['models'])) {
-          cliIds = wrapped['models'].filter((id): id is string => typeof id === 'string')
-          break
-        }
+  const rawModels = Array.isArray(data['models']) ? data['models'] : []
+  const agents = Array.isArray(data['agents']) ? data['agents'] : []
+  let cliIds: readonly string[] | undefined
+  for (const agent of agents) {
+    if (typeof agent === 'object' && agent !== null) {
+      const wrapped = agent as Record<string, unknown>
+      if (wrapped['name'] === 'cli' && Array.isArray(wrapped['models'])) {
+        cliIds = wrapped['models'].filter((id): id is string => typeof id === 'string')
+        break
       }
     }
-    if (cliIds === undefined || cliIds.length === 0) {
-      throw new Error('workbuddy model catalog lists no cli agent models')
-    }
-    const byId = new Map<string, WorkBuddyUpstreamModel>()
-    for (const model of rawModels) {
-      if (typeof model !== 'object' || model === null) continue
-      const wrapped = model as Record<string, unknown>
-      const id = typeof wrapped['id'] === 'string' ? wrapped['id'] : ''
-      if (id === '' || wrapped['disabled'] === true) continue
-      const input = typeof wrapped['maxInputTokens'] === 'number' ? wrapped['maxInputTokens'] : 0
-      const output = typeof wrapped['maxOutputTokens'] === 'number' ? wrapped['maxOutputTokens'] : 0
-      if (input <= 0 || output <= 0) continue
-      byId.set(id, {
-        id,
-        name: typeof wrapped['name'] === 'string' && wrapped['name'] !== '' ? wrapped['name'] : id,
-        contextWindow: international && isObject(wrapped['contextWindow']) && positive(wrapped['contextWindow']['defaultLength'])
-          ? wrapped['contextWindow']['defaultLength'] : input,
-        ...(international ? {
-          ...isObject(wrapped['contextWindow']) && positive(wrapped['contextWindow']['defaultLength'])
-            ? { defaultContextWindow: wrapped['contextWindow']['defaultLength'] } : {},
-          maxInputTokens: input,
-          supportedContextWindows: isObject(wrapped['contextWindow']) && Array.isArray(wrapped['contextWindow']['supportedLengths'])
-            ? wrapped['contextWindow']['supportedLengths'].filter(positive) : [],
-          promotions: parsePromotions(data['modelPromotions'], id),
-        } : {}),
-        maxTokens: output,
-        supportsImages: wrapped['supportsImages'] === true && wrapped['disabledMultimodal'] !== true,
-        ...resolveUpstreamReasoning(wrapped),
-        ...resolveUpstreamBilling(wrapped, promoBadges?.get(id)),
-      })
-    }
-    const models = cliIds
-      .map(id => byId.get(id))
-      .filter((model): model is WorkBuddyUpstreamModel => model !== undefined)
-    if (models.length === 0) throw new Error('workbuddy model catalog resolved to an empty list')
-    return models
+  }
+  if (cliIds === undefined || cliIds.length === 0) {
+    throw new Error('workbuddy model catalog lists no cli agent models')
+  }
+  const byId = new Map<string, WorkBuddyUpstreamModel>()
+  for (const model of rawModels) {
+    if (typeof model !== 'object' || model === null) continue
+    const wrapped = model as Record<string, unknown>
+    const id = typeof wrapped['id'] === 'string' ? wrapped['id'] : ''
+    if (id === '' || wrapped['disabled'] === true) continue
+    const input = typeof wrapped['maxInputTokens'] === 'number' ? wrapped['maxInputTokens'] : 0
+    const output = typeof wrapped['maxOutputTokens'] === 'number' ? wrapped['maxOutputTokens'] : 0
+    if (input <= 0 || output <= 0) continue
+    byId.set(id, {
+      id,
+      name: typeof wrapped['name'] === 'string' && wrapped['name'] !== '' ? wrapped['name'] : id,
+      contextWindow:
+        international &&
+        isObject(wrapped['contextWindow']) &&
+        positive(wrapped['contextWindow']['defaultLength'])
+          ? wrapped['contextWindow']['defaultLength']
+          : input,
+      ...(international
+        ? {
+            ...(isObject(wrapped['contextWindow']) &&
+            positive(wrapped['contextWindow']['defaultLength'])
+              ? { defaultContextWindow: wrapped['contextWindow']['defaultLength'] }
+              : {}),
+            maxInputTokens: input,
+            supportedContextWindows:
+              isObject(wrapped['contextWindow']) &&
+              Array.isArray(wrapped['contextWindow']['supportedLengths'])
+                ? wrapped['contextWindow']['supportedLengths'].filter(positive)
+                : [],
+            promotions: parsePromotions(data['modelPromotions'], id),
+          }
+        : {}),
+      maxTokens: output,
+      supportsImages: wrapped['supportsImages'] === true && wrapped['disabledMultimodal'] !== true,
+      ...resolveUpstreamReasoning(wrapped),
+      ...resolveUpstreamBilling(wrapped, promoBadges?.get(id)),
+    })
+  }
+  const models = cliIds
+    .map((id) => byId.get(id))
+    .filter((model): model is WorkBuddyUpstreamModel => model !== undefined)
+  if (models.length === 0) throw new Error('workbuddy model catalog resolved to an empty list')
+  return models
 }
 
 /**
@@ -1107,7 +1183,7 @@ export interface WorkBuddyPromotion {
 /** Extract the promotions covering `model` from the `modelPromotions` array. */
 function parsePromotions(value: unknown, model: string): WorkBuddyPromotion[] {
   if (!Array.isArray(value)) return []
-  return value.flatMap(item => {
+  return value.flatMap((item) => {
     if (!isObject(item) || item['enabled'] !== true) return []
     const modelIds = item['modelIds']
     if (!Array.isArray(modelIds) || !modelIds.includes(model)) return []
@@ -1118,18 +1194,25 @@ function parsePromotions(value: unknown, model: string): WorkBuddyPromotion[] {
     // Only a replacement discount has an unambiguous display rule; any other
     // display mode is left to the upstream's own client.
     if (discount['displayMode'] !== 'replace') return []
-    const start = typeof schedule['validFrom'] === 'string' ? Date.parse(schedule['validFrom']) : Number.NaN
-    const end = typeof schedule['validUntil'] === 'string' ? Date.parse(schedule['validUntil']) : Number.NaN
+    const start =
+      typeof schedule['validFrom'] === 'string' ? Date.parse(schedule['validFrom']) : Number.NaN
+    const end =
+      typeof schedule['validUntil'] === 'string' ? Date.parse(schedule['validUntil']) : Number.NaN
     const factor = discount['factor']
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return []
     if (typeof factor !== 'number' || !Number.isFinite(factor) || factor < 0) return []
-    return [{
-      start,
-      end,
-      factor,
-      label: typeof badge['label'] === 'string' ? badge['label'] : '',
-      priority: typeof item['priority'] === 'number' && Number.isFinite(item['priority']) ? item['priority'] : 0,
-    }]
+    return [
+      {
+        start,
+        end,
+        factor,
+        label: typeof badge['label'] === 'string' ? badge['label'] : '',
+        priority:
+          typeof item['priority'] === 'number' && Number.isFinite(item['priority'])
+            ? item['priority']
+            : 0,
+      },
+    ]
   })
 }
 
@@ -1146,11 +1229,14 @@ function parsePromotions(value: unknown, model: string): WorkBuddyPromotion[] {
  * promotion is layered onto a copy. A model with no live promotion is returned
  * as-is, so the common case allocates nothing.
  */
-export function modelWithCurrentPromotion(model: WorkBuddyUpstreamModel, now = Date.now()): WorkBuddyUpstreamModel {
+export function modelWithCurrentPromotion(
+  model: WorkBuddyUpstreamModel,
+  now = Date.now(),
+): WorkBuddyUpstreamModel {
   if (model.promotions === undefined || model.promotions.length === 0) return model
   const promotion = [...model.promotions]
     .sort((a, b) => b.priority - a.priority)
-    .find(candidate => now >= candidate.start && now < candidate.end)
+    .find((candidate) => now >= candidate.start && now < candidate.end)
   if (promotion === undefined) {
     // This row arrives with promotions attached, but none is in force now. The
     // catalog is cached for the process's life, so the rate baked into the row
@@ -1164,9 +1250,10 @@ export function modelWithCurrentPromotion(model: WorkBuddyUpstreamModel, now = D
     // is to stop asserting one: the rate is dropped and any promo badge
     // removed. `rateUnknown` marks it so the card can say the price needs a
     // refresh rather than implying the model is free.
-    const derivedFromPromotion = model.billing?.free === true
-      || (model.billing?.badges?.length ?? 0) > 0
-      || model.promotions.some(candidate => candidate.factor !== 1)
+    const derivedFromPromotion =
+      model.billing?.free === true ||
+      (model.billing?.badges?.length ?? 0) > 0 ||
+      model.promotions.some((candidate) => candidate.factor !== 1)
     if (!derivedFromPromotion) return model
     return {
       ...model,
@@ -1191,7 +1278,7 @@ export function modelWithCurrentPromotion(model: WorkBuddyUpstreamModel, now = D
       free: value === 0,
       badges: [
         ...(model.billing?.badges ?? []),
-        ...promotion.label === '' ? [] : [promotion.label],
+        ...(promotion.label === '' ? [] : [promotion.label]),
       ],
     },
   }

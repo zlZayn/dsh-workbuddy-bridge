@@ -30,7 +30,13 @@ import type { WorkBuddyEffort } from '../protocol/client.ts'
  * by policy — disabling thinking is a separate capability the upstream must
  * declare through `canDisableThinking`, never something probing may infer.
  */
-export const PROBE_EFFORT_CANDIDATES: readonly WorkBuddyEffort[] = ['low', 'medium', 'high', 'xhigh', 'max']
+export const PROBE_EFFORT_CANDIDATES: readonly WorkBuddyEffort[] = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+]
 
 /** Prompt body used by every probe request; carries nothing user-specific. */
 export const PROBE_PROMPT = 'ping'
@@ -132,7 +138,12 @@ export async function probeModel(options: {
   //    on the sentinel could just as well be an unrelated request problem.
   const baseline = await attempt(undefined)
   if (!isAcceptance(baseline)) {
-    return { validation: 'unknown', efforts: [], requests, reason: unknownReason('baseline', baseline) }
+    return {
+      validation: 'unknown',
+      efforts: [],
+      requests,
+      reason: unknownReason('baseline', baseline),
+    }
   }
 
   // 2. Sentinel: the only step that can distinguish "validates the field" from
@@ -146,7 +157,12 @@ export async function probeModel(options: {
     return { validation: 'non-validating', efforts: [], requests }
   }
   if (!isEffortRejection(sentinelAttempt)) {
-    return { validation: 'unknown', efforts: [], requests, reason: unknownReason('sentinel', sentinelAttempt) }
+    return {
+      validation: 'unknown',
+      efforts: [],
+      requests,
+      reason: unknownReason('sentinel', sentinelAttempt),
+    }
   }
 
   // 3. Levels: meaningful only because the sentinel was refused.
