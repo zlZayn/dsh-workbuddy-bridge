@@ -896,8 +896,7 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     // no stale request may prevent the current account from fetching now.
     inflight?.controller.abort()
     const controller = new AbortController()
-    let run: Promise<void>
-    run = (async (): Promise<void> => {
+    const run: Promise<void> = (async (): Promise<void> => {
       let models: readonly WorkBuddyModelInfo[]
       try {
         const credential = await runtime.store.resolve()

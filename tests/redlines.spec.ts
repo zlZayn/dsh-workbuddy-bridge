@@ -457,7 +457,7 @@ describe('文档不抄实测值', () => {
     expect(hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上；下限见 package.json 的 engines.dsh。')).toBe(true)
     // 历史陈述（“X 起”）与插件自己的版本号都不在管辖内。
     expect(needsSource('0.1.7 起 Config schema 就是设置文档。')).toBe(false)
-    expect(needsSource('版本 \`0.1.0\`；尚未发布到 npm。')).toBe(false)
+    expect(needsSource('版本 `0.1.0`；尚未发布到 npm。')).toBe(false)
     // 自检用的谓词必须看得到「要求 + 宿主版本」，哪怕那段已经带了出处。
     expect(mentionsHostRequirement('本仓只支持 DSH 0.1.7-rc.2；下限见 package.json。')).toBe(true)
   })

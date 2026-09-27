@@ -64,7 +64,6 @@ record('premise: a real encrypted CN credential is present', typeof envelopeKeyI
 
 // 3. Every discovery step, with a default path that cannot exist. This is the
 //    only thing forced: mdfind, plutil, X_OK and the helper are all real.
-const realToolCalls = []
 const provider = new WorkBuddyAtRestKeyProvider({
   discovery: 'macos-workbuddy',
   defaultElectronPath: join('/nonexistent-for-e2e', 'WorkBuddy.app', 'Contents', 'MacOS', 'Electron'),

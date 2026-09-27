@@ -491,6 +491,7 @@ export class WorkBuddyCredentialStore {
       throw new Error(
         `workbuddy: token refresh failed and the access token is expired (${String(error)});`
         + ' open the WorkBuddy desktop app once to sign in again',
+        { cause: error },
       )
     }
   }
