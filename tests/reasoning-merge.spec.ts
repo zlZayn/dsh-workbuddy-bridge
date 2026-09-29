@@ -88,6 +88,14 @@ async function boot(options: {
   await vi.waitFor(() => {
     expect(ctx.llm.listProviders().map((provider) => provider.id)).toContain('workbuddy')
   })
+  // Registering the adapter is not the same as serving models: a variant starts
+  // with its catalog hidden and only reveals it once the credential sweep
+  // adopts an account, so a read that waits for registration alone can land in
+  // the window where the roster is empty and `resolveModelInfo` throws
+  // UNKNOWN_MODEL. Wait for the state these cases actually assume.
+  await vi.waitFor(async () => {
+    expect((await ctx.llm.listModels('workbuddy')).length).toBeGreaterThan(0)
+  })
   return ctx
 }
 
