@@ -165,3 +165,25 @@ maintainer map → [AGENTS.md](AGENTS.md).
 ## License
 
 [MIT](LICENSE).
+
+---
+
+## Local commit hooks (pre-commit)
+
+Formatting (Prettier) and lint (ESLint) are auto-fixed before each commit.
+Of the three plugin repos this is the only pnpm one, so the hooks run through `pnpm exec`
+(the same tree CI installs with `pnpm install --frozen-lockfile`) and **never download from the
+network**; typecheck, tests and `check:release` stay in [ci.yml](.github/workflows/ci.yml).
+
+Prerequisite: uv and pre-commit (install pre-commit with `uv tool install pre-commit` into `~/.local/bin`).
+
+```bash
+uv tool install pre-commit
+pre-commit install
+```
+
+> Restart the terminal (or reload the shell config) afterwards, so PATH takes effect.
+
+- Manual full run: `pre-commit run --all-files`
+- Skip one commit: `git commit --no-verify`
+- Definition: [.pre-commit-config.yaml](.pre-commit-config.yaml)
