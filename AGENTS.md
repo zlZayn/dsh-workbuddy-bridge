@@ -56,9 +56,6 @@
 - [x] 首次发布 `0.1.0`（维护者本地 publish + Trusted Publisher 已配）；README 门面已按发布态重写（npm 徽章已加）
 - [x] 发布链落地并跑通：`release.yml` 支持推 tag 触发（带 tag/版本一致性闸）、守卫基线排除正在发的 tag、Release 步对 5xx 重试 —— `0.2.0` 全链绿
 - [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
-- [ ] **四份被引用却从未入库的文档**（现查：`git log --all -- <路径>` 为空）：`docs/reasoning-effort-probe-plan.md`（引用最集中，`src/probe/` 与 [src/llm/adapter.ts](src/llm/adapter.ts) 的注释按 §4/§5 引它）、
-  `docs/upstream-identity-alignment-plan.md`、`docs/client-identity-live-verification-2026-09-14.md`（[scripts/client-identity-live-matrix.mjs](scripts/client-identity-live-matrix.mjs) 引它）、`docs/workbuddy-ai-international-research-2026-09-11.md` ——
-  反引号里的路径链接校验照不到，只能现查。待定：补回这四份，还是把引用改指现有落点（[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 或决策记录）
 
 ## 活跃坑
 
@@ -94,6 +91,10 @@
   `t(key)`，断言字面量只允许平台无关的（如 "Status"）
 - **`.gitignore` 里一行裸 `AGENTS.md` 曾把整张文档网络吞掉**（13 份都不入库）：新增忽略规则时用具体路径，
   别用会匹配到文档名的裸文件名
+- **反引号里的文档路径不在链接校验的扫描范围**：`check-markdown-links.py` 只解析 `.md` 里的 `[..](..)`，
+  代码注释与正文里的 `` `docs/x.md` `` 一律照不到 —— 目标被搬走、或压根没入库，都是静默的。
+  判据：动过文档路径就 `git grep -n <文件名>` 现查目标存在（2026-09-29 就是这么查出四份从未入库的规划文档
+  被 10 处注释引用，处置见 [.agents/notes/2026-09-29-dead-doc-references-retargeted.md](.agents/notes/2026-09-29-dead-doc-references-retargeted.md)）
 
 ## 文档网络与自更新
 

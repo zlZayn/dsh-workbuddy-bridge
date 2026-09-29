@@ -11,4 +11,6 @@ docs/ 特有约束：
 - 一份事实一个 home：别的文档要讲同一件事时写指针，不重抄内容。
 - **平台契约只从实装宿主读**，判据命令见 [PUBLISHING.md](PUBLISHING.md) 的「平台契约的取真源方式」；注册一个槽之前先查它的 `kind` 有没有占用者。
 - 链接一律相对路径；改完跑一次链接校验（命令见根 [AGENTS.md](../AGENTS.md) 的「常用命令」）。
+- 链接校验照不到反引号里的路径：动过文档名或搬过文件，就 `git grep` 现查目标还在（判据见根 [AGENTS.md](../AGENTS.md) 的活跃坑）。
+- 本目录建有 [README.md](README.md) 与 [AGENTS.md](AGENTS.md)，是 skill 文档档位的例外；例外为什么成立、被否掉的选项见[决策记录](../.agents/notes/2026-09-29-docs-dir-dual-files-exception.md)。
 - 不写本机路径、端口、profile 名与用户名 —— 用占位符。
