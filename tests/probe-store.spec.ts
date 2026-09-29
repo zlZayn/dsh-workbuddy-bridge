@@ -9,7 +9,7 @@ import type { WorkBuddyModelInfo } from '../src/catalog/index.ts'
 
 /**
  * Offline tests for the probe record and its precedence rules
- * (`docs/reasoning-effort-probe-plan.md` §5): an observation is invalidated by
+ * (`src/probe/store.ts`): an observation is invalidated by
  * a catalog change, expires, never overrides a declared set, and is never
  * erased by a transient failure.
  */

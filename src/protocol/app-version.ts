@@ -2,9 +2,8 @@
  * The international desktop app's version, used as the `/v3/config` UA.
  *
  * The App-shaped catalog is served only to a User-Agent carrying the product
- * name (see `docs/workbuddy-ai-international-research-2026-09-11.md` §2.7).
- * That document's conclusion recommended the space form `WorkBuddy AI/<v>`;
- * re-measured on 2026-09-11 the *space* form is rejected (HTTP 400, code
+ * name. The 2026-09-11 research recommended the space form `WorkBuddy AI/<v>`;
+ * re-measured the same day the *space* form is rejected (HTTP 400, code
  * 12403) while the terse `WorkBuddyAI/<v>` form — with or without the space
  * removed — returns the 21-model App document. The UA is therefore built from
  * the form verified in code, not from the earlier prose.

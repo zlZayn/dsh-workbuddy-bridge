@@ -8,8 +8,8 @@ import {
 } from '../src/probe/probe.ts'
 
 /**
- * Offline tests for the probe protocol (`docs/reasoning-effort-probe-plan.md`
- * §4). The point of these is the *gating*, not the sweep: a model that answers
+ * Offline tests for the probe protocol (`src/probe/probe.ts`). The point of
+ * these is the *gating*, not the sweep: a model that answers
  * 200 to a value that cannot exist must never produce a per-level result, and
  * anything non-decisive must degrade to `unknown` rather than to a negative
  * capability claim.

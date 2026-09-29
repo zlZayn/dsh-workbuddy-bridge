@@ -2,7 +2,7 @@
  * The reasoning-effort probe: decide whether a model's `reasoning_effort`
  * parameter is actually validated, and if so which canonical values it accepts.
  *
- * Implements `docs/reasoning-effort-probe-plan.md` §4. The order matters and is
+ * The order below is what `tests/probe.spec.ts` asserts. It matters and is
  * not an optimization:
  *
  * 1. **Baseline** (no `reasoning_effort`) proves the model, credential, and

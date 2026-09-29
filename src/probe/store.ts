@@ -3,10 +3,11 @@
  *
  * What this stores is an *observation*, never a claim about the upstream: a
  * model's row is only consulted when the catalog carries no explicit
- * `supportedEfforts` set, and it always loses to a declared set. The plan this
- * implements (`docs/reasoning-effort-probe-plan.md` §5) requires that a result
- * is invalidated whenever the model's catalog row changes, so every record
- * carries a fingerprint of the fields the probe depended on.
+ * `supportedEfforts` set, and it always loses to a declared set. Every record
+ * carries a fingerprint of the fields the probe depended on, so a result is
+ * invalidated whenever the model's catalog row changes — the precedence rules
+ * are asserted by `tests/probe-store.spec.ts`, and the fingerprint's own input
+ * key order is a compatibility contract (`docs/ARCHITECTURE.md`).
  *
  * The file lives beside the plugin's own credential copy under `$DSH_HOME`,
  * never in the desktop app's files, and carries no token, prompt, or response

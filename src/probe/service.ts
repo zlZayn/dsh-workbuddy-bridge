@@ -4,8 +4,8 @@
  *
  * Kept separate from {@link module:dsh-workbuddy-bridge/probe} so the protocol
  * stays a pure function of one model's responses, while queueing, persistence,
- * and policy live here. Two rules from `docs/reasoning-effort-probe-plan.md`
- * §3.3 are structural rather than advisory:
+ * and policy live here. Two rules are structural rather than advisory, and
+ * `tests/probe-service.spec.ts` is what keeps them that way:
  *
  * - one probe at a time (a user's real chat must not contend with a sweep),
  * - nothing at all happens without explicit consent.

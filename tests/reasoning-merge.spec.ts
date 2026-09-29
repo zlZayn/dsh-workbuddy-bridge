@@ -10,9 +10,9 @@ import type { WorkBuddyModelInfo } from '../src/catalog/index.ts'
 import type { WorkBuddyProbeRecord } from '../src/probe/store.ts'
 
 /**
- * End-to-end tests for the observation/declaration merge, driven through the
- * real LLM seam rather than an internal helper
- * (`docs/reasoning-effort-probe-plan.md` §5).
+ * End-to-end tests for the observation/declaration merge — the two-source
+ * ordering in `src/llm/adapter.ts` — driven through the real LLM seam rather
+ * than an internal helper.
  *
  * What must hold:
  * - with no observation, an undeclared model still exposes no control (the

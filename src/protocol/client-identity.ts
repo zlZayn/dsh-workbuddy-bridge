@@ -1,6 +1,7 @@
 /**
- * The desktop-client identity chat requests present as (phase 1 of
- * `docs/upstream-identity-alignment-plan.md`).
+ * The desktop-client identity chat requests present as (phase 1 of the upstream
+ * identity alignment — unit-covered by `tests/client-identity.spec.ts`, and
+ * re-checked against the real upstream by `scripts/client-identity-live-matrix.mjs`).
  *
  * Chat and its probe sibling carry the User-Agent shape the official desktop
  * client composes — `WorkBuddy/<v> <product>/<v> CLI/<cli>` — where the
@@ -12,7 +13,7 @@
  * a missing extension).
  *
  * Scope: chat and probe requests ONLY. Refresh, catalog, and billing keep
- * the headers they have always sent; the plan holds the blast radius to this
+ * the headers they have always sent; this phase holds the blast radius to
  * one variable so the live verification matrix stays readable.
  *
  * @module dsh-workbuddy-bridge/client-identity
