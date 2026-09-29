@@ -147,3 +147,24 @@ dsh plugin --profile web exec dsh-workbuddy-bridge logout          # 清理插�
 ## 许可
 
 [MIT](LICENSE)。
+
+---
+
+## 本地提交钩子（pre-commit）
+
+提交前自动修复格式（Prettier）与 lint（ESLint）。本仓是三个插件仓里唯一用 pnpm 的，钩子因此走
+`pnpm exec`（与 CI 的 `pnpm install --frozen-lockfile` 同一棵树），**不联网下载**；
+typecheck、测试与 `check:release` 留在 [ci.yml](.github/workflows/ci.yml)。
+
+前提：需要 uv 与 pre-commit（pre-commit 用 `uv tool install pre-commit` 装到 `~/.local/bin`）。
+
+```bash
+uv tool install pre-commit
+pre-commit install
+```
+
+> 装完需重开终端（或重载 shell 配置），PATH 才生效。
+
+- 手动全量跑：`pre-commit run --all-files`
+- 跳过单次：`git commit --no-verify`
+- 定义：[.pre-commit-config.yaml](.pre-commit-config.yaml)

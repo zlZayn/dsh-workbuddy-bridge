@@ -3,3 +3,4 @@ lib/
 assets/
 pnpm-lock.yaml
 *.md
+.pre-commit-config.yaml

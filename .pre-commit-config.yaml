@@ -1,0 +1,43 @@
+# 本地提交钩子：只跑「秒级」检查，能自动修的直接修；修不掉的才拦下提交。
+#
+# 本仓是**三个插件仓里唯一用 pnpm 的**（唯一锁文件 pnpm-lock.yaml），
+# 所以这里用 `pnpm exec` 而不是 `npx`：与 CI（pnpm install --frozen-lockfile
+# --config.node-linker=hoisted）走同一棵树，且**不联网下载**。
+#
+# 必须带 `--config.verify-deps-before-run=false`：pnpm 默认会在 exec 之前校验依赖树，
+# 而本机 pnpm 的 symlink 链接器会卡死（与仓内 ci.yml 文件头记的是同一件事）。
+# 实测不关掉时，每次钩子运行都会触发一次注定失败的隐式 `pnpm install`：
+# 钩子红、并在仓根留下一个 _tmp_ 临时文件。关掉它，钩子只借用树里已有的
+# prettier / eslint，不重装任何东西、不联网。
+#
+# 设计取舍：
+#   - 只跑格式化与 lint（秒级）。typecheck / 测试 / check:release 留给 ci.yml。
+#   - 自动修复（--write / --fix）会让文件在工作树里变化，**需要重新 git add**。
+#
+# 启用（每个 clone 执行一次；pre-commit 本体用 `uv tool install pre-commit` 装到 ~/.local/bin）：
+#   pre-commit install
+# 全量跑一次：
+#   pre-commit run --all-files
+# 临时跳过：
+#   git commit --no-verify
+#
+# 边界：本文件不改 core.hooksPath（本仓该配置为空），也不覆盖 .git/hooks 下
+# 已有的占位钩子；pre-commit 只会写入 .git/hooks/pre-commit。
+repos:
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier --write (pnpm exec)
+        entry: pnpm --config.verify-deps-before-run=false exec prettier --write
+        language: system
+        files: \.(ts|tsx|js|jsx|mjs|cjs|json|css|scss|html|yml|yaml)$
+        exclude: ^(node_modules/|lib/|assets/|pnpm-lock\.yaml$)
+        require_serial: true
+
+      - id: eslint
+        name: eslint --fix (pnpm exec)
+        entry: pnpm --config.verify-deps-before-run=false exec eslint --fix
+        language: system
+        files: \.(ts|tsx|js|jsx|mjs|cjs)$
+        exclude: ^(node_modules/|lib/)
+        require_serial: true

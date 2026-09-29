@@ -53,6 +53,14 @@ jobs:
         timeout-minutes: 8
         run: pnpm run test
 
+      # 以下两步是本次新增：本仓 package.json 早就有 lint / format:check 脚本，
+      # 但 workflow 里从没调用过（typecheck/build/test 三样在跑，lint 反而漏在外头）。
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Format check
+        run: pnpm run format:check
+
       # 发布态不变量：bundle patch / engines.dsh / files 覆盖 / locale 与 icon 那几条。
       - name: Release invariants
         run: pnpm run check:release

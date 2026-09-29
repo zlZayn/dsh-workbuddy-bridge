@@ -24,6 +24,8 @@
 
 ## 常用命令（本机实测）
 
+- 本地钩子：`pre-commit install`（每个 clone 一次；本体 `uv tool install pre-commit`）——提交前自动 `prettier --write` + `eslint --fix`（`pnpm --config.verify-deps-before-run=false exec`，不联网）；CI 只读新增 lint + format:check
+
 - 装依赖：`pnpm install --config.node-linker=hoisted`
 - 全量检查（**顺序固定，build 必须在 test 之前**）：`tsc --noEmit` → `tsdown`（重建 `lib/`）→ `vitest run`
   - [tests/version.spec.ts](tests/version.spec.ts) 断言 `lib/` 产物里的版本与包一致，先跑测试会红（刻意设计）
