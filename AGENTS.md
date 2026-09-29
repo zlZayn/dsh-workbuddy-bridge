@@ -15,7 +15,7 @@
 ## 全局规则
 
 - 架构与设计决策 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 子树手册 → [src/README.md](src/README.md)、[tests/README.md](tests/README.md)、[scripts/README.md](scripts/README.md)、[assets/README.md](assets/README.md)
+- 子树手册 → [src/README.md](src/README.md)、[tests/README.md](tests/README.md)、[scripts/README.md](scripts/README.md)、[assets/README.md](assets/README.md)、[locale/README.md](locale/README.md)
 - 决策记录 → [.agents/notes/](.agents/notes/)（写法见该目录 `AGENTS.md`，不建索引）
 - 发布手册（发版流程、版本号语义、平台契约取真源方式）→ [docs/PUBLISHING.md](docs/PUBLISHING.md)
 - 来源与双版权 → [NOTICE](NOTICE)；许可证 → [LICENSE](LICENSE)
@@ -56,6 +56,9 @@
 - [x] 首次发布 `0.1.0`（维护者本地 publish + Trusted Publisher 已配）；README 门面已按发布态重写（npm 徽章已加）
 - [x] 发布链落地并跑通：`release.yml` 支持推 tag 触发（带 tag/版本一致性闸）、守卫基线排除正在发的 tag、Release 步对 5xx 重试 —— `0.2.0` 全链绿
 - [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
+- [ ] **四份被引用却从未入库的文档**（现查：`git log --all -- <路径>` 为空）：`docs/reasoning-effort-probe-plan.md`（引用最集中，`src/probe/` 与 [src/llm/adapter.ts](src/llm/adapter.ts) 的注释按 §4/§5 引它）、
+  `docs/upstream-identity-alignment-plan.md`、`docs/client-identity-live-verification-2026-09-14.md`（[scripts/client-identity-live-matrix.mjs](scripts/client-identity-live-matrix.mjs) 引它）、`docs/workbuddy-ai-international-research-2026-09-11.md` ——
+  反引号里的路径链接校验照不到，只能现查。待定：补回这四份，还是把引用改指现有落点（[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 或决策记录）
 
 ## 活跃坑
 
