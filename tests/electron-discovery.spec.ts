@@ -23,7 +23,7 @@ import { CN_VARIANT, AI_VARIANT } from '../src/variants.ts'
  * Every test here drives the discovery flow through injected tools, so no test
  * spawns `mdfind` or `plutil` — and so a test can force the fallback branch
  * without moving the real application. The contracts under test are the ones
- * §3.1–§3.7 of `docs/issue-48-electron-path-plan.md` fix: explicit config is
+ * §3.1–§3.7 of `docs/archive/issue-48-electron-path-plan.md` fix: explicit config is
  * authoritative, discovery runs only after the default path fails, identity is
  * proved before execution, and an unfinished check is never mistaken for an
  * absent app.
