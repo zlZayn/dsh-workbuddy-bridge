@@ -166,6 +166,11 @@ maintainer map → [AGENTS.md](AGENTS.md).
 
 [MIT](LICENSE).
 
+## Contributing
+
+Read [AGENTS.md](AGENTS.md) first (rules, common commands, active pitfalls), then `pre-commit install`;
+before a PR run `pnpm run typecheck && pnpm run build && pnpm run test`. Bugs and requests go to the repo Issues.
+
 ---
 
 ## Local commit hooks (pre-commit)

@@ -148,6 +148,11 @@ dsh plugin --profile web exec dsh-workbuddy-bridge logout          # 清理插�
 
 [MIT](LICENSE)。
 
+## 贡献
+
+先读 [AGENTS.md](AGENTS.md)（规则、常用命令、活跃坑），再 `pre-commit install` 装本地钩子；
+提 PR 前跑 `pnpm run typecheck && pnpm run build && pnpm run test`。缺陷与需求走仓库 Issues。
+
 ---
 
 ## 本地提交钩子（pre-commit）
