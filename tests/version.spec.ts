@@ -3,6 +3,49 @@ import { describe, expect, it } from 'vitest'
 import { WORKBUDDY_BRIDGE_VERSION } from '../src/version.ts'
 
 /**
+ * The keys of every `"<local>": "<hash>_<local>"` object literal, one array per
+ * literal.
+ *
+ * Deliberately loose about the *shape* and strict about the *ties*, because every
+ * one of these assumptions failed on a real runner (2026-10-01, first three-platform
+ * run):
+ * - one `.module.css` yields one map, so a bundle holds several, and their relative
+ *   order in the file is not a contract this test can assert;
+ * - rolldown prints the same literal compactly or expanded depending on the
+ *   platform, with bare or quoted keys — an exact `"key": "` match scanned only
+ *   part of the bundle;
+ * - the hash segment may start with `_` (`_1kHyqG_assist`), so a `[0-9a-zA-Z]+`
+ *   value pattern silently skipped a whole map.
+ */
+function classMapBlocks(text: string): string[][] {
+  const pair = /(?:"([A-Za-z][\w]*)":|([A-Za-z][\w]*):)\s*"([\w]+)_([A-Za-z][\w]*)"/g
+  const matches: { key: string; index: number; raw: string }[] = []
+  for (const match of text.matchAll(pair)) {
+    const key = match[1] ?? match[2]
+    // The value's tail repeating the key is what makes this scan specific.
+    if (key === undefined || key !== match[4]) continue
+    matches.push({ key, index: match.index, raw: match[0] })
+  }
+  const blocks: string[][] = []
+  let current: string[] = []
+  for (let i = 0; i < matches.length; i += 1) {
+    const match = matches[i]!
+    if (i > 0) {
+      const previous = matches[i - 1]!
+      // A `}` between two pairs means they belong to different literals.
+      const between = text.slice(previous.index + previous.raw.length, match.index)
+      if (between.includes('}')) {
+        blocks.push(current)
+        current = []
+      }
+    }
+    current.push(match.key)
+  }
+  if (current.length > 0) blocks.push(current)
+  return blocks
+}
+
+/**
  * Guard the single-source-of-truth version contract:
  * - the build-time define injects package.json's version into src/version.ts;
  * - if that define is ever dropped, version.ts falls back to '0.0.0-dev' and
@@ -56,10 +99,10 @@ describe('package version sync', () => {
   })
 
   /**
-   * `lib/` is tracked in this repository, so the emitted class map must be in a
+   * `lib/` is tracked in this repository, so every emitted class map must be in a
    * stable order: an unstable build turns every rebuild into a diff and makes
-   * "did the artifact change?" unanswerable. The map is emitted as
-   * `"<local>": "<hash>_<local>"` pairs — assert those keys come out sorted.
+   * "did the artifact change?" unanswerable. Each map is emitted as
+   * `"<local>": "<hash>_<local>"` pairs — assert each one comes out sorted.
    *
    * Guards tsdown.config.ts's cssModulesPlugin, which sorts the keys before
    * emitting them (lightningcss returns `exports` in a non-deterministic order).
@@ -69,17 +112,28 @@ describe('package version sync', () => {
     if (!existsSync(libDir)) return
     const bundle = readdirSync(libDir).find((name) => name === 'client.js')
     if (bundle === undefined) return
-    const text = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
-    const keys = [...text.matchAll(/"([A-Za-z][\w]*)": "[0-9a-zA-Z]+_\1"/g)].map(
-      (match) => match[1] as string,
+    const blocks = classMapBlocks(
+      readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'),
     )
-    // Self-check: the scan must actually see the class map.
+    // Self-check: the scan must actually see a class map.
     expect(
-      keys.length,
+      blocks.length,
       'no CSS class map found in lib/client.js — is the scan still right?',
     ).toBeGreaterThan(0)
-    expect(keys, 'CSS class map is not sorted — the build is non-deterministic').toEqual(
-      [...keys].sort(),
-    )
+    for (const keys of blocks) {
+      expect(keys, 'CSS class map is not sorted — the build is non-deterministic').toEqual(
+        [...keys].sort(),
+      )
+    }
+    // Reverse control: the extractor sees an unsorted block, does not glue two blocks
+    // together, and is not fooled by the hash or key shapes the runners produce.
+    expect(classMapBlocks('{ "b": "h_b", "a": "h_a" }')).toEqual([['b', 'a']])
+    expect(classMapBlocks('{ "a": "h_a" }; { "b": "h_b" }')).toEqual([['a'], ['b']])
+    // A leading underscore in the hash segment, and a bare key: both were skipped by
+    // the previous pattern, which is how a whole map stayed invisible on one platform.
+    expect(classMapBlocks('{ "x": "_h_x" }')).toEqual([['x']])
+    expect(classMapBlocks('{ x: "_h_x" }')).toEqual([['x']])
+    // The backreference tie still holds: an unrelated pair is not a class map.
+    expect(classMapBlocks('{ "x": "h_other" }')).toEqual([])
   })
 })

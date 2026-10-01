@@ -199,7 +199,12 @@ describe('catalog lifecycle', () => {
       expect((await ctx.llm.listModels('workbuddy')).length).toBeGreaterThan(0)
     })
     expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toContain('minimax-m3')
-    expect(attempts).toBeGreaterThanOrEqual(1)
+    // The fallback roster is served immediately, so the wait above can be satisfied
+    // before the first fetch even starts: wait for the attempt itself before counting
+    // it (2026-10-01: a slower runner reached this line with attempts === 0).
+    await vi.waitFor(() => {
+      expect(attempts).toBeGreaterThanOrEqual(1)
+    })
 
     // Without the retry this stayed on the fallback list until a manual
     // refresh — a startup network blip should not require user action.
