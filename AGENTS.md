@@ -47,7 +47,9 @@
 
 - **[ci.yml](.github/workflows/ci.yml) 跑三平台矩阵**（ubuntu / windows / macos），每格：install → typecheck（两半体）→ build →
   离线 shim 验证 → test（带覆盖率门槛）→ lint → format:check → check:release。
-  跑没跑、绿不绿看 [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)，数字不抄。
+  2026-10-01 首跑三格全绿；macOS 格上 `tests/electron-discovery.spec.ts` 不再是全跳（只剩 win32 专属那两条），
+  说明三条真 `plutil` + 真 `X_OK` 守卫真的执行了。跑没跑、绿不绿看
+  [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)，数字不抄。
 - 本机（Windows）实跑：`vitest` 全绿（文件数随套件增减，现跑现看）；skip 的那些是**平台专属断言**，不是缺陷 ——
   平台矩阵就是为它们存在的：POSIX 语义那几条在 ubuntu / macOS 上真跑，打真实 `reg.exe` 的只在 Windows 上跑，
   真 `plutil` + 真 `X_OK` 的只在 macOS 上跑
@@ -61,7 +63,6 @@
 - [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
 - [ ] **注册与揭示之间的空窗**：真实会话在首次凭据扫描采纳账号前发消息会拿到 `UNKNOWN_MODEL`（不是测试独有问题，本轮只给测试补了 gate）。
   机制、影响面与三个候选方向登记在 [issue #2](https://github.com/zlZayn/dsh-workbuddy-bridge/issues/2)；改法动的是启动语义，等拍板
-- [ ] **三平台矩阵首跑**：已推送，等首跑记录 —— 重点看 windows / macos 两格，以及三条真 `plutil` 守卫的首次真执行（本机证据只有 Windows 一格）
 
 ## 活跃坑
 
