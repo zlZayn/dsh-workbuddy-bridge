@@ -11,6 +11,15 @@
 2. **全量检查**：`pnpm check`（= `typecheck` + `vitest run` + `build`，命令原文见 [package.json](../package.json) 的 `scripts`）。
 3. **文档同步**：改了对外可见行为（配置项、工具/模型面、安装命令、版本对应表）→ 同一次改动内同步 [README.md](../README.md) 与 [README_en.md](../README_en.md)（**两份必同改**）。
 4. **链接与格式**：跑一次链接校验（见 [AGENTS.md](../AGENTS.md) 的常用命令），确保 `docs/` 与子树双件没有断链。
+5. **真机验证（CI 覆盖不到的那一段）**：托管 runner 上没有 WorkBuddy 桌面 App、也没有真实登录凭据，所以下面三条只能在本机跑。
+   发版前逐条执行，输出即记录（脚本自己会打 PASS/FAIL）：
+
+   - `node scripts/live-e2e.mjs` —— 适配器 → pi-ai → shim → 真实上游的端到端，用本机登录态。依赖 `lib/` 产物，**先 build**。
+   - `node scripts/client-identity-live-matrix.mjs` —— 客户端身份真实矩阵（八个 case，各打各的判定）。同样依赖 `lib/`，先 build。
+   - `node scripts/issue-48-forced-fallback-e2e.mjs` —— macOS 强制 fallback 真链（真 `mdfind` / `plutil` / helper spawn）。
+     **未跑之前，Release notes 不得声称 macOS 自动发现"已验证"**（判据：[archive/issue-48-electron-path-plan.md](archive/issue-48-electron-path-plan.md) §9.2-A）。
+
+   这三条进不了 CI 是平台事实（见 [ci.yml](../.github/workflows/ci.yml) 的矩阵注释），所以它们只有在**这份清单里**才算数。
 
 ## 发版
 
@@ -44,7 +53,7 @@
 **每个插件版本只支持一段 DSH 核心**，不匹配的组合会让 DSH 启动失败。
 
 - **下限的唯一真源是 [package.json](../package.json)**：`engines.dsh` 与全部 `@deepseek-ai/dsh-*` 声明写同一个下限（本仓统一 `>=<下限>`，不设上限）。本文与门面都不重抄那个号。
-- **本仓只支持一条线**，不提供跨代兼容层：宿主换线时，同一次改动内抬 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 的下限，并同步 [README.md](../README.md) 的「版本兼容」一节（中英两份）。
+- **本仓只支持一条线**，不提供跨代兼容层：宿主换线时，同一次改动内抬 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 的下限，并同步 [README.md](../README.md) 的「兼容与已知限制」一节（中英两份）。
 - 判断「声明还罩不罩得住被跟的那条线」用 `pnpm run check:release`（它比 peer 与 `engines.dsh` 的下限）。
 
 ## 平台契约的取真源方式

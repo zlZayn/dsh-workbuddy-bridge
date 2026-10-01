@@ -132,6 +132,13 @@ dsh plugin --profile web exec dsh-workbuddy-bridge logout          # 清理插�
 设计取舍 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；发版流程 → [docs/PUBLISHING.md](docs/PUBLISHING.md)；
 维护者文档地图 → [AGENTS.md](AGENTS.md)。
 
+## 更新记录
+
+每个版本改了什么看 [GitHub Releases](https://github.com/zlZayn/dsh-workbuddy-bridge/releases)：每个 tag 一份 notes，
+由发布流程自动生成（npm 上的版本号与 tag 一一对应）。
+
+`0.1.0` 是维护者本地 `npm publish` 发的，没有对应的 tag 与 Release（当时发布流程还没用上）；`0.2.0` 起全部由发布流程产出。
+
 ## 免责声明
 
 - 本项目**仅供个人学习和研究使用**，仅驱动使用者自己的 WorkBuddy 账号在本机调用，请勿用于商业用途或超出个人合理使用的场景。

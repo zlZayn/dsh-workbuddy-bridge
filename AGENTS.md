@@ -29,6 +29,7 @@
 - 装依赖：`pnpm install --config.node-linker=hoisted`
 - 全量检查（**顺序固定，build 必须在 test 之前**）：`tsc --noEmit` → `tsdown`（重建 `lib/`）→ `vitest run`
   - [tests/version.spec.ts](tests/version.spec.ts) 断言 `lib/` 产物里的版本与包一致，先跑测试会红（刻意设计）
+  - 上面三步就是 `pnpm check`；CI 的 Test 步带覆盖率门槛：`pnpm exec vitest run --coverage`（阈值与 include / exclude 见 [vitest.config.ts](vitest.config.ts)）
 - `node_modules/.bin` 为空时按直接路径跑：`node node_modules/typescript/bin/tsc --noEmit`、`node node_modules/tsdown/dist/run.mjs`、`node node_modules/vitest/vitest.mjs run`
 - 链接校验：`python <maintenance-flow>/check-markdown-links.py <本仓> --fragments --refs` —— 本仓不自带脚本，用维护者 skill 目录里那份；[ci.yml](.github/workflows/ci.yml) 不跑这一条，改完文档手工跑
 
@@ -44,11 +45,13 @@
 
 ## 验证快照
 
-- **CI 已跑通**（Linux，[ci.yml](.github/workflows/ci.yml)）：install → typecheck（两半体）→ build → test → check:release 九步全绿。
-  数字不抄，看 [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)。
-- 本机（Windows）实跑：`vitest` 全绿（文件数随套件增减，现跑现看）；skip 的那几条是 Windows 与 POSIX 的语义差
-  （权限位、EACCES 注入、XDG/WSL 路径、跨进程启动时间），**不是缺陷**：CI 上它们真的执行并通过
-- 链接校验 0 errors（文件与链接计数随文档增删变，不抄）；warning 只来自门面的 HTML 语言切换链接，与另两仓同形
+- **[ci.yml](.github/workflows/ci.yml) 跑三平台矩阵**（ubuntu / windows / macos），每格：install → typecheck（两半体）→ build →
+  离线 shim 验证 → test（带覆盖率门槛）→ lint → format:check → check:release。
+  跑没跑、绿不绿看 [CI 运行记录](https://github.com/zlZayn/dsh-workbuddy-bridge/actions/workflows/ci.yml)，数字不抄。
+- 本机（Windows）实跑：`vitest` 全绿（文件数随套件增减，现跑现看）；skip 的那些是**平台专属断言**，不是缺陷 ——
+  平台矩阵就是为它们存在的：POSIX 语义那几条在 ubuntu / macOS 上真跑，打真实 `reg.exe` 的只在 Windows 上跑，
+  真 `plutil` + 真 `X_OK` 的只在 macOS 上跑
+- 链接校验 0 errors、0 warnings（文件与链接计数随文档增删变，不抄）
 
 ## 待办
 
@@ -58,6 +61,7 @@
 - [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
 - [ ] **注册与揭示之间的空窗**：真实会话在首次凭据扫描采纳账号前发消息会拿到 `UNKNOWN_MODEL`（不是测试独有问题，本轮只给测试补了 gate）。
   机制、影响面与三个候选方向登记在 [issue #2](https://github.com/zlZayn/dsh-workbuddy-bridge/issues/2)；改法动的是启动语义，等拍板
+- [ ] **三平台矩阵首跑**：已推送，等首跑记录 —— 重点看 windows / macos 两格，以及三条真 `plutil` 守卫的首次真执行（本机证据只有 Windows 一格）
 
 ## 活跃坑
 
@@ -97,6 +101,16 @@
   代码注释与正文里的 `` `docs/x.md` `` 一律照不到 —— 目标被搬走、或压根没入库，都是静默的。
   判据：动过文档路径就 `git grep -n <文件名>` 现查目标存在（2026-09-29 就是这么查出四份从未入库的规划文档
   被 10 处注释引用，处置见 [.agents/notes/2026-09-29-dead-doc-references-retargeted.md](.agents/notes/2026-09-29-dead-doc-references-retargeted.md)）
+- **覆盖率有三条判据**：`@vitest/coverage-v8` 必须与 `vitest` 同版（不同版是双向 unmet peer，`pnpm peers check` 当场报，
+  两个包要一起装）；`include` 写 `src/**` 会把子树的文档双件与 `.css` 一起交给 v8 解析 ——
+  每次刷 20 组 `RolldownError: Parse failed`（收窄成 `src/**/*.{ts,tsx}` 即无）；不开 `exclude` 则浏览器 lane 里
+  inline 的官方包会因缺 `.js.map` 让 v8 的 remap 直接抛。全套定义在 [vitest.config.ts](vitest.config.ts)
+- **真机脚本进不了 CI，落点是发版清单**：`scripts/issue-48-forced-fallback-e2e.mjs` 读真机凭据文件、且开头就是前提断言，
+  托管 runner 上必崩（不是缺陷，是平台事实）；三条真机脚本的位置是 [docs/PUBLISHING.md](docs/PUBLISHING.md)「发版前确认」第 5 条
+- **活文档里的宿主版本提示只警告、不阻断**（[tests/redlines.spec.ts](tests/redlines.spec.ts)）：按**行**看，同一行既点名宿主
+  （`DSH` / `宿主` / `Harness`）又出现 `package.json` 里那个下限值、而该段没点出处也没标历史 → 打一条 warning 给人判一眼。
+  写历史陈述请用仓库陈词（`先例` / `当时` / `历史` / `X 起`）；判据与替代方案见
+  [.agents/notes/2026-10-01-live-doc-host-version-guard.md](.agents/notes/2026-10-01-live-doc-host-version-guard.md)
 
 ## 文档网络与自更新
 
