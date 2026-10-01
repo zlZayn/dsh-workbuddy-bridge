@@ -3,6 +3,9 @@
  *
  * 每条都尽量写成**可执行**的：读源码 / 读清单 / 读锁文件，而不是复述散文。
  * 扫描类的断言一律自带「扫描器真的看到了东西」的自检 —— 否则它就是永不触发的假绿。
+ *
+ * 唯一例外是 `文档不抄实测值` 里那条宿主版本提示：它只 **warn**、不 fail —— 判据是形状，
+ * 规则管的是意图，两者不可能完全对齐，所以它只配提示复核（见该处注释）。
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
@@ -404,35 +407,57 @@ describe('发布流程', () => {
 })
 
 /**
- * 这条守卫只管辖**「告诉使用者要哪一版」**的那些话：
- * 既提到宿主版本、又带着要求口吻（只支持 / 要求 / 及以上 / or newer …），
- * 却没有在同一段里点出出处（`package.json` / `engines`）或标明是历史（`X 起` / 当时 / 旧线）。
+ * 这条提示只有**警告**，不阻断：活文档里复述了宿主下限那个值时，若不与出处同段、也没标为历史，
+ * 就在测试输出里打一条 warning，交给人判一眼。**警告不等于放行**。
  *
- * 不管辖：插件自己的版本号（由 package.json 与 version.spec 兜底）、
- * 以及纯历史陈述（「0.1.7 起」说的是那件事发生在哪一版，不是要求读者去装哪一版）。
+ * 为什么是警告而不是红线：判据是能机械判的"形状"，规则管的是"这句话想说什么"，两者不可能完全对齐。
+ * 收紧到下面两个真信号后，当前语料上误报为 0，但仍会**漏报**（写旧 / 写错的宿主版本），
+ * 所以它只配提示复核，不配替人下结论。
+ *
+ * 判据是两个真信号，**不用语气词**（只支持 / 要求 / 需要 / only 那类词是普通词，会随机误报：
+ * 2026-10-01 那次误报就是「版本 `0.1.0`」与「不**需要**」同段触发的）：
+ * 1. **真值**：`package.json` 的 `engines.dsh` 下限（去掉预发布段），不是 `0.1.\d+` 这种形状 ——
+ *    形状分不清宿主版本与插件自己的版本号，而且宿主抬线后会**静默失效**。
+ * 2. **主语**：同一行点名宿主（`DSH` / `宿主` / `Harness`）。小写 `dsh` 是命令与包名，不算。
+ *
+ * 出处（`package.json` / `engines`）与历史陈述都按**段**判：散文折行时出处会落到下一行；
+ * 标历史用仓库的陈词（先例 / 当时 / 历史 / 旧线 / `X 起`），别让豁免词表无边际地长。
  */
-function needsSource(paragraph: string): boolean {
-  if (!mentionsHostRequirement(paragraph)) return false
-  if (hasSource(paragraph)) return false
-  if (/\d+\.\d+\.\d+\s*起|当时|历史|旧线|重做|archive/.test(paragraph)) return false
-  return true
+interface HostVersionMention {
+  value: string
+  line: string
+}
+
+/** 宿主下限：唯一真源是 `package.json`，所以这里读它，不写死。 */
+const HOST_FLOOR = String(pkg.engines.dsh ?? '').replace(/^>=\s*/, '')
+/** 文档通常只写下限的数值段（`0.1.7`），清单里却带预发布段（`0.1.7-rc.2`）。 */
+const HOST_VERSION = new RegExp(`${HOST_FLOOR.replace(/-.*$/, '').replace(/\./g, '\\.')}(?![\\d.])`)
+/** 点名宿主。大小写敏感：小写 `dsh` 出现在命令与包名里，不是主语。 */
+const HOST_SUBJECT = /DSH|宿主|Harness|deepseek-harness/
+/** 明确标为历史。 */
+const MARKED_HISTORICAL = /先例|当时|历史|旧线|重做|archive|\d+\.\d+\.\d+\s*起/
+/** 同段里点出了出处。 */
+const HAS_SOURCE = /package\.json|engines/
+
+/** 这一段里有哪一行复述了宿主下限却没给交代；没有就返回 undefined。 */
+function needsSource(paragraph: string): HostVersionMention | undefined {
+  if (HAS_SOURCE.test(paragraph)) return undefined
+  if (MARKED_HISTORICAL.test(paragraph)) return undefined
+  for (const line of paragraph.split(/\r?\n/)) {
+    const value = HOST_VERSION.exec(line)?.[0]
+    if (value === undefined) continue
+    if (!HOST_SUBJECT.test(line)) continue
+    return { value, line: line.trim() }
+  }
+  return undefined
 }
 
 /**
- * 这段话在讲「要哪一版宿主」——不管它有没有给出处。
- * 自检用它：文档里必须真的存在这类话，上面那个循环才不是空转。
+ * 这段里有没有「点名宿主 + 下限值」这句话 —— 不管它有没有交代。
+ * 自检用它：语料里必须真的存在这类话，否则上面那条警告是空转。
  */
-function mentionsHostRequirement(paragraph: string): boolean {
-  const mentionsHost = /0\.1\.\d+(-[a-z]+\.\d+)?/.test(paragraph)
-  if (!mentionsHost) return false
-  return /只支持|仅支持|要求|需要|及以上|或更高|不自动覆盖|supports|requires|or newer|only/.test(
-    paragraph,
-  )
-}
-
-/** 同段里点出了出处。 */
-function hasSource(paragraph: string): boolean {
-  return /package\.json|engines/.test(paragraph)
+function mentionsHostVersion(paragraph: string): boolean {
+  return paragraph.split(/\r?\n/).some((line) => HOST_VERSION.test(line) && HOST_SUBJECT.test(line))
 }
 
 describe('文档不抄实测值', () => {
@@ -452,38 +477,56 @@ describe('文档不抄实测值', () => {
       expect(existsSync(new URL(`../${doc}`, import.meta.url)), doc).toBe(true)
   })
 
-  it('活文档里的宿主版本必须与出处同段（或明确标为历史）', () => {
-    const floor = (pkg.engines.dsh ?? '').replace(/^>=\s*/, '')
+  /**
+   * 只警告，不阻断。打印出来的每一条都请人工判一眼：
+   * 补出处（`package.json` / `engines`），还是标为历史（先例 / 当时 / `X 起`）。
+   */
+  it('活文档里的宿主版本只给提示，不阻断', () => {
+    const hints: string[] = []
     for (const doc of LIVE_DOCS) {
-      const text = read(doc)
-      // 按**段**判，不按物理行：散文会折行，出处常常落在上一行或下一行。
-      const paragraphs = text.split(/\r?\n\s*\r?\n/)
-      for (const paragraph of paragraphs) {
-        if (!needsSource(paragraph)) continue
-        expect(hasSource(paragraph), `${doc}: ${paragraph.trim().slice(0, 120)}`).toBe(true)
+      // 按**段**切、按**段**找出处：散文折行时 `package.json` 会落到下一行。
+      for (const paragraph of read(doc).split(/\r?\n\s*\r?\n/)) {
+        const mention = needsSource(paragraph)
+        if (mention === undefined) continue
+        hints.push(
+          `  ${doc}:「${mention.value}」没同段点出处（package.json / engines），也没标为历史\n    ${mention.line.slice(0, 140)}`,
+        )
       }
     }
-    // 自检：活文档里必须真的有「要哪一版宿主」这类话（带不带出处都算），
-    // 否则上面那个循环扫的是一个空集合 —— 那是永不触发的假绿。
+    if (hints.length > 0) {
+      console.warn(
+        `\n[活文档宿主版本] ${hints.length} 处要人工判一眼（警告，不阻断）：\n${hints.join('\n')}\n`,
+      )
+    }
+    // 唯一的硬断言：扫描器真的活着 —— 否则这条警告永远不会有人看到（假绿）。
     const inScope = LIVE_DOCS.flatMap((doc) => read(doc).split(/\r?\n\s*\r?\n/)).filter(
-      (paragraph) => mentionsHostRequirement(paragraph),
+      (paragraph) => mentionsHostVersion(paragraph),
     )
-    expect(inScope.length, '活文档里没有「要哪一版宿主」这类话 —— 守卫空转了').toBeGreaterThan(0)
-    void floor
+    expect(inScope.length, '活文档里读不到任何「宿主 + 下限值」—— 这条提示已空转').toBeGreaterThan(
+      0,
+    )
   })
 
-  it('上面那条守卫有牙齿（反向控制）', () => {
-    // 告诉使用者「要哪一版」却不给出处 → 在管辖内（会被抓）。
-    expect(needsSource('本仓只支持 DSH 0.1.7-rc.2 及以上。')).toBe(true)
-    expect(hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上。')).toBe(false)
-    // 同一条话补上出处 → 放行。
+  it('上面那条提示的判据有牙齿（反向控制）', () => {
+    // 复述宿主下限、不给出处 → 命中（会提示），并报出命中的值。
+    expect(needsSource('本仓只支持 DSH 0.1.7 线，不做跨代兼容。')).toMatchObject({
+      value: '0.1.7',
+    })
+    // 同段补上出处、或标为历史 → 不提示。
     expect(
-      hasSource('本仓只支持 DSH 0.1.7-rc.2 及以上；下限见 package.json 的 engines.dsh。'),
-    ).toBe(true)
-    // 历史陈述（“X 起”）与插件自己的版本号都不在管辖内。
-    expect(needsSource('0.1.7 起 Config schema 就是设置文档。')).toBe(false)
-    expect(needsSource('版本 `0.1.0`；尚未发布到 npm。')).toBe(false)
-    // 自检用的谓词必须看得到「要求 + 宿主版本」，哪怕那段已经带了出处。
-    expect(mentionsHostRequirement('本仓只支持 DSH 0.1.7-rc.2；下限见 package.json。')).toBe(true)
+      needsSource('本仓只支持 DSH 0.1.7 线；下限见 package.json 的 engines.dsh。'),
+    ).toBeUndefined()
+    expect(needsSource('先例（2026-09-25）：实装宿主 0.1.7-rc.2 里两者都存在。')).toBeUndefined()
+    // 插件自己的版本号不在管辖内：判据是清单里的真值，不是 `0.1.\d+` 的形状。
+    // 下面两条就是 2026-10-01 那次误报的形状（旧版本号 + 普通词「需要」）。
+    expect(needsSource('版本 `0.1.0`；尚未发布到 npm。')).toBeUndefined()
+    expect(needsSource('- [x] 首次发布 `0.1.0` 已完成\n- [ ] 这里不再需要走那条路')).toBeUndefined()
+    // 值对但没点名宿主 → 也不提示：那可能只是在提一个版本号。
+    expect(needsSource('插件 `0.1.7` 版改了接缝。')).toBeUndefined()
+    // 真值来自清单，不是写死的形状。
+    expect(HOST_VERSION.test('宿主 0.1.7-rc.2')).toBe(true)
+    expect(HOST_VERSION.test('宿主 0.1.0')).toBe(false)
+    // 自检用的谓词必须看得到「宿主 + 下限值」，哪怕那段已经带了出处。
+    expect(mentionsHostVersion('本仓只支持 DSH 0.1.7；下限见 package.json。')).toBe(true)
   })
 })

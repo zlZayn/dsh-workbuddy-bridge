@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -10,6 +11,7 @@ import {
   deriveProtectorKey,
   reasonCodeOf,
   windowsInstallsFromRegistry,
+  workBuddyDiscoveryTools,
   workBuddyWindowsDiscoveryTools,
 } from '../src/credential/at-rest.ts'
 import type { WorkBuddyDiscoveryTools } from '../src/credential/at-rest.ts'
@@ -667,6 +669,112 @@ describe('Windows discovery: against the real registry', () => {
       await expect(
         workBuddyWindowsDiscoveryTools().findInstallRoots(controller.signal),
       ).rejects.toThrow()
+    },
+  )
+})
+
+describe('macOS discovery: against the real plutil', () => {
+  /**
+   * The end-to-end seam of the *front* half of the macOS chain, the counterpart
+   * of the real-`reg.exe` guard above.
+   *
+   * Search, identity and executability (`plutil` reads `CFBundleIdentifier`,
+   * then `X_OK`) need no credential and no installed app, so they run on a
+   * hosted macOS runner for real: `plutil`, the filesystem and the permission
+   * bits are genuine. Only `findApps` is a stand-in — Spotlight indexing is not
+   * something a runner can be made to deliver.
+   *
+   * What it cannot prove: the Spotlight query itself, and the helper spawn that
+   * turns a key out of the app, which needs the real app and a signed-in
+   * account. Those two stay on the release checklist in
+   * [docs/PUBLISHING.md](../../docs/PUBLISHING.md) (「发版前确认」).
+   */
+  const plistText = (identifier: string): string =>
+    [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0">',
+      '<dict>',
+      '  <key>CFBundleIdentifier</key>',
+      `  <string>${identifier}</string>`,
+      '</dict>',
+      '</plist>',
+    ].join('\n')
+
+  /** A bundle carrying a real `Info.plist`; `mode` is the Electron's permission bits. */
+  async function bundle(
+    name: string,
+    identifier: string,
+    mode = 0o755,
+  ): Promise<{ bundlePath: string; electronPath: string }> {
+    const app = await fakeApp(name)
+    await writeFile(join(app.bundlePath, 'Contents', 'Info.plist'), plistText(identifier))
+    if (mode !== 0o755) await chmod(app.electronPath, mode)
+    return app
+  }
+
+  /** The real tools, with only the Spotlight answer replaced. */
+  function toolsFinding(bundlePath: string): WorkBuddyDiscoveryTools {
+    return { ...workBuddyDiscoveryTools(), findApps: async () => [bundlePath] }
+  }
+
+  function providerOn(
+    tools: WorkBuddyDiscoveryTools,
+    spawned: { path?: string },
+  ): WorkBuddyAtRestKeyProvider {
+    return new WorkBuddyAtRestKeyProvider({
+      discovery: 'macos-workbuddy',
+      // Force the discovery branch: the default path must not exist, and that
+      // check (`accessSync`) is real as well.
+      defaultElectronPath: join(root, 'absent', 'WorkBuddy.app', 'Contents', 'MacOS', 'Electron'),
+      tools,
+      spawnHelper: async (path) => {
+        spawned.path = path
+        return PAYLOAD_TEXT
+      },
+    })
+  }
+
+  it.skipIf(process.platform !== 'darwin')(
+    'proves a discovered bundle with the real plutil before running it',
+    async () => {
+      // A premise, asserted rather than assumed: a vacuous green here would be
+      // the same "never executed" hole this guard exists to close.
+      expect(existsSync('/usr/bin/plutil'), '/usr/bin/plutil is required on darwin').toBe(true)
+      const app = await bundle('WorkBuddy.app', WORKBUDDY_CN_BUNDLE_ID)
+      const readBack = await workBuddyDiscoveryTools().bundleIdentifier(
+        app.bundlePath,
+        new AbortController().signal,
+      )
+      expect(readBack, 'the real plutil could not read the synthetic plist').toBe(
+        WORKBUDDY_CN_BUNDLE_ID,
+      )
+
+      const spawned: { path?: string } = {}
+      await providerOn(toolsFinding(app.bundlePath), spawned).protectorKeyFor([KEY_ID])
+      expect(spawned.path).toBe(app.electronPath)
+    },
+  )
+
+  it.skipIf(process.platform !== 'darwin')(
+    'excludes a bundle whose real plist names another identifier',
+    async () => {
+      const app = await bundle('NotWorkBuddy.app', 'com.example.not-workbuddy')
+      const error = await providerOn(toolsFinding(app.bundlePath), {})
+        .protectorKeyFor([KEY_ID])
+        .catch((caught: unknown) => caught)
+      expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
+    },
+  )
+
+  it.skipIf(process.platform !== 'darwin')(
+    'excludes a right-identifier bundle whose Electron is not executable',
+    async () => {
+      const app = await bundle('WorkBuddy.app', WORKBUDDY_CN_BUNDLE_ID, 0o644)
+      const error = await providerOn(toolsFinding(app.bundlePath), {})
+        .protectorKeyFor([KEY_ID])
+        .catch((caught) => caught)
+      expect(reasonCodeOf(error)).toBe('electron-binary-not-found')
     },
   )
 })
