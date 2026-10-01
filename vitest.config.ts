@@ -58,6 +58,30 @@ export default defineConfig({
      */
     maxWorkers: 8,
     minWorkers: 2,
+    /**
+     * Coverage gate.
+     *
+     * `include` names TypeScript explicitly instead of the obvious `src/**`:
+     * that directory also holds every subtree's `README.md`/`AGENTS.md`, two
+     * `.module.css` files and one `.d.ts`, and the v8 provider parses whatever
+     * it is handed — a bare `src/**` prints 20 `RolldownError: Parse failed`
+     * stacks per run. Those files are dropped right after, so the numbers come
+     * out identical; only the log noise is avoidable.
+     *
+     * `lib/**` is build output and `tests/**` is the harness itself — counting
+     * either would let the number move without a line of source changing. The
+     * `node_modules` entry backs that up: the browser lane inlines two official
+     * packages, and their `//# sourceMappingURL=index.js.map` points at a map
+     * they do not publish. A plain run only warns about it, but the v8
+     * provider's remap throws.
+     */
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['lib/**', 'tests/**', 'node_modules/**', '**/*.d.ts'],
+      reporter: ['text', 'json-summary'],
+      thresholds: { lines: 70, statements: 70, functions: 60, branches: 60 },
+    },
     projects: [
       {
         define: VERSION_DEFINE,

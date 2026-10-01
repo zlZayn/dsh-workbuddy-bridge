@@ -19,7 +19,19 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # 平台矩阵。单测里的平台 API 是 mock 注入的，所以矩阵的价值不在"把同样的用例再跑一遍"，
+    # 而在把**只有真平台才会执行**的断言拉进 CI —— 每条都能在 specs 里查到：
+    #   · win32：electron-discovery.spec.ts 里两条打**真实 reg.exe** 的守卫
+    #     （`skipIf(platform !== 'win32')`）—— ubuntu 上永远跳过，这条红线从没在 CI 上响过；
+    #   · darwin：desktop-credential-protection.spec.ts 的默认路径断言在 darwin 上期望
+    #     `/Applications/WorkBuddy.app/Contents/MacOS/Electron`，在 ubuntu 上走 `undefined` 的否定分支；
+    #   · 反向的 8 条 POSIX 断言（权限位 / EACCES / XDG、WSL 路径）在 ubuntu 上已在跑，Windows 上跳过。
+    # fail-fast 关掉：矩阵的意义就是"某一格红了也要看清另外两格"，默认会在第一格失败时取消其余两格。
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     # 整轮上限。默认是 6 小时：一旦有测试挂住（不是失败，是不返回），
     # 这里不设限就等于让它白占一个 runner 半天。15 分钟对本仓绰绰有余 ——
     # 本机全量 5.5 秒，CI 上 install + typecheck + build + test 实测约 2 分钟。
@@ -48,10 +60,17 @@ jobs:
       - name: Build (produces lib/)
         run: pnpm run build
 
+      # 纯离线的 shim 安全验证：假上游 + 6 个原始 HTTP 请求，验 DNS-rebinding 403 / 跨站 Origin 403 /
+      # 非 JSON CSRF 415 / 有密钥 200 / 无密钥 401 / 错密钥 401。不碰真实 WorkBuddy，所以能进 CI。
+      # 位置是死的：脚本 import 的是 lib/ 产物而不是 src/，排在 build 之前必红。
+      - name: Shim security hardening (offline)
+        run: node scripts/verify-shim-hardening.mjs
+
       # 测试步骤单独再给一道上限：整轮上限是兜底，这一步的失败信息更贴题。
+      # 带 --coverage：覆盖率的 include / exclude / 四条阈值都定义在 vitest.config.ts，低于门槛这里直接红。
       - name: Test
         timeout-minutes: 8
-        run: pnpm run test
+        run: pnpm exec vitest run --coverage
 
       # 以下两步是本次新增：本仓 package.json 早就有 lint / format:check 脚本，
       # 但 workflow 里从没调用过（typecheck/build/test 三样在跑，lint 反而漏在外头）。

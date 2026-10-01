@@ -33,7 +33,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json",
     "check:release": "node scripts/check-release.mjs",
-    "check": "pnpm run typecheck && pnpm run test && pnpm run build"
+    "check": "pnpm run typecheck && pnpm run build && pnpm run test"
   },
   "exports": {
     ".": {
@@ -136,6 +136,7 @@
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.7",
     "@types/react-test-renderer": "^18.3.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "anser": "^2.3.5",
     "clsx": "^2.1.1",
     "diff": "^9.0.0",
@@ -166,7 +167,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.1",
     "unrun": "^0.3.1",
-    "vitest": "^4.1.8",
+    "vitest": "^4.1.11",
     "zustand": "^5.0.15"
   }
 }
