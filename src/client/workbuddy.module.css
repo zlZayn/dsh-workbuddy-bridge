@@ -83,75 +83,185 @@
 /* ---- Card body ---------------------------------------------------------- */
 
 /* The body of one card: the sections inside a single disclosure. DisclosureRow
-   supplies the header row, so this is only the vertical rhythm beneath it. */
+   supplies the header row, so this is only the vertical rhythm beneath it.
+   The gap separates the account block from the tab bar and the tab panel; the
+   rhythm *inside* a block is `.section`'s business. */
 .body {
   display: flex;
   flex-direction: column;
+  gap: 12px;
   padding: 4px 0 12px;
 }
 
-/* One labelled block inside a card.
-   The official voice-input config card spaces its blocks with `margin: 12px 0`
-   and draws no rule between them — the heading does the separating. Same here. */
+/*
+ * One block of related facts.
+ *
+ * The rhythm has two tiers, and which one applies is decided by what is being
+ * separated:
+ *
+ * - **Two fields** are separated by the host's 0.5px rule and nothing else
+ *   (`.field + .field` below) — that is the official stack, and adding space
+ *   would break the pair into two blocks.
+ * - **Anything else** gets 12px.
+ *
+ * The `* + *` rule is what an earlier version was missing: it had neither the
+ * generic gap nor a rule, so a paragraph ended up *touching* the bordered list
+ * below it (2026-10-02, reported from a screenshot as "it is stuck to the edge
+ * underneath"). A block that touches its neighbour reads as one object, which is
+ * exactly wrong when one is a list and the other explains it.
+ */
 .section {
   display: flex;
   flex-direction: column;
-  margin: 12px 0;
+}
+
+.section > * + * {
+  margin-top: 12px;
 }
 
 /* ---- Field rows --------------------------------------------------------- */
 
 /*
- * A field row: a label on the left, its value and any action on the right.
+ * A field row: everything the reader needs on the left, the control on the right.
  *
- * This is the host's own field geometry (`ui-primitives/lib/settings-form/
- * fields.module.css`), and the separator is the part that matters:
- *
- *   .field      { gap: 6px; padding: 12px 0 }
+ *   .field      { padding: 12px 0 }
  *   .field + .field { border-top: 0.5px solid var(--dsw-alias-border-l2) }
  *
- * The host separates stacked fields with a **rule**, not with whitespace. The
- * card used to separate them with padding alone (`padding: 12px 0` on every
- * row, no rule), which is what made the account block read as unrelated lines
- * drifting down the page: three stacked facts with 24px of air between each and
- * nothing saying they belong together.
+ * Two rules, both from the host's own field geometry (`ui-primitives/lib/
+ * settings-form/fields.module.css`) and both learned from a rendering that read
+ * wrong on screen:
  *
- * The rule is drawn by `+` so it only ever appears *between* rows — a leading
- * rule under a heading would read as an underline on the heading instead.
+ * ❶ **The rule, not whitespace, separates stacked fields.** The host draws a
+ *    0.5px line between consecutive fields; the card used padding alone, so the
+ *    account block read as unrelated lines drifting down the page. The line is
+ *    drawn by `+` so it only ever appears *between* fields — a leading rule
+ *    under a heading would read as an underline on the heading.
+ *
+ * ❷ **The right column holds the control and nothing else.** Text and a button
+ *    on the same side compete for the same glance and end up literally adjacent
+ *    (`…更新于 00:59 刷新模型列表`), which is neither a sentence nor a table. The
+ *    value belongs under the thing it describes, on the left; the button gets
+ *    the right edge to itself.
+ *
+ * A **lone** field carries no vertical padding of its own: its distance from the
+ * heading above and the list below is `.section`'s 12px. Padding here would add
+ * to that and make a single-fact block twice as airy as a two-fact one — the
+ * spacing would then depend on how many facts a block happens to have.
  */
 .field {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 0;
+  gap: 12px;
 }
 
+/* Stacked fields: the rule and its breathing room, and nothing on the ends. */
 .field + .field {
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
-/* The label half of a field: the fact, and optionally a hint under it.
-   `flex: 1` + `min-width: 0` is the host's `.label` — without the min-width a
-   long value refuses to shrink and pushes the control off the row. */
-.fieldLabel {
+/* The left column: what this fact is, then its value, then any explanation —
+   stacked, so each tier is read in order rather than competing on one line. */
+.fieldText {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+}
+
+/* The static name of the fact. `flex: 1` + `min-width: 0` is the host's
+   `.label`: without the min-width a long value refuses to shrink. */
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+/*
+ * A **dynamic** value: a time, a count, a state the plugin did not author.
+ *
+ * It gets its own element rather than being interpolated into a sentence, so
+ * machine-produced content stays visibly distinct from the copy around it — a
+ * reader can tell what the app measured from what the app says.
+ *
+ * `primary` ink, one weight below its label: the label names the fact, the value
+ * answers it. Both are the reader's subject; only the grey tier below is
+ * subordinate.
+ */
+.fieldValue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--dsw-alias-label-primary);
 }
 
-/* The value half: figures and metadata that sit opposite the label. */
-.fieldValue {
+/*
+ * The grey tier: explanation, metadata, and the caption of a figure.
+ *
+ * `flex-wrap` because a fact may carry several of these (when a reading was
+ * taken, and which app build produced it). They lay out on one line and wrap as
+ * a group rather than each forcing a new row.
+ */
+.fieldHint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* A caption with its figure, held together so a wrap cannot split the two. */
+.figure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* The figure inside a `.figure`: the part that must line up between rows.
+   `tabular-nums` so a value that ticks or re-reads does not shift the text
+   around it — the digits keep one advance width. */
+.fieldFigure {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A balance readout: the coin glyph and its figure as one object.
+ *
+ * The same pair the composer shows beside the model picker (`credit-balance.tsx`),
+ * rebuilt here at the card's type scale. The glyph is the shared part — it is
+ * what makes a reader recognise the number as credit in both places without
+ * either one spelling it out.
+ *
+ * `align-items: center` rather than `baseline`: a stroked glyph has no baseline
+ * of its own, and aligning the two optically is the whole point of putting them
+ * in one row. The gap is larger than the readout's own 4px because these two sit
+ * inside a 13px line rather than a 28px one.
+ */
+.coinReadout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* The right column: a control, or nothing. Never text. */
+.fieldAction {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 auto;
 }
 
 /* A row of actions that belongs to the block above it rather than to one field
@@ -175,17 +285,6 @@
   font-weight: 500;
   line-height: 1.5;
   color: var(--dsw-alias-label-primary);
-}
-
-/* A row: text on the left, its control on the right. Kept for rows that are not
-   field-shaped (a provenance line with a button, a probe row); `.field` is the
-   one to reach for when the row is a label/value pair. */
-.row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 /* The disclosure header row, restated from the official voice-input card's
@@ -294,6 +393,19 @@
   overflow: auto;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
+}
+
+/* The list's own legend: what the checkboxes in it mean.
+   Lives inside `.list` (so it scrolls with the rows it explains) and sits at the
+   hint tier with a rule under it, which is what makes it read as the list's
+   header rather than as a paragraph that happens to be nearby. */
+.listHeader {
+  margin: 0;
+  padding: 6px 0 8px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 /* One model: name and badges on the left, capacity or rate on the right.

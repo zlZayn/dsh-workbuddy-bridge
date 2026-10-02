@@ -2,15 +2,21 @@
 
 职责：见 [../docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md) 的「浏览器半边」一节；本目录跑的是**真实 React 树**（react-test-renderer），不是纯函数替身。
 
-- card.spec.ts —— 变体卡片的渲染契约：首读前后、失败**不**清空已上屏的文档、最新读胜过更早的慢读、三条标签页是真 tabpanel、模型列表刷新走本变体的控制路由
+- card.spec.ts —— 变体卡片的渲染契约：首读前后、失败**不**清空已上屏的文档、最新读胜过更早的慢读、三条标签页是真 tabpanel、
+  模型列表刷新只出现在模型页、检测页的清除按钮挂在字段行上（不在列表下方）、面板崩溃被限制在一块内
 - config-controller.spec.ts —— 配置表单控制器的读写：staged 编辑、一次 revision 封装的保存、宿主停止服务该命名空间时的降级
 - credit.spec.ts —— 两张积分面（逐条消耗、选择器旁的余额）：观测不到就不渲染、绝不显示 0、别的 provider 会话不出声
+- field.spec.ts —— 字段行的形状（不动 `Field` 的用途，只钉几何）：文本在左、控件独占右侧、
+  右列无文字、无控件时不占位、label→value→hint 的顺序、`Figure` 把说明与数字绑在一起。
+  类名带 hash，按**整 token** 匹配（`field` 是 `fieldAction` 的前缀）
 - probe-control.spec.ts —— composer 推理档位控件：**灯泡亮 = 该模型能切档位**（不是「探测过」），
   已声明档位的模型亮灯但禁用检测，`non-validating` 空灯且面板不谎称「尚未检测」，
   以及宿主 store 初值 `current: null` 时首帧不抛
-- harness.ts —— 两类替身与三个助手：
+- harness.ts —— 两类替身与助手：
   `useBrowserStubs`（全局 fetch / 定时器 / 环境变量）、`useTree`（React 树与卸载清理）、
-  `signedIn` / `textOf` / `buttonLabels` / `clickText` / `expandDisclosure`
+  `signedIn` / `textOf` / `buttonLabels` / `clickText` / `expandDisclosure`，
+  以及三个查结构的：`byClass`（按 CSS module 类名找元素，**按整 token 匹配**——`field` 是 `fieldAction` 的前缀；
+  可传 renderer 或某个节点以限定子树）、`bareStrings`、`subtreeText`
 
 ## 面板与浮层怎么测
 

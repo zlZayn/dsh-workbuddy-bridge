@@ -19,6 +19,7 @@ import {
 import { formatTime as formatCardTime } from '../../src/client/format.ts'
 import {
   buttonLabels,
+  byClass,
   clickText,
   expandDisclosure,
   signedIn,
@@ -78,11 +79,12 @@ describe('WorkBuddy card', () => {
     // transient error loses the credits and model list the reader was looking at.
     expect(text).toContain(t('statusRefreshFailed', { message: 'HTTP 500' }))
     // And the document's other lines are still on screen — only the failed read
-    // is reported, nothing is blanked. The expiry line is asserted via its key
-    // with the same formatter the card uses, so a wording edit cannot desync it.
-    expect(text).toContain(
-      t('accessTokenExpires', { time: formatCardTime(Date.now() + 3_600_000) }),
-    )
+    // is reported, nothing is blanked. The expiry is a *label plus a figure* now
+    // rather than one interpolated sentence, so both are asserted: the label via
+    // its key, the timestamp via the same formatter the card uses (a literal
+    // date would be locale-dependent and red on the en runners).
+    expect(text).toContain(t('sessionExpiryLabel'))
+    expect(text).toContain(formatCardTime(Date.now() + 3_600_000))
   })
 
   it('lets the newest read win over a slower one started earlier', async () => {
@@ -156,9 +158,24 @@ describe('WorkBuddy card', () => {
     expect(stub.call.mock.calls[0]?.[0]).toBe(AI_CARD_VARIANT.statusPath)
   })
 
-  it('offers a model-list refresh that posts to this variant’s control route', async () => {
-    stub.body = signedIn({ catalog: { source: 'live', fetchedAt: Date.now() } })
+  it('offers a model-list refresh on the models tab, and nowhere else', async () => {
+    /*
+     * The refresh belongs to the model list, so it lives on the model list's own
+     * tab. It used to sit in the account block above the tabs — reachable from
+     * every tab, and reading as an action on the account.
+     *
+     * Both halves are asserted: present where it belongs, absent where it does
+     * not. Only the first would pass with the button duplicated.
+     */
+    stub.body = signedIn({
+      catalog: { source: 'live', fetchedAt: Date.now() },
+      models: [{ id: 'hy3', name: 'HY3', contextWindow: 200_000 }],
+    })
     await mount(true)
+    // Not on the default (credits) tab.
+    expect(buttonLabels(box.view!)).not.toContain(t('refreshModels'))
+    await clickText(box.view!, t('tabModels'))
+    expect(buttonLabels(box.view!)).toContain(t('refreshModels'))
     await clickText(box.view!, t('refreshModels'))
     expect(stub.posts).toHaveLength(1)
     expect(stub.posts[0]?.url).toBe(CN_CARD_VARIANT.probePath)
@@ -191,8 +208,11 @@ describe('WorkBuddy card', () => {
     const { formatNumber } = await import('../../src/client/format.ts')
     const text = textOf(box.view!)
     // The total and the bars live on one tab; the old split (total under
-    // "Status", bars under "Details") cannot reappear.
-    expect(text).toContain(t('creditsTotal', { total: formatNumber(3767) }))
+    // "Status", bars under "Details") cannot reappear. The total is a field row
+    // now, so label and figure are separate nodes — asserted separately, which
+    // also pins that both halves survived the change.
+    expect(text).toContain(t('creditsTotalLabel'))
+    expect(text).toContain(formatNumber(3767))
     expect(text).toContain(
       t('exactRemaining', { remain: formatNumber(2767), size: formatNumber(10000) }),
     )
@@ -256,8 +276,79 @@ describe('WorkBuddy card', () => {
     // reach.
     await clickText(box.view!, t('tabCredits'))
     const { formatNumber: fmt } = await import('../../src/client/format.ts')
-    expect(textOf(box.view!)).toContain(t('creditsTotal', { total: fmt(100) }))
+    expect(textOf(box.view!)).toContain(t('creditsTotalLabel'))
+    expect(textOf(box.view!)).toContain(fmt(100))
     await clickText(box.view!, t('tabModels'))
     expect(textOf(box.view!)).toContain('HY3')
+  })
+
+  it('anchors the detection panel’s clear action to the panel, not under the list', async () => {
+    /*
+     * The clear button used to sit in a right-aligned row *below* the bordered
+     * list — the only thing under the box, with nothing on screen saying what it
+     * clears (2026-10-02: "why is this button sitting there all by itself
+     * underneath?"). It belongs on the panel's field row, beside the count it
+     * acts on, which is also where the models panel keeps its refresh.
+     */
+    stub.body = signedIn({
+      probe: {
+        consent: true,
+        running: false,
+        models: [
+          {
+            id: 'hy3',
+            name: 'HY3',
+            efforts: ['low'],
+            source: 'declared',
+            detectable: true,
+            probedAt: Date.now(),
+          },
+        ],
+      },
+    })
+    await mount(true)
+    await clickText(box.view!, t('tabProbe'))
+    const view = box.view!
+    // Scoped to this panel: the account block above the tabs has a field row of
+    // its own, so an unscoped query would count both.
+    const panel = view.root.findAll((node) => node.props.role === 'tabpanel')[0]!
+    const field = byClass(panel, 'field')
+    const list = byClass(panel, 'list')
+    expect(field).toHaveLength(1)
+    expect(list).toHaveLength(1)
+    // The action lives inside the field row...
+    expect(byClass(panel, 'fieldAction')[0]!.findAllByType('button')).toHaveLength(1)
+    // ...and the field row comes before the list it acts on.
+    const order = panel.findAll(
+      (node) =>
+        typeof node.type === 'string' &&
+        String(node.props.className ?? '')
+          .split(/\s+/)
+          .some((token) => token.startsWith('_field_') || token.startsWith('_list_')),
+    )
+    expect(order[0]!.props.className).toContain('_field_')
+    // The count it acts on is the field's dynamic value, so the button is
+    // anchored to something that says how much there is to clear.
+    expect(textOf(view)).toContain(t('probeDetectedCount', { count: 1 }))
+    // The old orphan slot is gone from this panel entirely.
+    expect(byClass(panel, 'sectionActions')).toEqual([])
+  })
+
+  it('offers no clear action when nothing has been detected', async () => {
+    // With nothing recorded there is nothing to clear, so the row carries no
+    // control at all — and therefore no empty right column either.
+    stub.body = signedIn({
+      probe: {
+        consent: true,
+        running: false,
+        models: [{ id: 'hy3', name: 'HY3', efforts: [], source: 'none', detectable: true }],
+      },
+    })
+    await mount(true)
+    await clickText(box.view!, t('tabProbe'))
+    const panel = box.view!.root.findAll((node) => node.props.role === 'tabpanel')[0]!
+    expect(buttonLabels(box.view!)).not.toContain(t('probeClear'))
+    expect(byClass(panel, 'fieldAction')).toEqual([])
+    expect(textOf(box.view!)).toContain(t('probeDetectedNone'))
   })
 })

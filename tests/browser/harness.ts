@@ -1,6 +1,6 @@
 /** Shared browser-side test harness: a stubbed `window`/`fetch` and a reader. */
 
-import { act, type ReactTestRenderer } from 'react-test-renderer'
+import { act, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, vi } from 'vitest'
 import { en } from '../../src/client/locales.ts'
 import type { WorkBuddyLocaleKey } from '../../src/client/locales.ts'
@@ -149,6 +149,44 @@ export function textOf(view: ReactTestRenderer): string {
 /** Every rendered `<button>`'s concatenated text. */
 export function buttonLabels(view: ReactTestRenderer): string[] {
   return view.root.findAllByType('button').map((node) => node.children.join(''))
+}
+
+/**
+ * Every host element carrying the CSS-module class `name`, hash aside.
+ *
+ * Class names arrive hashed (`_fieldAction_9b3621`), so this compares **whole
+ * tokens** rather than substrings: `field` is a prefix of `fieldAction`,
+ * `fieldText` and `fieldHint`, and a substring test would match all four.
+ *
+ * Accepts a renderer or any node in it, so a caller can scope the search: the
+ * card has a field row in its account block *and* one per tab panel, and an
+ * unscoped query would count both.
+ */
+export function byClass(
+  target: ReactTestRenderer | ReactTestInstance,
+  name: string,
+): ReactTestInstance[] {
+  const root = 'root' in target ? target.root : target
+  return root.findAll(
+    (node) =>
+      typeof node.type === 'string' &&
+      String(node.props.className ?? '')
+        .split(/\s+/)
+        .some((token) => token === name || token.startsWith(`_${name}_`)),
+  )
+}
+
+/** The bare strings rendered directly inside a node — its un-wrapped text. */
+export function bareStrings(node: ReactTestInstance): string[] {
+  return node.children.filter((child): child is string => typeof child === 'string')
+}
+
+/** Every string rendered anywhere under a node, joined: what its subtree says. */
+export function subtreeText(node: ReactTestInstance): string {
+  return node
+    .findAll((child) => typeof child.type === 'string')
+    .flatMap((child) => bareStrings(child))
+    .join(' ')
 }
 
 /**

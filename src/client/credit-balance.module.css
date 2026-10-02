@@ -38,11 +38,9 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* The glyph is fixed-size in a flex row: without this it can be squeezed by a
-   long figure, which is the one case where the number must win instead. */
-.glyph {
-  flex: none;
-}
+/* The glyph's own rule (`flex: none`) lives with the glyph, in
+   `coin-glyph.module.css`: it is the same object on the card's Credits tab, and
+   that page does not import this stylesheet. */
 
 .amount {
   /*

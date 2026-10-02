@@ -9,10 +9,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Checkbox, Tag, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatNumber, formatPercent, formatTime, formatTokens } from './format.ts'
+import { Field, Figure } from './field.tsx'
 import type { WorkBuddyLocaleKey, WorkBuddyTranslate } from './locales.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
 import type {
   WorkBuddySignedOutReasonCode,
+  WorkBuddyWebCatalog,
   WorkBuddyWebCredits,
   WorkBuddyWebModelBadge,
   WorkBuddyWebProbeSection,
@@ -83,6 +85,24 @@ function badgeLabel(badge: string, t: WorkBuddyTranslate): string {
   if (badge === '夜间折扣') return t('badgeNightDiscount')
   if (badge === 'Free now') return t('badgeFreeNow')
   return badge
+}
+
+/**
+ * Where the model list on screen came from — the source, as a value.
+ *
+ * Lives here rather than in the card header: the answer describes the state of
+ * the catalog, and the catalog is this panel's subject. It sat in the account
+ * block only because that block had room, which made a fact about the model list
+ * read as a fact about the account.
+ *
+ * Only the source. The moment it was read is a *dynamic* value and is rendered
+ * as its own element beside this one — an interpolated sentence would carry a
+ * localized date whose length changes with the locale, and the label above it
+ * would have to move to keep up.
+ */
+function catalogSourceText(catalog: WorkBuddyWebCatalog, t: WorkBuddyTranslate): string {
+  if (catalog.source === 'live') return t('catalogSourceLive')
+  return catalog.source === 'saved' ? t('catalogSourceSaved') : t('catalogSourceFallback')
 }
 
 /** One model's promotional badges, plus `Free` when the upstream says so. */
@@ -241,7 +261,10 @@ export function ModelsPanel({
   visibility,
   toggling,
   disabled,
+  catalog,
+  busy,
   onToggle,
+  onRefresh,
   t,
 }: {
   models: readonly WorkBuddyWebModelBadge[] | undefined
@@ -251,7 +274,20 @@ export function ModelsPanel({
   toggling: ReadonlySet<string>
   /** Whether every control is locked while another card action runs. */
   disabled: boolean
+  /**
+   * Where this list came from, and when.
+   *
+   * It belongs to *this* panel rather than to the card header: the line
+   * describes the state of the model list, and the model list is here. It used
+   * to sit in the account block because that block was the only place with room
+   * — which made a fact about the catalog read as a fact about the account.
+   */
+  catalog: WorkBuddyWebCatalog | undefined
+  /** Whether the model-list read is in flight, for this panel's own button. */
+  busy: boolean
   onToggle: (modelId: string, visible: boolean, account: string) => void
+  /** Re-read the catalog. */
+  onRefresh: () => void
   t: WorkBuddyTranslate
 }): ReactNode {
   const rows = [...(models ?? [])].sort((a, b) => {
@@ -262,82 +298,132 @@ export function ModelsPanel({
     if (b.contextWindow === undefined) return -1
     return b.contextWindow - a.contextWindow
   })
-  if (rows.length === 0) return null
   const hidden = new Set(visibility?.hidden ?? [])
   return (
     <div className={css.section}>
-      {/* One line on what the checkboxes mean, only when they are rendered —
-          a bare checkbox column with no explanation reads as selection, not
-          visibility. */}
-      {visibility === undefined ? null : <p className={css.text}>{t('visibilityIntro')}</p>}
-      <div className={css.list}>
-        {rows.map((model) => {
-          const capacity = model.contextWindow
-          // Only shown when the upstream declared a larger alternative, so the
-          // CN list (which declares none) is unchanged.
-          const alternative =
-            capacity !== undefined &&
-            model.maxContextWindow !== undefined &&
-            model.maxContextWindow > capacity
-              ? model.maxContextWindow
-              : undefined
-          return (
-            <div key={model.id} className={css.modelRow}>
-              <span className={css.modelMain}>
-                {/* The checkbox owns the name: it is one control whose label is the
+      {/*
+       * The catalog's provenance and its refresh, as the panel's own first field
+       * row. The moment the list was read is the field's grey tier; the button
+       * owns the right edge on its own.
+       */}
+      {catalog === undefined ? null : (
+        <Field
+          label={t('catalogSourceLabel')}
+          value={catalogSourceText(catalog, t)}
+          hint={
+            <>
+              {catalog.fetchedAt === undefined ? null : (
+                <Figure label={t('catalogUpdatedAt')}>{formatTime(catalog.fetchedAt)}</Figure>
+              )}
+              {catalog.appVersion === undefined ? null : (
+                /*
+                 * Wrapped rather than left as a bare string: the hint is a flex
+                 * container, so a bare string would become an anonymous flex
+                 * item — laid out right by the browser's anonymous-box rules
+                 * rather than by this stylesheet.
+                 */
+                <span>{t('catalogAppVersion', { version: catalog.appVersion })}</span>
+              )}
+            </>
+          }
+          action={
+            <Button
+              size="sm"
+              disabled={disabled}
+              onClick={() => {
+                onRefresh()
+              }}
+            >
+              {busy ? t('refreshingModels') : t('refreshModels')}
+            </Button>
+          }
+        />
+      )}
+      {catalog?.error === undefined ? null : (
+        <p className={css.error}>{t('catalogError', { message: catalog.error })}</p>
+      )}
+      {rows.length === 0 ? null : (
+        <div className={css.list}>
+          {/*
+           * What the checkboxes mean, as the list's own header line rather than
+           * a paragraph between two blocks. Two reasons it belongs here:
+           * a bare checkbox column reads as *selection*, not visibility, so the
+           * line is the list's legend; and as a sibling it floated between the
+           * provenance row and the list at `13px` — larger than the `12px`
+           * metadata inside the very list it describes, which inverted the
+           * hierarchy it was trying to establish.
+           */}
+          {visibility === undefined ? null : (
+            <p className={css.listHeader}>{t('visibilityIntro')}</p>
+          )}
+          {rows.map((model) => {
+            const capacity = model.contextWindow
+            // Only shown when the upstream declared a larger alternative, so the
+            // CN list (which declares none) is unchanged.
+            const alternative =
+              capacity !== undefined &&
+              model.maxContextWindow !== undefined &&
+              model.maxContextWindow > capacity
+                ? model.maxContextWindow
+                : undefined
+            return (
+              <div key={model.id} className={css.modelRow}>
+                <span className={css.modelMain}>
+                  {/* The checkbox owns the name: it is one control whose label is the
                   model, exactly the shape the host's Checkbox is built for. Splitting
                   the name out of it would read as two objects and double the label. */}
-                {visibility === undefined ? (
-                  <span className={css.name}>{model.name}</span>
-                ) : (
-                  <Checkbox
-                    checked={!hidden.has(model.id)}
-                    disabled={disabled || toggling.has(model.id)}
-                    label={model.name}
-                    onChange={(visible) => {
-                      onToggle(model.id, visible, visibility.account)
-                    }}
-                  />
-                )}
-              </span>
-              <span className={css.modelEnd}>
-                {model.credits === undefined ? (
-                  // No rate to show. When the plugin withheld it because the price
-                  // came from an ended promotion, say so plainly rather than showing
-                  // nothing — silence here reads as "free", which is the claim being
-                  // avoided.
-                  model.rateUnknown === true ? (
-                    <span className={css.dim}>{t('rateUnknown')}</span>
-                  ) : null
-                ) : (
-                  <span className={css.dim}>{t('rate', { rate: model.credits })}</span>
-                )}
-                {capacity === undefined ? (
-                  <span className={css.meta} aria-label={t('contextUnknown')}>
-                    —
-                  </span>
-                ) : (
-                  <span>{formatTokens(capacity)}</span>
-                )}
-                {alternative !== undefined ? (
-                  <span className={css.dim}>
-                    {t('contextUpTo', { size: formatTokens(alternative) })}
-                  </span>
-                ) : capacity !== undefined &&
-                  model.defaultContextWindow !== undefined &&
-                  model.defaultContextWindow < capacity ? (
-                  <span className={css.dim}>
-                    {t('contextDefault', { size: formatTokens(model.defaultContextWindow) })}
-                  </span>
-                ) : null}
-                <span className={css.badges}>
-                  <ModelBadges model={model} t={t} />
+                  {visibility === undefined ? (
+                    <span className={css.name}>{model.name}</span>
+                  ) : (
+                    <Checkbox
+                      checked={!hidden.has(model.id)}
+                      disabled={disabled || toggling.has(model.id)}
+                      label={model.name}
+                      onChange={(visible) => {
+                        onToggle(model.id, visible, visibility.account)
+                      }}
+                    />
+                  )}
                 </span>
-              </span>
-            </div>
-          )
-        })}
-      </div>
+                <span className={css.modelEnd}>
+                  {model.credits === undefined ? (
+                    // No rate to show. When the plugin withheld it because the price
+                    // came from an ended promotion, say so plainly rather than showing
+                    // nothing — silence here reads as "free", which is the claim being
+                    // avoided.
+                    model.rateUnknown === true ? (
+                      <span className={css.dim}>{t('rateUnknown')}</span>
+                    ) : null
+                  ) : (
+                    <span className={css.dim}>{t('rate', { rate: model.credits })}</span>
+                  )}
+                  {capacity === undefined ? (
+                    <span className={css.meta} aria-label={t('contextUnknown')}>
+                      —
+                    </span>
+                  ) : (
+                    <span>{formatTokens(capacity)}</span>
+                  )}
+                  {alternative !== undefined ? (
+                    <span className={css.dim}>
+                      {t('contextUpTo', { size: formatTokens(alternative) })}
+                    </span>
+                  ) : capacity !== undefined &&
+                    model.defaultContextWindow !== undefined &&
+                    model.defaultContextWindow < capacity ? (
+                    <span className={css.dim}>
+                      {t('contextDefault', { size: formatTokens(model.defaultContextWindow) })}
+                    </span>
+                  ) : null}
+                  <span className={css.badges}>
+                    <ModelBadges model={model} t={t} />
+                  </span>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -408,7 +494,31 @@ export function ProbePanel({
 
   return (
     <div className={css.section}>
-      <p className={css.text}>{t('probeCostNote')}</p>
+      {/*
+       * The panel's own field row, mirroring the models panel: name, the dynamic
+       * count, the cost of the action, and the one control on the right edge.
+       *
+       * The clear button used to sit in a right-aligned row *below* the list,
+       * which read as an orphan — it was the only thing under a bordered box,
+       * with no visible connection to what it clears. Moving it onto this row
+       * both anchors it and says what it acts on: the count above it.
+       */}
+      <Field
+        label={t('probeHeading')}
+        value={
+          detected.length === 0
+            ? t('probeDetectedNone')
+            : t('probeDetectedCount', { count: detected.length })
+        }
+        hint={t('probeCostNote')}
+        action={
+          detected.length === 0 ? undefined : (
+            <Button size="sm" disabled={busy} onClick={onClear}>
+              {t('probeClear')}
+            </Button>
+          )
+        }
+      />
       {/*
        * One row per reasoning model, each carrying its own state and button.
        * Buttons used to live in a block above the results, so a detected model
@@ -417,6 +527,9 @@ export function ProbePanel({
        * action together, so nothing moves when a detection lands.
        */}
       <div className={css.list}>
+        {/* Why this list holds models that need no detection: without it, a row
+            whose button is inert looks broken rather than settled. */}
+        <p className={css.listHeader}>{t('probeListIntro')}</p>
         {probe.models.map((entry) => {
           const id = entry.id
           // Display name: the catalog's own label first, then the model id.
@@ -465,13 +578,6 @@ export function ProbePanel({
           )
         })}
       </div>
-      {detected.length === 0 ? null : (
-        <div className={css.sectionActions}>
-          <Button size="sm" disabled={busy} onClick={onClear}>
-            {t('probeClear')}
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

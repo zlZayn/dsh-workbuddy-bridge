@@ -1,0 +1,13 @@
+/*
+ * The coin-stack glyph, on its own.
+ *
+ * Only the layout the icon needs to survive as a flex item lives here; the row
+ * it sits in is the caller's business, because the two callers want different
+ * rows (a 28px composer readout and a card field's value line).
+ */
+
+/* Fixed-size in a flex row: without this a long figure can squeeze the glyph,
+   which is the one case where the number must win instead. */
+.glyph {
+  flex: none;
+}

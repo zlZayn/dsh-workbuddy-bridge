@@ -15,18 +15,25 @@ export type WorkBuddyLocaleKey =
   | 'signedOutHintAI'
   | 'signedIn'
   | 'signedInAs'
-  | 'accessTokenExpires'
   | 'accountHeading'
+  /*
+   * The account block's static labels. The *values* beside them are dynamic
+   * (a state, a timestamp) and are rendered as their own elements rather than
+   * interpolated into these strings — see the `.fieldValue` / `.fieldFigure`
+   * rules in workbuddy.module.css for why.
+   */
+  | 'accountStateLabel'
   | 'sessionExpiryLabel'
-  | 'catalogSourceLabel'
   // Read failures
   | 'requestFailed'
   | 'statusRefreshFailed'
   | 'statusResponseInvalid'
-  // Catalog provenance
-  | 'catalogLive'
-  | 'catalogSaved'
-  | 'catalogFallback'
+  // Catalog provenance: a short source value, plus the moment as its own field
+  | 'catalogSourceLabel'
+  | 'catalogSourceLive'
+  | 'catalogSourceSaved'
+  | 'catalogSourceFallback'
+  | 'catalogUpdatedAt'
   | 'catalogError'
   | 'catalogAppVersion'
   // Actions
@@ -40,11 +47,11 @@ export type WorkBuddyLocaleKey =
   | 'tabModels'
   | 'tabProbe'
   // Credit
-  | 'creditsTotal'
-  | 'creditsTotalUnlimited'
+  | 'creditsTotalLabel'
+  | 'creditsTotalUnlimitedValue'
   | 'unlimitedQuota'
   | 'packageEnterprise'
-  | 'cycleResetAt'
+  | 'cycleResetLabel'
   | 'percentRemaining'
   | 'percentUnknown'
   | 'exactRemaining'
@@ -72,6 +79,10 @@ export type WorkBuddyLocaleKey =
   | 'visibilityIntro'
   | 'visibilityStaleAccount'
   // Reasoning-effort detection (card tab)
+  | 'probeHeading'
+  | 'probeDetectedCount'
+  | 'probeDetectedNone'
+  | 'probeListIntro'
   | 'probeCostNote'
   | 'probeStart'
   | 'probeRedetect'
@@ -152,23 +163,29 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
     'Sign in once in the WorkBuddy AI desktop app; this plugin follows that sign-in automatically.',
   signedIn: 'Signed in',
   signedInAs: 'Signed in as {nickname}',
-  accessTokenExpires: 'Sign-in expires {time}; it renews automatically.',
   accountHeading: 'Account',
   /*
-   * Field labels for the account block. The values beside them already carry
-   * the detail, so these stay to two or three words — a label that restates its
-   * value is what makes a settings row read as prose.
+   * Static labels for the account block; the values beside them are rendered as
+   * separate elements. Two or three words each — a label that restates its
+   * value is what makes a status row read as prose.
    */
-  sessionExpiryLabel: 'Sign-in',
-  catalogSourceLabel: 'Model list',
+  accountStateLabel: 'Sign-in',
+  sessionExpiryLabel: 'Expires',
   requestFailed: 'Request failed',
   statusRefreshFailed: 'Refresh failed: {message} — showing the last known state',
   statusResponseInvalid: 'WorkBuddy returned an unreadable status reply',
-  catalogLive: 'Model list updated {time}',
-  catalogSaved: 'Showing the saved model list from {time}',
-  catalogFallback: 'Showing the built-in model list (not yet updated from WorkBuddy)',
+  /*
+   * Catalog provenance, split into a source and a moment. The source is the
+   * value; the moment is its own figure, so a long localized date cannot pull
+   * the sentence it used to sit inside out of shape.
+   */
+  catalogSourceLabel: 'Model list',
+  catalogSourceLive: 'Live from the app',
+  catalogSourceSaved: 'Saved copy',
+  catalogSourceFallback: 'Built-in list',
+  catalogUpdatedAt: 'Updated',
   catalogError: 'Last update failed: {message}',
-  catalogAppVersion: 'App version {version}',
+  catalogAppVersion: 'app {version}',
   refresh: 'Refresh',
   refreshing: 'Refreshing…',
   refreshModels: 'Refresh model list',
@@ -177,11 +194,11 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   tabCredits: 'Credits',
   tabModels: 'Models',
   tabProbe: 'Detection',
-  creditsTotal: 'Total: {total}',
-  creditsTotalUnlimited: 'Total: Unlimited',
+  creditsTotalLabel: 'Total',
+  creditsTotalUnlimitedValue: 'Unlimited',
   unlimitedQuota: 'Unlimited',
   packageEnterprise: 'Enterprise quota',
-  cycleResetAt: 'Resets {time}',
+  cycleResetLabel: 'Resets',
   percentRemaining: '{percent}% remaining',
   percentUnknown: 'Remaining share unknown',
   exactRemaining: '{remain} / {size} remaining',
@@ -210,8 +227,25 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   visibilityIntro:
     'Uncheck a model to hide it from the picker. The choice is saved per signed-in account; chats already using a hidden model keep working.',
   visibilityStaleAccount: 'The signed-in account changed — this change was not saved.',
+  /*
+   * The detection panel's copy, split by what each line is for.
+   *
+   * It used to be one key carrying two sentences, rendered as a paragraph above
+   * the list — so the sentence explaining the *list* and the sentence explaining
+   * the *cost* were welded together, and the pair sat against the list's border
+   * with nothing separating them. Three homes now:
+   */
+  /** The panel's name, in the field row that also carries the clear action. */
+  probeHeading: 'Level detection',
+  /** The dynamic value: how many models have a recorded answer.
+      Phrased so it needs no plural branch — "1 detected" and "3 detected" both read. */
+  probeDetectedCount: '{count} detected',
+  probeDetectedNone: 'Nothing detected yet',
+  /** Why the list contains models that need no detection — the list's own header. */
+  probeListIntro: 'Some models reason but declare no selectable effort levels.',
+  /** What a run costs — the explanation belonging to the action. */
   probeCostNote:
-    'Some models reason but declare no selectable effort levels. Detecting sends a few real requests to one model and may consume a small amount of credit.',
+    'Detecting sends a few real requests to one model and may consume a small amount of credit.',
   probeStart: 'Detect',
   probeRedetect: 'Detect again',
   probeRunning: 'Detecting {model}…',
@@ -302,16 +336,17 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   signedOutHintAI: '在 WorkBuddy AI 国际版桌面 App 里登录一次即可，插件会自动跟随当前登录的账号。',
   signedIn: '已登录',
   signedInAs: '已登录：{nickname}',
-  accessTokenExpires: '登录将于 {time} 过期，届时自动续期。',
   accountHeading: '账号',
-  sessionExpiryLabel: '登录状态',
+  accountStateLabel: '登录状态',
+  sessionExpiryLabel: '有效期至',
   catalogSourceLabel: '模型列表',
+  catalogSourceLive: '来自客户端实时读取',
+  catalogSourceSaved: '已保存的副本',
+  catalogSourceFallback: '内置列表',
+  catalogUpdatedAt: '更新于',
   requestFailed: '请求失败',
   statusRefreshFailed: '刷新失败：{message} — 当前显示的是上次成功获取的状态',
   statusResponseInvalid: 'WorkBuddy 返回的状态数据无法识别',
-  catalogLive: '模型列表更新于 {time}',
-  catalogSaved: '当前显示已保存的模型列表，更新于 {time}',
-  catalogFallback: '当前显示内置模型列表（尚未从 WorkBuddy 更新）',
   catalogError: '上次更新失败：{message}',
   catalogAppVersion: 'App 版本 {version}',
   refresh: '刷新',
@@ -322,11 +357,11 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   tabCredits: '积分',
   tabModels: '模型',
   tabProbe: '检测',
-  creditsTotal: '合计：{total}',
-  creditsTotalUnlimited: '合计：不限额',
+  creditsTotalLabel: '合计',
+  creditsTotalUnlimitedValue: '不限额',
   unlimitedQuota: '不限额',
   packageEnterprise: '企业额度',
-  cycleResetAt: '重置时间：{time}',
+  cycleResetLabel: '重置时间',
   percentRemaining: '剩余 {percent}%',
   percentUnknown: '剩余占比未知',
   exactRemaining: '剩余 {remain} / {size}',
@@ -350,8 +385,11 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   visibilityIntro:
     '取消勾选即可将该模型从选择器中隐藏；按登录账号分别保存，已在用该模型的会话不受影响。',
   visibilityStaleAccount: '登录账号已切换——本次修改未保存。',
-  probeCostNote:
-    '部分模型具备思考能力，但没有声明可选档位。检测会向一个模型发送少量真实请求以确认可用档位，可能消耗少量积分。',
+  probeHeading: '档位检测',
+  probeDetectedCount: '已检测 {count} 个模型',
+  probeDetectedNone: '尚未检测',
+  probeListIntro: '部分模型具备思考能力，但没有声明可选档位。',
+  probeCostNote: '检测会向一个模型发送少量真实请求以确认可用档位，可能消耗少量积分。',
   probeStart: '开始检测',
   probeRedetect: '重新检测',
   probeRunning: '正在检测 {model}…',

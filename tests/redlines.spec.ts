@@ -338,6 +338,18 @@ describe('插件页样式跟着宿主走', () => {
     }
     expect(found, '没扫到任何 :focus-visible 规则 —— 扫描失效了？').toBeGreaterThan(0)
   })
+
+  it('机器产出的数字一律等宽（tabular-nums）', () => {
+    // 时间与计数是**动态**值：每次读取都可能变。不等宽的话，数字一刷新整行就跟着
+    // 抖一下，读者会以为别处也变了。`.fieldFigure` 是这类值的唯一落点 ——
+    // 它由 `src/client/field.tsx` 的 `Figure` 渲染，卡片上每个时间戳都走它。
+    const css = read('src/client/workbuddy.module.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const rule = /\.fieldFigure\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(rule, '没扫到 .fieldFigure —— 改名了？').not.toBe('')
+    expect(rule, '.fieldFigure 没声明等宽数字，动态值刷新时会抖动').toContain(
+      'font-variant-numeric: tabular-nums',
+    )
+  })
 })
 
 describe('客户端接缝', () => {
