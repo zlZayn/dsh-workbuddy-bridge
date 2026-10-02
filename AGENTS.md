@@ -77,6 +77,14 @@
 
 ## 活跃坑
 
+- **宿主版本可能与 devDeps 错位**：本仓 devDeps 锁在某个宿主编译，实际运行的宿主可能更新。
+  改代码前先跑 `dsh --version` 对比 [package.json](package.json) 的 devDeps；错位可能导致编译通过但运行时崩。
+  升级 devDeps 要同步决定 `engines.dsh` 的兼容范围。
+  连带一条：宿主线升级时，**宿主包的传递依赖也可能被抬**（`dsh-llm-pi-ai` 曾把 `@earendil-works/pi-ai`
+  从 `^0.85.1` 抬到 `^0.87.1`）。本仓若把它写死在旧版，pnpm 会装出**两份同名包**，
+  类型互不兼容 → 编译报「A 不能赋给 B」而两个路径都是 `node_modules`。判据：报错里出现两个
+  不同层级的 `node_modules`；处置：把本仓那份升到与宿主同源的范围。
+  核验兼容性用**仓库外**的临时目录装目标线宿主包（装在本仓内会被 pnpm 当 workspace 成员）。
 - **浏览器产物里不能出现 `process` 这个词，注释也不行**：`tests/redlines.spec.ts` 拿它当「内联了 React 运行时」的
   signature（2026-09-25 真机事故：整份 react-dom 被内联，顶层 `process.env.NODE_ENV` 在浏览器里抛错）。
   判据是对**整份产物**做正则，**注释同样命中** —— 而打包器会把被引用语句周围的注释一起留下。
