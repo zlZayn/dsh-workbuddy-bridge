@@ -60,7 +60,14 @@
 - [x] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态；文案语义 2026-09-26 全量过一遍（标签按读者任务重排同批）
 - [x] 首次发布 `0.1.0`（维护者本地 publish + Trusted Publisher 已配）；README 门面已按发布态重写（npm 徽章已加）
 - [x] 发布链落地并跑通：`release.yml` 支持推 tag 触发（带 tag/版本一致性闸）、守卫基线排除正在发的 tag、Release 步对 5xx 重试 —— `0.2.0` 全链绿
-- [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
+- [ ] **门面截图重拍（本轮欠账，2026-10-02）**：三张 `assets/*.png` 已与界面不符 ——
+  `7.png`（卡片「检测」标签）现在是**每个推理模型一行**、含上游已声明档位的行（旧图是「待检测候选」那套）；
+  `4.png`（composer 控件）的浮层文案改成「上游已声明档位，无需检测 / 未声明可选档位 / 无可选档位」三态；
+  `1.png` 底边带到了 composer 那一行，现在多了「币图标 + 数字」的积分读数。
+  顺带定一件事：**现六张全是中文界面**，要不要给英文门面另拍一套（还是继续两份门面引用同一张）。
+  判据与拍摄流程见 [assets/AGENTS.md](assets/AGENTS.md)。**注**：该文件提到复用 `.local/browser/workbuddy-shots.mjs`，
+  该脚本当前不在工作区（`.local/` 下只有 `state/`），重拍前先确认它在不在别处或需重写。
+  未同批重拍的原因是维护者要求本轮先把代码收尾、截图另行安排 —— 按 assets 的「完成定义」记在这里而不是静默
 - [x] **注册与揭示之间的空窗**（[issue #2](https://github.com/zlZayn/dsh-workbuddy-bridge/issues/2)）：已按推荐方向实施 —— 启动改三相
   「读凭据并采纳身份 → 注册 provider → 抓目录」，provider 一出现 catalog 就已揭示。守卫在
   `tests/catalog-lifecycle.spec.ts`（采样循环必须在 `ctx.plugin` 之前起并与之并发，否则两种顺序都会绿）；
