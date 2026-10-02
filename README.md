@@ -32,7 +32,7 @@
 各自用自己的账号与积分。模型直接出现在 DSH 的模型选择器里，不必为它单独配一个 provider。
 
 <p align="center">
-  <img src="assets/1.png" alt="WorkBuddy 模型出现在 DSH 模型选择器中" width="300">
+  <img src="assets/model-picker.png" alt="WorkBuddy 模型出现在 DSH 模型选择器中" width="300">
   <br>
   <em>国内版在模型选择器中自成一组，模型名后直接跟积分倍率与促销徽章；装国际版则出现「WorkBuddy AI」组。</em>
 </p>
@@ -51,7 +51,7 @@
 - **三种界面** —— Web / Desktop / TUI 都能跑；只有 TUI 不提供手动检测。
 
 <p align="center">
-  <img src="assets/2.png" alt="插件详情页：配置表单与两张状态卡片" width="560">
+  <img src="assets/plugin-page.png" alt="插件详情页：配置表单与两张状态卡片" width="560">
   <br>
   <em>插件页里的样子：上面是配置表单，下面两张卡片各跟随自己 App 的登录状态。</em>
 </p>
@@ -88,14 +88,14 @@ dsh plugin --profile web add "$PWD"
 配置改动立即生效，不需要重启；卡片上的实时状态（账号、积分、模型列表）则来自下面的两张卡。
 
 <p align="center">
-  <img src="assets/6.png" alt="模型标签：显隐、窗口、倍率" width="300">
-  <img src="assets/7.png" alt="检测标签：推理档位检测" width="300">
+  <img src="assets/models-tab.png" alt="模型标签：显隐、窗口、倍率" width="300">
+  <img src="assets/detection-tab.png" alt="检测标签：每个推理模型一行，含上游已声明与已检测两态" width="300">
   <br>
   <em>展开「WorkBuddy（国内版）」卡片：左「模型」标签管理显隐、看窗口与倍率；右「检测」标签一模型一行，点「开始检测」确认它接受哪些推理档位，结果也回写到模型选择器里。</em>
 </p>
 
 <p align="center">
-  <img src="assets/3.png" alt="积分标签：合计与套餐余量" width="640">
+  <img src="assets/credits-tab.png" alt="积分标签：合计与套餐余量" width="640">
   <br>
   <em>「积分」标签：合计一行，下面是各套餐余量条。</em>
 </p>

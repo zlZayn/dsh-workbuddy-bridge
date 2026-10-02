@@ -33,7 +33,7 @@ appears; install both and the two groups sit side by side, each with its own acc
 models appear directly in the DSH model picker — no separate provider to configure.
 
 <p align="center">
-  <img src="assets/1.png" alt="WorkBuddy models in the DSH model picker" width="300">
+  <img src="assets/model-picker.png" alt="WorkBuddy models in the DSH model picker" width="300">
   <br>
   <em>The CN version forms its own group in the model picker, each model carrying its credit rate and promo
   badge; installing the international version adds a "WorkBuddy AI" group the same way.</em>
@@ -56,7 +56,7 @@ models appear directly in the DSH model picker — no separate provider to confi
 - **Three surfaces** — Web, Desktop and TUI all work; only the TUI lacks manual detection.
 
 <p align="center">
-  <img src="assets/2.png" alt="Plugin detail page: the configuration form and the two status cards" width="560">
+  <img src="assets/plugin-page.png" alt="Plugin detail page: the configuration form and the two status cards" width="560">
   <br>
   <em>The plugin page: the configuration form on top, two cards below, each following its own app's sign-in.</em>
 </p>
@@ -95,8 +95,8 @@ Configuration takes effect immediately — no restart needed. The live state on 
 model list) comes from the two cards below.
 
 <p align="center">
-  <img src="assets/6.png" alt="Models tab: visibility, windows, rates" width="300">
-  <img src="assets/7.png" alt="Detection tab: reasoning-level detection" width="300">
+  <img src="assets/models-tab.png" alt="Models tab: visibility, windows, rates" width="300">
+  <img src="assets/detection-tab.png" alt="Detection tab: one row per reasoning model, declared and detected" width="300">
   <br>
   <em>Expanding the "WorkBuddy (CN)" card: the Models tab (left) manages visibility and shows windows and
   rates; the Detection tab (right) is one row per model — press Detect to confirm which reasoning levels
@@ -104,7 +104,7 @@ model list) comes from the two cards below.
 </p>
 
 <p align="center">
-  <img src="assets/3.png" alt="Credits tab: total and per-package allowances" width="640">
+  <img src="assets/credits-tab.png" alt="Credits tab: total and per-package allowances" width="640">
   <br>
   <em>The Credits tab: the total on one line, each package's allowance as a bar below.</em>
 </p>
