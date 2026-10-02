@@ -100,9 +100,9 @@ dsh plugin --profile web add "$PWD"
 
 <p align="center">
   <img src="assets/detection-tab.png" alt="检测标签：每个推理模型一行" width="300">
-  <img src="assets/credits-tab.png" alt="积分标签：合计与套餐余量" width="300">
+  <img src="assets/credits-tab.png" alt="积分标签：余额与各套餐余量" width="300">
   <br>
-  <em>左「检测」：每个推理模型一行，点按钮确认它接受哪些推理档位；右「积分」：合计一行，下面是各套餐余量条。</em>
+  <em>左「检测」：每个推理模型一行，点按钮确认它接受哪些推理档位；右「积分」：上面是余额，下面是各套餐的余量条。</em>
 </p>
 
 ## 为什么是手动检测

@@ -76,7 +76,9 @@
   形态判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「本地开发装法」；回滚备份在 profile 下的 `*.bak-link-<时间戳>`
 - [ ] **重拍门面截图**（维护者手动）：四个块与积分行的排版这一轮改过（见[决策记录](.agents/notes/2026-10-03-card-two-line-template.md)），
   波及 `plugin-page` / `credits-tab` / `models-tab` / `detection-tab` 四张；表见 [assets/README.md](assets/README.md)
-- [ ] **发 `0.3.1`**（patch：修缺陷 + 等价重构；`package.json` 已 bump，等截图拍完走 `release.yml`）
+- [ ] **发 `0.3.1`**（patch：修缺陷 + 等价重构）：`package.json` 已 bump、`v0.3.1` 已打在本地，等截图拍完
+  推 `main` + tag 即走 `release.yml`。推送前逐条走 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「发版前确认」
+  —— 其中三条真机脚本只能在本机跑（macOS 那条本机跑不了，Release notes 就别声称 macOS 已验证）
 
 ## 活跃坑
 

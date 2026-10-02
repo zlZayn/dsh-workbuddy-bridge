@@ -109,10 +109,10 @@ the description and takes effect on save:
 
 <p align="center">
   <img src="assets/detection-tab.png" alt="Detection tab: one row per reasoning model" width="300">
-  <img src="assets/credits-tab.png" alt="Credits tab: total and per-package allowances" width="300">
+  <img src="assets/credits-tab.png" alt="Credits tab: the balance and per-package allowances" width="300">
   <br>
   <em>Left, "Detection": one row per reasoning model — press the button to confirm which reasoning levels it
-  accepts. Right, "Credits": the total on one line, each package's allowance as a bar below.</em>
+  accepts. Right, "Credits": the balance on top, each package's allowance as a row below.</em>
 </p>
 
 ## Why detection is manual
