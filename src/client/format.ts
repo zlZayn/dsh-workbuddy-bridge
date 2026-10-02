@@ -38,3 +38,23 @@ export function formatCycleReset(time: string): string {
 export function formatPercent(percent: number): string {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(percent)
 }
+
+/**
+ * A credit amount, at the precision the ledger actually carries.
+ *
+ * Credits are recorded to two decimals — the desktop app accumulates stage
+ * increments with `Math.round(value * 100) / 100` — so trailing zeros carry no
+ * information: `0.50` is `0.5` and `3.00` is `3`. This mirrors that app's own
+ * `formatCredit` (integers bare, otherwise two decimals with trailing zeros
+ * stripped), so a figure read here matches the one the WorkBuddy client shows
+ * for the same request.
+ *
+ * Deliberately *not* `Intl`-formatted: this is a ledger quantity at a fixed
+ * scale, not a locale-sensitive count, and a thousands separator on a balance
+ * like `5143` would make it differ from the account's own display.
+ */
+export function formatCredit(credit: number): string {
+  if (!Number.isFinite(credit)) return ''
+  if (Number.isInteger(credit)) return String(credit)
+  return credit.toFixed(2).replace(/\.?0+$/u, '')
+}

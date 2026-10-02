@@ -16,6 +16,11 @@
 import type { Context, Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
+// Type-only, and load-bearing: this is the merge that declares `sessions` on
+// the Context and `session/event` on Events. Without it the attribution
+// subscriber below cannot typecheck (and a value import would pull a host
+// service into the module graph for no runtime reason).
+import type {} from '@deepseek-ai/dsh-session'
 import {
   WorkBuddyCredentialStore,
   type WorkBuddyCredential,
@@ -31,10 +36,17 @@ import { workbuddyCatalogPath, WorkBuddyCatalogStore } from './catalog/store.ts'
 import { WorkBuddyVisibilityStore, workbuddyVisibilityPath } from './catalog/visibility.ts'
 import { createWorkBuddyAdapter } from './llm/adapter.ts'
 import { createWorkBuddyShim } from './llm/shim.ts'
+import {
+  attributeCredit,
+  WorkBuddyCreditLog,
+  WorkBuddySessionCreditIndex,
+  type AssistantMessageEventData,
+} from './llm/credit-log.ts'
 import { WorkBuddyProbeService } from './probe/service.ts'
 import { newestFirst, WorkBuddyProbeStore, workbuddyProbePath } from './probe/store.ts'
 import { WorkBuddyUpstreamClient } from './protocol/client.ts'
 import { registerWorkBuddyStatusRoute } from './web/status.ts'
+import { registerWorkBuddyCreditRoute } from './web/credit.ts'
 import { createProbeKey, registerWorkBuddyProbeRoute } from './web/probe-route.ts'
 import type { WorkBuddyModelInfo } from './catalog/index.ts'
 import type { WorkBuddyWebCatalog, WorkBuddyWebProbeSection } from './shared/paths.ts'
@@ -49,6 +61,15 @@ export {
   type WorkBuddyAdapter,
 } from './llm/adapter.ts'
 export { createWorkBuddyShim, type WorkBuddyShim } from './llm/shim.ts'
+export { WorkBuddyCreditLog, WorkBuddySessionCreditIndex } from './llm/credit-log.ts'
+export {
+  WORKBUDDY_CREDIT_PATH,
+  registerWorkBuddyCreditRoute,
+  workBuddyCreditHandler,
+  workBuddySessionCredits,
+  type WorkBuddyCreditRouteOptions,
+  type WorkBuddyWebSessionCredits,
+} from './web/credit.ts'
 export {
   FALLBACK_WORKBUDDY_AI_MODELS,
   FALLBACK_WORKBUDDY_MODELS,
@@ -329,6 +350,26 @@ interface VariantRuntime {
   probeStore: WorkBuddyProbeStore
   probeService: WorkBuddyProbeService
   /**
+   * Response id → what that response cost, as the upstream reported it.
+   *
+   * Written by the shim when a stream's final usage frame arrives; read by the
+   * Session-event handler below, which is the other half of the key. Per
+   * variant, because each variant's shim serves only its own provider's
+   * traffic, and one variant's response ids can never appear in the other's
+   * sessions.
+   */
+  creditLog: WorkBuddyCreditLog
+  /**
+   * `sessionId → messageId → credit`, the shape the browser half reads.
+   *
+   * Shared by both variants on purpose, unlike {@link creditLog}: the value is
+   * already attributed to a message id by the time it lands here, and a session
+   * can switch providers mid-conversation (the user changing models), so
+   * keying the browser-visible index per variant would lose every message sent
+   * under the other provider.
+   */
+  creditIndex: WorkBuddySessionCreditIndex
+  /**
    * The last catalogs that loaded, keyed by account.
    *
    * Sits between the live fetch and the built-in roster in the degradation
@@ -448,6 +489,7 @@ function createVariantRuntime(
   identityOf: (variantId: string) => string | undefined,
   accountOf: (variantId: string) => string | undefined,
   keyProvider: WorkBuddyStoreOptions['keyProvider'],
+  creditIndex: WorkBuddySessionCreditIndex,
 ): VariantRuntime {
   const client = new WorkBuddyUpstreamClient()
   const configured = configuredAuthFile(config, variant)
@@ -496,6 +538,8 @@ function createVariantRuntime(
     catalog,
     probeStore,
     probeService,
+    creditLog: new WorkBuddyCreditLog(),
+    creditIndex,
     savedCatalogs,
     visibilityStore,
     account: () => accountOf(variant.id),
@@ -586,8 +630,19 @@ function probeSection(runtime: VariantRuntime, consent: boolean): WorkBuddyWebPr
  * @returns whether the provider registered.
  */
 async function startVariant(ctx: Context, runtime: VariantRuntime): Promise<boolean> {
-  const { variant, store, client, catalog, probeService } = runtime
-  const shim = createWorkBuddyShim({ store, client, catalog, logger: ctx.logger })
+  const { variant, store, client, catalog, probeService, creditLog } = runtime
+  const shim = createWorkBuddyShim({
+    store,
+    client,
+    catalog,
+    logger: ctx.logger,
+    // Every response this variant streams past the shim reports what it cost;
+    // remembering it here is what lets the assistant-message event below
+    // attribute a number to a message id.
+    observeCredit: (responseId, credit) => {
+      creditLog.record(responseId, credit)
+    },
+  })
   try {
     await shim.ready
   } catch (error: unknown) {
@@ -710,6 +765,11 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     new WorkBuddyAtRestKeyProvider({
       discovery: variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none',
     })
+  // One accounting index for the whole plugin, not one per variant: by the time
+  // a cost is written here it is already keyed by a message id, and a session
+  // may switch providers mid-conversation, so a per-variant index would lose
+  // every message sent under the other provider.
+  const creditIndex = new WorkBuddySessionCreditIndex()
   const runtimes = WORKBUDDY_VARIANTS.map((variant) =>
     createVariantRuntime(
       config(),
@@ -717,6 +777,7 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
       (id) => lastIdentities.get(id),
       (id) => lastAccounts.get(id),
       atRestKeysFor(variant),
+      creditIndex,
     ),
   )
 
@@ -807,6 +868,11 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
   }
 
   ctx.inject(['webServer'], (webCtx) => {
+    // Mounted once, not per variant: the accounting is already keyed by DSH
+    // message id, and a conversation can switch between the two products — or
+    // away from both — mid-thread, so a per-variant route would strand every
+    // message whose turn ran under the other one.
+    registerWorkBuddyCreditRoute(webCtx, { credits: creditIndex })
     for (const runtime of runtimes) {
       registerWorkBuddyStatusRoute(webCtx, {
         path: runtime.variant.statusPath,
@@ -914,6 +980,46 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
         probeKey,
       )
     }
+  })
+
+  /**
+   * Attribute an observed response cost to the message that caused it.
+   *
+   * The two halves of the key are produced by different layers and in either
+   * order, so this is deliberately a join rather than a straight read:
+   *
+   * - the **shim** sees `usage.credit` on the stream and knows the upstream
+   *   response id (`cmb-…`), but nothing about DSH's message ids;
+   * - the **session log** records the assistant message with its DSH
+   *   `messageId` and, inside `source.replayState.response.responseId`, that
+   *   same upstream id.
+   *
+   * The session event normally lands *after* the stream's final frame (the
+   * message is appended once the stream settles), so `creditLog.lookup` usually
+   * hits. `creditLog.await` covers the opposite interleaving — a response whose
+   * final frame arrives after its message was appended — instead of leaving
+   * that message permanently unlabelled.
+   *
+   * Only variants' own provider routes are considered: the response id is
+   * matched against each variant's own log, so a DeepSeek-account message can
+   * never be charged a WorkBuddy cost.
+   */
+  ctx.inject(['sessions'], (sessionCtx) => {
+    sessionCtx.on('session/event', (session, event) => {
+      if (event.type !== 'assistant/message') return
+      const data = event.data as AssistantMessageEventData
+      // Only a variant's own provider route is considered: the response id is
+      // matched against that variant's own log, so a DeepSeek-account message
+      // can never be charged a WorkBuddy cost.
+      const provider = data.message?.source?.provider
+      const runtime =
+        typeof provider === 'string'
+          ? runtimes.find((candidate) => candidate.variant.id === provider)
+          : undefined
+      if (runtime === undefined) return
+      const sessionId = session.id
+      attributeCredit(runtime.creditLog, runtime.creditIndex, sessionId, data)
+    })
   })
 
   ctx.effect(() => () => {

@@ -4,20 +4,26 @@
 
 ## 文件
 
-- index.tsx —— 槽注册：`plugins.bundle.config`（key = **包名**）、`conversation.input.right`（探测控件）
+- index.tsx —— 槽注册：`plugins.bundle.config`（key = **包名**）、`conversation.input.right`（探测控件 + 剩余积分）、
+  `conversation.chat.assistant-actions`（每消息的消耗积分）
 - config-controller.ts —— `ctx.configForms.get(ENTRY_ID)` 的staged 表单模型；四字段全部 volatile
 - WorkBuddyConfigPage.tsx —— 配置页：宿主 `SettingsForm`（两个文本字段）+ 两个官方开关行，然后是实时卡片
 - WorkBuddyCard.tsx —— 变体卡片：宿主 `DisclosureRow` 壳（`expandOnRowClick`，整行可点）；账号、令牌有效期、
   目录来源常驻展开区顶部，下面按「读者任务」分三个 SegmentedTabs：积分（合计+套餐）/ 模型（显隐+窗口+倍率）/ 检测
 - panels.tsx —— 标签页内容：积分条与套餐明细 / 模型目录表（`ModelsPanel`）/ 档位检测（`ProbePanel`）/ Agent assist
 - probe-control.tsx —— 输入区推理档位控件：一个图标按钮 + 一个陈述式浮层（一个按钮，无确认/取消）
+- credit-balance.tsx —— 模型选择器左边的剩余积分；只在会话用 WorkBuddy 模型时显示/取数
+- credit-label.tsx —— 助手回复操作行里的「共消耗 X」；同样只在 WorkBuddy 模型时显示，观测不到则不显示（绝不显示 0）
+- use-session-credits.ts —— 逐消息积分表的取数与轮询；读失败静默，保留上一份
 - use-status.ts —— 状态文档的轮询与读写
-- status-document.ts —— 状态文档的形状守卫
+- status-document.ts —— 状态文档与积分文档的形状守卫
 - locales.ts —— 词条（键集真源）；双语同键
-- format.ts —— 数字 / 时间 / token 的展示格式化
+- format.ts —— 数字 / 时间 / token / 积分的展示格式化（积分按账本两位小数精度，不用 `Intl`）
 - variants.ts —— 两个变体（CN / AI）与卡片路由
 - workbuddy.module.css —— 配置页与卡片的样式
 - probe-control.module.css —— 控件与浮层的样式
+- credit-balance.module.css —— 剩余积分标签的样式
+- credit-label.module.css —— 每消息消耗标签的样式
 - css-modules.d.ts —— `*.module.css` 的类型声明
 
 ## 样式从哪抄（改样式前先看）

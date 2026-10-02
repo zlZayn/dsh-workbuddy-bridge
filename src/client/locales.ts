@@ -48,6 +48,15 @@ export type WorkBuddyLocaleKey =
   | 'exactRemaining'
   | 'creditPackageUnknownSize'
   | 'creditsError'
+  // Per-message and beside-the-picker credit. The verbs differ from the card's
+  // "合计"（remaining total）on purpose: these two figures describe opposite
+  // directions of one ledger and must not read as the same number.
+  | 'creditConsumed'
+  | 'creditConsumedTitle'
+  | 'creditRemaining'
+  | 'creditRemainingUnlimited'
+  | 'creditRemainingUnknown'
+  | 'creditBalanceTitle'
   // Model offers
   | 'freeModel'
   | 'badgeLimitedFree'
@@ -161,6 +170,12 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   exactRemaining: '{remain} / {size} remaining',
   creditPackageUnknownSize: '{remain} remaining',
   creditsError: 'Credit unavailable: {message}',
+  creditConsumed: 'Used {credit}',
+  creditConsumedTitle: 'Credit this message consumed, as reported by WorkBuddy',
+  creditRemaining: '{credit} left',
+  creditRemainingUnlimited: 'Unlimited',
+  creditRemainingUnknown: 'Credit unknown',
+  creditBalanceTitle: 'Remaining credit on your {product} account',
   freeModel: 'Free',
   badgeLimitedFree: 'Limited-time free',
   badgeNightDiscount: 'Night discount',
@@ -280,6 +295,12 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   exactRemaining: '剩余 {remain} / {size}',
   creditPackageUnknownSize: '剩余 {remain}',
   creditsError: '积分查询失败：{message}',
+  creditConsumed: '共消耗 {credit}',
+  creditConsumedTitle: '本条消息消耗的积分（由 WorkBuddy 返回）',
+  creditRemaining: '剩余 {credit}',
+  creditRemainingUnlimited: '不限额',
+  creditRemainingUnknown: '积分未知',
+  creditBalanceTitle: '{product} 账号剩余积分',
   freeModel: '免费',
   badgeLimitedFree: '限时免费',
   badgeNightDiscount: '夜间折扣',

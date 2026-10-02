@@ -1,0 +1,32 @@
+/*
+ * The per-message credit label.
+ *
+ * It sits in the assistant message's action row, immediately left of the
+ * branch control and above nothing — a plain flex child of a 28px nowrap row
+ * (gap 8px), not a box of its own. So the only work here is to make a short
+ * string sit still in that row without changing its height.
+ *
+ * Tone and size are copied from the host's own `endInfo` cluster (the clock and
+ * the usage pill): tertiary label colour at the secondary font size minus one
+ * pixel. Using the tokens rather than literals is what keeps this readable in
+ * both themes — there is no `[data-ds-dark-theme]` branch and no literal colour
+ * anywhere in this file.
+ */
+
+.label {
+  /*
+   * A label that wraps would grow the 28px row it lives in and push the branch
+   * control sideways on a long cost. Costs are short (`0.51`), and a truncated
+   * one is still legible; a wrapped one is a broken row.
+   */
+  white-space: nowrap;
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+  line-height: 1;
+  color: var(--dsw-alias-label-tertiary);
+  /*
+   * The row's own gap already spaces this from the copy button; the extra lead
+   * separates it from that cluster so "共消耗 0.51 · 模型名" does not read as one
+   * unbroken string of chrome.
+   */
+  padding-left: 4px;
+}

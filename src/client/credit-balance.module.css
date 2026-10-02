@@ -1,0 +1,34 @@
+/*
+ * The remaining-credit label beside the model picker.
+ *
+ * It is a plain flex item of `.standardControls` (`display:flex;
+ * align-items:center; gap:12px`), sitting immediately left of `ModelSelect`'s
+ * own root. The slot outlet contributes no box (`display:contents`), so this
+ * element *is* the flex item — there is no wrapper to style.
+ *
+ * Height is pinned to the sibling control's 28px so the row does not grow and
+ * the model seat stays vertically aligned with the other composer controls.
+ * The 12px gap already separates it from the picker; no margin is added, since
+ * a second space source is how a composer row drifts out of alignment.
+ */
+
+.label {
+  /*
+   * 28px matches `ModelSelect`'s `.trigger` height. Without it the row's height
+   * is decided by the tallest child and the label's own line box would leave
+   * the picker looking misaligned.
+   */
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  /* A wrapping label would change the row's height; a balance is short. */
+  white-space: nowrap;
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+  line-height: 1;
+  /*
+   * Tertiary tone, like the row's other passive readouts (the clock, the usage
+   * pill). This is a fact the user reads, not a control they press, so it must
+   * not compete with the model name beside it.
+   */
+  color: var(--dsw-alias-label-tertiary);
+}
