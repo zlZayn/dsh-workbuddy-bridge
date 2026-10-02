@@ -150,6 +150,72 @@ async function boot(): Promise<Context> {
 }
 
 describe('catalog lifecycle', () => {
+  it('never exposes the provider without its models (issue #2 startup window)', async () => {
+    /*
+     * The regression, stated as one invariant: **from the moment the provider is
+     * listed, it must already serve models.**
+     *
+     * Registration and revelation used to be ordered the other way round — the
+     * adapter registered against a hidden catalog (so it built zero models) and
+     * the first credential sweep revealed the group afterwards, in a
+     * fire-and-forget `syncAll()`. A session that already had a WorkBuddy model
+     * selected therefore resolved `UNKNOWN_MODEL` on its first message.
+     *
+     * The sampling loop has to start **before** the plugin is applied and run
+     * *concurrently* with startup. A loop that begins after `await boot()` has
+     * already missed the window: by then the sweep has landed, so it passes under
+     * both orderings and guards nothing (which is how the first version of this
+     * test was written, and why it was rewritten).
+     */
+    const root = await tempDir()
+    const cnFile = join(root, 'cn.info')
+    await writeFile(cnFile, credentialDocument('copilot.tencent.com', 'uid-a'))
+    vi.stubEnv('DSH_HOME', root)
+    vi.stubEnv('WORKBUDDY_AUTH_FILE', cnFile)
+    vi.stubEnv('WORKBUDDY_AI_AUTH_FILE', join(root, 'absent.info'))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => fakeResponse(catalogEnvelope('live-model', 'Live Model'))),
+    )
+
+    // Shorten the sweep so the reveal is prompt either way; the window is about
+    // ordering, not about how long the poll takes.
+    vi.stubEnv('DSH_WORKBUDDY_POLL_MS', '100')
+    const ctx = new Context()
+    context = ctx
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(FakeWebServer)
+
+    const violations: string[] = []
+    let settled = false
+    const sampler = (async (): Promise<void> => {
+      while (!settled) {
+        const providers = ctx.llm.listProviders().map((provider) => provider.id)
+        if (providers.includes('workbuddy')) {
+          // Awaiting inside the loop is the point: each sample must observe the
+          // pair as it is at that instant, not a batch read after the fact.
+          const models = await ctx.llm.listModels('workbuddy')
+          if (models.length === 0) violations.push('provider listed while serving 0 models')
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1))
+      }
+    })()
+
+    await ctx.plugin(WorkBuddy, {})
+    await vi.waitFor(async () => {
+      expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
+        'live-model',
+      ])
+    })
+    settled = true
+    await sampler
+
+    expect(
+      violations,
+      'the provider was visible while serving no models — that is the UNKNOWN_MODEL window',
+    ).toEqual([])
+  })
+
   it('serves a live catalog once the first fetch succeeds', async () => {
     const root = await tempDir()
     const cnFile = join(root, 'cn.info')

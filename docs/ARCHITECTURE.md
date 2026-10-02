@@ -28,6 +28,8 @@ src/
 
 **目录降级链**（每个变体独立）：`live`（本次抓取）→ `saved`（该账号上次成功目录，重启可恢复）→ `fallback`（编译进插件的名单）。凭据消失时分组隐藏，账号切换时按身份键（`uid:enterpriseId`）切换各自的数据。
 
+**启动分三相，顺序是契约**：先读凭据并采纳身份 → 再注册 provider → 最后抓目录。第二相必须晚于第一相：注册时 `catalog.current()` 已经有内容，所以 **provider 一旦出现在 `listProviders()` 里就已经带着模型**。反过来（先注册再揭示，且揭示是 fire-and-forget）会留一个空窗——provider 可见但 `resolveModelInfo` 对它的每个模型都答 `UNKNOWN_MODEL`；picker 里看不出来，但一个已选中该模型的会话（恢复的历史会话、或 `agent-default-model`）首条消息就失败。任一相失败都回退到「以隐藏态注册」，随后由轮询揭示，即与今天相同的降级。判据见 [决策记录](../.agents/notes/2026-10-02-startup-window-fix-direction.md)，守卫在 `tests/catalog-lifecycle.spec.ts`。
+
 **轮询**：30 秒一次凭据存在性检查（`DSH_WORKBUDDY_POLL_MS` 可覆盖，仅测试/诊断用，不是产品设置）。同身份的令牌轮换不触发目录重抓；失败的抓取按退避重试，成功落地后停止。
 
 ## 浏览器半（src/client）

@@ -33,6 +33,10 @@ provider 注册与 catalog 揭示之间有一个空窗（[issue #2](https://gith
 
 ## 影响
 
-- 启动顺序变化：`startVariant` 多一次凭据读，且它现在依赖 `adoptIdentity`（今天定义在 `apply` 内部、`startVariant` 之后）。实施时要么把顺序整体前移，要么把 `adoptIdentity` 提前定义。
-- 待实施。判据：一个在窗口内发消息的会话不再拿到 `UNKNOWN_MODEL`；以及既有 `catalog-lifecycle.spec.ts` 的账号切换断言全部保持绿。
-- 关联：[决策记录](2026-10-02-effort-bulb-means-switchable.md)（同轮改动）、[tests/AGENTS.md](../../tests/AGENTS.md)（测试侧已加的「等 roster 就绪」gate 是权宜，产品侧窗口由本条负责）
+- 启动分三相：**读凭据并采纳身份 → 注册 provider → 抓目录**。第一相与第二相之间是硬顺序，第二相与第三相之间也是（目录抓失败落在「已可用的分组」上，而不是落在空处）。
+- 两个变体各自并行，互不等待：一个慢凭据读不能拖住另一个产品的模型上屏。
+- 降级路径不变：读失败或未登录时照常以隐藏态注册，之后交给 30 秒轮询。
+- 守卫：`tests/catalog-lifecycle.spec.ts` 的「never exposes the provider without its models」。
+  它的采样循环**必须在 `ctx.plugin(WorkBuddy)` 之前启动并与之并发** —— 等 `boot()` 之后再采样已经错过窗口，
+  两种顺序下都会绿（第一版就是这么写的，等于没守）。已验证：把顺序改回「先注册」该用例报 2 处违规，改回「先采纳」即绿。
+- 关联：[决策记录](2026-10-02-effort-bulb-means-switchable.md)（同轮改动）、[tests/AGENTS.md](../../tests/AGENTS.md)（测试侧「等 roster 就绪」的 gate 仍是必要的权宜，产品侧窗口由本条关闭）

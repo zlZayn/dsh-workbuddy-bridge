@@ -1155,15 +1155,7 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
    */
   const syncVariant = async (runtime: VariantRuntime): Promise<void> => {
     if (stopped || !runtime.registered) return
-    const credential = await runtime.store.current().catch((error: unknown) => {
-      // A region mismatch or an unreadable file is reported, not swallowed as
-      // "signed out": the user needs to know which file to fix.
-      ctx.logger.warn(
-        `dsh-workbuddy-bridge: ${runtime.variant.displayName} credential read failed`,
-        error,
-      )
-      return undefined
-    })
+    const credential = await readCredential(runtime)
     if (stopped) return
 
     if (credential === undefined) {
@@ -1190,12 +1182,82 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     await fetchCatalog(runtime, identity)
   }
 
+  /**
+   * Read a variant's credential, reporting a refusal instead of swallowing it.
+   *
+   * A region mismatch or an unreadable file is *reported*, not treated as
+   * "signed out": the user needs to know which file to fix, and the difference
+   * between "no credential" and "a credential I refused" is exactly what the
+   * card's reason codes are for.
+   *
+   * @returns the credential, or `undefined` when there is none to use.
+   */
+  const readCredential = async (
+    runtime: VariantRuntime,
+  ): Promise<WorkBuddyCredential | undefined> => {
+    try {
+      return await runtime.store.current()
+    } catch (error: unknown) {
+      ctx.logger.warn(
+        `dsh-workbuddy-bridge: ${runtime.variant.displayName} credential read failed`,
+        error,
+      )
+      return undefined
+    }
+  }
+
+  /**
+   * Adopt a variant's account **before its provider registers**.
+   *
+   * Registration and revelation used to happen in the other order: the adapter
+   * registered first (reading a catalog that was still hidden, so it built
+   * *zero* models), and the first credential sweep revealed the group afterwards
+   * in a fire-and-forget `syncAll()`. Between those two moments
+   * `ctx.llm.listProviders()` named the provider while `resolveModelInfo`
+   * answered `UNKNOWN_MODEL` for every one of its models — invisible in the
+   * picker, but a session that already had one of those models selected (a
+   * restored conversation, or `agent-default-model`) failed on its first
+   * message. The window is tens of milliseconds here and much longer on a real
+   * machine: macOS unlocks the credential through Spotlight and the app's
+   * Electron, Windows goes through `reg query` and at-rest decryption, and
+   * either can sit on a slow or networked drive.
+   *
+   * Adopting first closes it: when the provider appears, its catalog is already
+   * visible, so the models exist from the first read. Nothing is lost when the
+   * read fails or nobody is signed in — the variant registers hidden exactly as
+   * it does today, and the poll reveals it later.
+   *
+   * @see .agents/notes/2026-10-02-startup-window-fix-direction.md
+   */
+  const adoptBeforeRegistering = async (runtime: VariantRuntime): Promise<void> => {
+    const credential = await readCredential(runtime)
+    if (stopped) return
+    adoptIdentity(
+      runtime,
+      credential === undefined ? undefined : credentialIdentity(credential),
+      credential === undefined ? undefined : visibilityAccountOf(credential),
+    )
+  }
+
   /** Run one reconcile sweep across both variants. */
   const syncAll = async (): Promise<void> => {
     for (const runtime of runtimes) await syncVariant(runtime)
   }
 
-  void Promise.all(runtimes.map(async (runtime) => startVariant(ctx, runtime))).then(() => {
+  /**
+   * Bring both variants up, then start the credential sweep.
+   *
+   * The phases are ordered and deliberate: adopting an identity must finish
+   * before the matching provider registers (see
+   * {@link adoptBeforeRegistering}), and the catalogs are fetched after
+   * registration so a fetch failure lands on an already-usable group rather than
+   * on nothing. The two variants never wait on each other within a phase — one
+   * slow credential read must not hold the other product's models back.
+   */
+  const startAll = async (): Promise<void> => {
+    await Promise.all(runtimes.map((runtime) => adoptBeforeRegistering(runtime)))
+    if (stopped) return
+    await Promise.all(runtimes.map(async (runtime) => startVariant(ctx, runtime)))
     if (stopped) return
     // The host bundle is live: write a heartbeat so the status CLI can report
     // host health without a browser. Cleared on disposal; a stale heartbeat
@@ -1210,5 +1272,7 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
     }, credentialPollMs())
     timer.unref?.()
     timers.push(timer)
-  })
+  }
+
+  void startAll()
 }
