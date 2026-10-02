@@ -9,7 +9,7 @@ export const WORKBUDDY_STATUS_PATH = '/plugins/dsh-workbuddy-bridge/status'
  * Separate from the status route because it accepts writes: the status route's
  * loopback Host/Origin guard protects against a DNS-rebinding *page*, which is
  * not the same as authorizing a state-changing action. This route therefore
- * also requires the in-process key the browser half receives with the status
+ * also requires the in-memory key the browser half receives with the status
  * document.
  */
 export const WORKBUDDY_PROBE_PATH = '/plugins/dsh-workbuddy-bridge/probe'
@@ -24,6 +24,49 @@ export const WORKBUDDY_PROBE_PATH = '/plugins/dsh-workbuddy-bridge/probe'
  */
 export const WORKBUDDY_AI_STATUS_PATH = '/plugins/dsh-workbuddy-bridge/ai/status'
 export const WORKBUDDY_AI_PROBE_PATH = '/plugins/dsh-workbuddy-bridge/ai/probe'
+
+/**
+ * Plugin-owned per-message credit route.
+ *
+ * A read-only GET taking `?sessionId=…`, answering `messageId → credit` for one
+ * Session. It is its own route rather than a field of the status document
+ * because the two have different lifetimes: the status document is per
+ * *account* and is re-read when the account changes, while credit accounting
+ * is per *Session* and grows as messages are sent.
+ *
+ * **One route for both variants, on purpose.** The accounting is attributed to
+ * a DSH `messageId` before it is stored, and a message id belongs to one
+ * Session regardless of which provider served it — a conversation can switch
+ * between the two WorkBuddy products (or away from both) mid-thread. A route
+ * per variant would force the message row to know which provider answered a
+ * message *it is merely labelling*, and would strand every message whose turn
+ * ran under the other variant.
+ *
+ * No key is required: the route only reads what this plugin already observed on
+ * its own loopback stream, carries no credential material, and answers loopback
+ * requests through the same Host/Origin guard as the status route.
+ */
+export const WORKBUDDY_CREDIT_PATH = '/plugins/dsh-workbuddy-bridge/credit'
+
+/**
+ * The credit route's answer: one Session's per-message costs.
+ *
+ * `credits` is keyed by DSH `messageId` and is always present (an empty object
+ * when nothing is recorded), so the browser half reads one shape instead of
+ * distinguishing "no data yet" from "no costs".
+ *
+ * A message *absent* from `credits` means this plugin observed no cost for it —
+ * a message predating the feature, a stream that failed before its final frame,
+ * or an upstream answer that carried no `credit` field. It never means zero, so
+ * the row renders nothing rather than a confident `0`.
+ *
+ * Distinct from {@link WorkBuddyWebCredits}, which is the account's *remaining*
+ * balance for the card. This one is what individual messages *spent*.
+ */
+export interface WorkBuddyWebSessionCredits {
+  sessionId: string
+  credits: Readonly<Record<string, number>>
+}
 
 /** One model's recorded probe observation, as the card displays it. */
 export interface WorkBuddyWebProbeModel {
@@ -55,7 +98,7 @@ export interface WorkBuddyProbeAction {
    * `set-model-visibility` hides or shows one model for the signed-in
    * account's picker.
    *
-   * All five are writes, which is why they share this route's in-process key
+   * All five are writes, which is why they share this route's in-memory key
    * and loopback guards rather than the read-only status GET.
    */
   action: 'probe' | 'clear' | 'refresh' | 'set-model-visibility'
@@ -256,9 +299,9 @@ export type WorkBuddyWebStatus =
       /** Per-account hidden-model state for the card's visibility controls. */
       visibility?: WorkBuddyWebVisibilitySection
       /**
-       * In-process key authorizing probe control writes. Handed to the card with
+       * In-memory key authorizing probe control writes. Handed to the card with
        * the status document (the card is same-origin and already had to pass the
-       * loopback guard); it is never persisted and rotates per process.
+       * loopback guard); it is never persisted and is minted fresh on each run.
        */
       probeKey?: string
     }

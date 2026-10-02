@@ -18,6 +18,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { Readable } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
 import type { WorkBuddyCredentialStore } from '../credential/store.ts'
 import type { WorkBuddyCatalog } from '../catalog/index.ts'
 import { hostIsLoopback, originIsLoopback } from '../llm/loopback.ts'
@@ -56,9 +57,82 @@ export interface WorkBuddyShimOptions {
   client: Pick<WorkBuddyUpstreamClient, 'chatStream'>
   catalog: WorkBuddyCatalog
   logger?: ShimLogger
+  /**
+   * Observe what one upstream response cost, as the upstream reports it.
+   *
+   * Called at most once per response, at the frame carrying the number, with
+   * the stream's own response id (`cmb-…`) — the same id DSH records on the
+   * assistant message, which is what lets the Host half attribute a cost to a
+   * message instead of guessing.
+   */
+  observeCredit?: (responseId: string, credit: number) => void
 }
 
 const REQUEST_BODY_LIMIT = 64 * 1024 * 1024
+
+/**
+ * Pull the response id and `credit` out of one SSE `data:` payload.
+ *
+ * WorkBuddy's OpenAI-compatible stream reports what a message cost as an extra
+ * `credit` member beside the standard token buckets on the final usage frame
+ * (measured: `glm-5.3` answering 900 tokens reported `credit: 0.51`). The
+ * member is not part of the OpenAI schema, so it is read defensively off the
+ * parsed object rather than through any typed shape, and every frame without a
+ * usable number is skipped.
+ *
+ * @param payload - the text after `data: ` on one frame.
+ * @returns the response id and credit, or undefined when this frame carries none.
+ */
+export function readCreditFrame(payload: string): { id: string; credit: number } | undefined {
+  if (payload === '' || payload.startsWith('[DONE]')) return undefined
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(payload)
+  } catch {
+    // A partial or non-JSON frame is ordinary mid-stream; nothing to report.
+    return undefined
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
+  const frame = parsed as Record<string, unknown>
+  const id = typeof frame['id'] === 'string' ? frame['id'] : ''
+  if (id === '') return undefined
+  const usage = frame['usage']
+  if (typeof usage !== 'object' || usage === null || Array.isArray(usage)) return undefined
+  const credit = (usage as Record<string, unknown>)['credit']
+  if (typeof credit !== 'number' || !Number.isFinite(credit) || credit < 0) return undefined
+  return { id, credit }
+}
+
+/**
+ * Split a raw chunk into complete SSE `data:` payloads, carrying the trailing
+ * partial line into the next chunk.
+ *
+ * A TCP read boundary lands wherever it likes — mid-JSON, mid-line — so
+ * scanning each chunk on its own would parse a truncated object and drop the
+ * very frame that carries the cost. The remainder is returned for the caller to
+ * prepend.
+ *
+ * @param carry - bytes left over from the previous chunk.
+ * @param chunk - the bytes just read.
+ * @returns the complete payloads, and the new carry.
+ */
+export function readCreditChunk(
+  carry: string,
+  chunk: string,
+): { payloads: readonly string[]; carry: string } {
+  const text = carry + chunk
+  const lines = text.split('\n')
+  // The last element is either an incomplete line or '' when the chunk ended on
+  // a newline; either way it is not a frame yet.
+  const carryOver = lines.pop() ?? ''
+  const payloads: string[] = []
+  for (const line of lines) {
+    const trimmed = line.trimEnd()
+    if (!trimmed.startsWith('data:')) continue
+    payloads.push(trimmed.slice('data:'.length).trim())
+  }
+  return { payloads, carry: carryOver }
+}
 
 /** Chat-completion POSTs must carry a JSON body type (simple-request CSRF drops here). */
 function isJsonContentType(req: IncomingMessage): boolean {
@@ -118,7 +192,7 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
  * is the boundary, and the upstream credential comes from the store alone.
  */
 export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShim {
-  const { store, client, catalog } = options
+  const { store, client, catalog, observeCredit } = options
   const logger = options.logger
 
   // Per-process shared secret. Lives only in memory; the adapter resolves it
@@ -254,13 +328,51 @@ export function createWorkBuddyShim(options: WorkBuddyShimOptions): WorkBuddyShi
       'X-Accel-Buffering': 'no',
     })
     let sawDone = false
+    /**
+     * Bytes of the frame currently being read.
+     *
+     * The cost arrives on the last usage frame, and that frame is exactly the
+     * one a TCP read boundary is most likely to split: parsing each chunk in
+     * isolation would drop it. Complete lines are accumulated into `carry` and
+     * only whole `data:` payloads are inspected.
+     */
+    let carry = ''
+    /** The last cost observed for this response; reported once, at the end. */
+    let observed: { id: string; credit: number } | undefined
+    /**
+     * Decodes the byte stream without splitting a multi-byte character across
+     * chunks.
+     *
+     * `chunk.toString('utf8')` would turn a character straddling a read
+     * boundary into U+FFFD, and since answers routinely contain Chinese that is
+     * not hypothetical. A mangled frame fails `JSON.parse` and is dropped —
+     * which for the frame carrying the cost would mean a message silently
+     * losing its label.
+     */
+    const decoder = new StringDecoder('utf8')
     const body = Readable.fromWeb(result.response.body as Parameters<typeof Readable.fromWeb>[0])
     body.on('data', (chunk: Buffer) => {
       if (chunk.includes('[DONE]')) sawDone = true
+      if (observeCredit === undefined) return
+      const read = readCreditChunk(carry, decoder.write(chunk))
+      carry = read.carry
+      for (const payload of read.payloads) {
+        const frame = readCreditFrame(payload)
+        // Keep the latest rather than the first: a response may report
+        // intermediate usage frames, and only the final one is the total.
+        if (frame !== undefined) observed = frame
+      }
     })
     body.on('error', (error: unknown) => {
       logger?.warn('dsh-workbuddy-bridge: upstream stream failed mid-flight', error)
       if (!sawDone && res.writable) res.end('data: [DONE]\n\n')
+    })
+    // Report after the response is fully written, so the callback never runs
+    // while the browser half is still waiting on this same request.
+    body.on('end', () => {
+      if (observeCredit !== undefined && observed !== undefined) {
+        observeCredit(observed.id, observed.credit)
+      }
     })
     body.pipe(res)
   }

@@ -37,7 +37,8 @@ src/
 | 契约 | 用法 |
 |---|---|
 | `plugins.bundle.config` | 本插件在插件页的配置入口，key = 包名 |
-| `conversation.input.right` | 输入区紧凑控件行的推理等级控件。**必须选 `kind: 'list'` 的槽**——`conversation.input.model` 是 `single`，已被宿主自带的 `ModelSelect` 占用，同 priority 再注册会抛错并顶掉宿主的模型选择器（判据见 [PUBLISHING.md](PUBLISHING.md) 的「平台契约的取真源方式」，经过见 [.agents/notes/2026-09-25-composer-seat-single-occupancy.md](../.agents/notes/2026-09-25-composer-seat-single-occupancy.md)） |
+| `conversation.input.right` | 输入区紧凑控件行的推理等级控件 + 剩余积分标签。**必须选 `kind: 'list'` 的槽**——`conversation.input.model` 是 `single`，已被宿主自带的 `ModelSelect` 占用，同 priority 再注册会抛错并顶掉宿主的模型选择器（判据见 [PUBLISHING.md](PUBLISHING.md) 的「平台契约的取真源方式」，经过见 [.agents/notes/2026-09-25-composer-seat-single-occupancy.md](../.agents/notes/2026-09-25-composer-seat-single-occupancy.md)） |
+| `conversation.chat.assistant-actions` | 已定稿助手回复的操作行（宿主 Like/Dislike 也在这一行）里的「共消耗 X」标签。`kind: 'list'`、`scope: 'session'`，owner currency 是 `{ messageId }`，由 `dsh-client-ui-chat` 声明 |
 | `ctx.configForms.whileServed` | 宿主真正在服务本条目时才注册页面——不可写的部署上不会出现一个存不了的表单 |
 | `SettingsForm` / `SettingsFormModel` | 与官方设置页同一套表单栈，一次 revision 封装的 mutation 保存全部字段 |
 | `ctx.locale` | `settings.workbuddy` 命名空间，zh/en 双语 |
@@ -45,6 +46,30 @@ src/
 | CSS Modules | `*.module.css` 经 lightningcss 编译为 `[hash]_[local]` 类名并注入 `<style>`（`tsdown.config.ts` 里的构建插件复刻了官方链路） |
 
 `ctx.slots.inject` 跟随槽位的**声明方**生命周期：宿主没有插件页或没有 composer 时，回调根本不会运行，所以不需要任何版本判断。
+
+## 每条消息的积分归属
+
+卡片显示账号**还剩多少积分**（账单接口，账号级）；消息行显示一条回复**花了多少积分**（逐消息）。后者是本插件自己观测出来的，因为上游只在它自己的 SSE 里给出这个数字：
+
+- WorkBuddy 的 OpenAI 兼容流在最后一个 `usage` 帧上带一个 `credit` 字段（标准 OpenAI schema 之外的扩展），就是这次请求的花费。
+- 这个数字**是服务端算的，不能本地推导**：桌面客户端只是把 `cost.amount` 的阶段增量累加，从不拿目录里的 `x0.79` 倍率去乘 token（倍率只是展示文案）。所以插件不做任何"按 token 估算"——估出来的数和真值对不上，比不显示更糟。
+- 它无法穿过 pi-ai 到达宿主：`parseChunkUsage` 只取标准 token 字段，`TokenUsage` 也没有对应字段。
+
+因此归属靠**两个半边各出一半 key，再 join**：
+
+```text
+  shim：SSE 里的 id(cmb-…) + usage.credit   ──►  creditLog.record(id, credit)
+                                                        │
+  session/event 的 assistant/message ───────────────────┴──► index.set(sessionId, messageId, credit)
+    （messageId + source.replayState.response.responseId）              │
+                                                              浏览器按 messageId 读
+```
+
+`shim` 看到流，`session/event` 看到消息 id，两边都在同一进程里，而上游响应 id 同时出现在两者身上（实测确认），所以是精确关联而不是猜测。两条写入的先后顺序都可能，`creditLog` 因此带一次性 waiter：先到的一方等另一方。
+
+**只在会话正在用 WorkBuddy 的模型时显示**——余额和逐条消耗都是。别的厂商的模型旁边不该出现一个它没碰过的账本；隐藏时连路由都不请求。
+
+**观测不到就不显示，绝不显示 0**：早于本功能的消息、失败的流、上游没给 cost 的回复，这一行是空的。真免费的回复确实显示 `0`——真值和"未知"必须能区分，区分的办法就是未知时什么都不显示。
 
 ## 配置与实时状态的分界
 

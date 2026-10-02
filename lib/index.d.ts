@@ -1,9 +1,51 @@
 import z from "@deepseek-ai/schemastery";
 import "@earendil-works/pi-ai";
 import { PiAiAdapter } from "@deepseek-ai/dsh-llm-pi-ai";
+import { IncomingMessage, ServerResponse } from "node:http";
 import { Context, Volatile } from "@deepseek-ai/cordis";
 import { AttachmentStore } from "@deepseek-ai/dsh-attachment";
 //#region src/shared/paths.d.ts
+/**
+ * Plugin-owned per-message credit route.
+ *
+ * A read-only GET taking `?sessionId=…`, answering `messageId → credit` for one
+ * Session. It is its own route rather than a field of the status document
+ * because the two have different lifetimes: the status document is per
+ * *account* and is re-read when the account changes, while credit accounting
+ * is per *Session* and grows as messages are sent.
+ *
+ * **One route for both variants, on purpose.** The accounting is attributed to
+ * a DSH `messageId` before it is stored, and a message id belongs to one
+ * Session regardless of which provider served it — a conversation can switch
+ * between the two WorkBuddy products (or away from both) mid-thread. A route
+ * per variant would force the message row to know which provider answered a
+ * message *it is merely labelling*, and would strand every message whose turn
+ * ran under the other variant.
+ *
+ * No key is required: the route only reads what this plugin already observed on
+ * its own loopback stream, carries no credential material, and answers loopback
+ * requests through the same Host/Origin guard as the status route.
+ */
+declare const WORKBUDDY_CREDIT_PATH = "/plugins/dsh-workbuddy-bridge/credit";
+/**
+ * The credit route's answer: one Session's per-message costs.
+ *
+ * `credits` is keyed by DSH `messageId` and is always present (an empty object
+ * when nothing is recorded), so the browser half reads one shape instead of
+ * distinguishing "no data yet" from "no costs".
+ *
+ * A message *absent* from `credits` means this plugin observed no cost for it —
+ * a message predating the feature, a stream that failed before its final frame,
+ * or an upstream answer that carried no `credit` field. It never means zero, so
+ * the row renders nothing rather than a confident `0`.
+ *
+ * Distinct from {@link WorkBuddyWebCredits}, which is the account's *remaining*
+ * balance for the card. This one is what individual messages *spent*.
+ */
+interface WorkBuddyWebSessionCredits {
+  sessionId: string;
+  credits: Readonly<Record<string, number>>;
+}
 /**
  * Why no credential is usable, as a closed enum the browser half switches on.
  *
@@ -1234,6 +1276,15 @@ interface WorkBuddyShimOptions {
   client: Pick<WorkBuddyUpstreamClient, 'chatStream'>;
   catalog: WorkBuddyCatalog;
   logger?: ShimLogger;
+  /**
+   * Observe what one upstream response cost, as the upstream reports it.
+   *
+   * Called at most once per response, at the frame carrying the number, with
+   * the stream's own response id (`cmb-…`) — the same id DSH records on the
+   * assistant message, which is what lets the Host half attribute a cost to a
+   * message instead of guessing.
+   */
+  observeCredit?: (responseId: string, credit: number) => void;
 }
 /**
  * Start the loopback endpoint. Requests carry any bearer; the loopback bind
@@ -1291,6 +1342,129 @@ interface WorkBuddyAdapter {
  * `modelErrors` is one such field.
  */
 declare function createWorkBuddyAdapter(options: WorkBuddyAdapterOptions): WorkBuddyAdapter;
+//#endregion
+//#region src/llm/credit-log.d.ts
+/**
+ * Per-message credit accounting, as two plain registries the Host half fills.
+ *
+ * WorkBuddy reports what a message actually cost as a `credit` field on the
+ * last usage frame of its OpenAI-compatible SSE stream. That number is
+ * **server-supplied**: the desktop app accumulates `cost.amount` stage
+ * increments and never multiplies tokens by the catalog's `x0.79` multiplier
+ * (the multiplier is display copy). So the plugin must not invent a formula —
+ * it observes the number where it exists.
+ *
+ * The field travels on the stream the shim already proxies, and the same
+ * stream carries the upstream response id (`cmb-…`) that DSH records on the
+ * assistant message as `source.replayState.response.responseId`. That pair is
+ * what makes attribution exact rather than guessed:
+ *
+ * ```text
+ *   SSE id + SSE usage.credit  ──►  creditLog.record(id, credit)
+ *                                        │
+ *   session/event assistant/message ─────┴──► index.set(sessionId, messageId, credit)
+ *        (messageId, responseId)                      │
+ *                                              browser row fetches by messageId
+ * ```
+ *
+ * Both structures are pure data with no Host dependencies, so the matching
+ * rules are unit-testable without a Session, a socket, or an upstream.
+ *
+ * @module dsh-workbuddy-bridge/credit-log
+ */
+/**
+ * Bounded `responseId → credit` registry, with one-shot waiters.
+ *
+ * The waiter exists because the two writes race in principle: the shim sees the
+ * credit when the last SSE frame arrives, while the Session event that names
+ * the response id is appended when the stream settles. Either order must
+ * produce the same attribution, so a lookup that misses registers interest and
+ * is answered by the next `record` instead of silently reporting "unknown".
+ */
+declare class WorkBuddyCreditLog {
+  private readonly limit;
+  /**
+   * Insertion-ordered, so eviction is FIFO. A `Map` is used rather than an
+   * object because the response id is attacker-influenced text: a plain object
+   * would let `__proto__` reach the prototype chain.
+   */
+  private readonly credits;
+  /** Pending attributions, keyed by response id; each resolves at most once. */
+  private readonly waiters;
+  constructor(limit?: number);
+  /**
+   * Remember what one response cost.
+   *
+   * A non-finite or negative value is refused rather than stored: the field is
+   * remote input, and a `NaN` reaching the browser would render as `NaN` in the
+   * credit label instead of being reported as unknown.
+   */
+  record(responseId: string, credit: number): void;
+  /** What one response cost, or undefined when it was never observed. */
+  lookup(responseId: string): number | undefined;
+  /**
+   * Call `onCredit` once, when this response's credit becomes known.
+   *
+   * @returns a canceller; calling it after the credit landed is a no-op.
+   */
+  await(responseId: string, onCredit: (credit: number) => void): () => void;
+  /** Drop the oldest entries until the log is inside its bound. */
+  private evict;
+}
+/**
+ * `sessionId → messageId → credit`, the shape the browser row reads.
+ *
+ * Nested rather than a flat `messageId → credit` map so the route can answer
+ * one Session without shipping every Session's accounting, and so a Session's
+ * rows can be dropped as a unit.
+ */
+declare class WorkBuddySessionCreditIndex {
+  private readonly perSessionLimit;
+  /** Per-Session maps, each bounded independently. */
+  private readonly sessions;
+  constructor(perSessionLimit?: number);
+  /** Attribute one message's cost, refreshing its position in its Session. */
+  set(sessionId: string, messageId: string, credit: number): void;
+  /**
+   * One Session's accounting as a plain object, or an empty object when the
+   * Session has none. Always an object, never undefined: the browser half then
+   * needs no "no data yet" branch distinct from "no credits recorded".
+   */
+  forSession(sessionId: string): Record<string, number>;
+  /** Forget one Session's accounting, e.g. when it leaves the store. */
+  delete(sessionId: string): void;
+}
+//#endregion
+//#region src/web/credit.d.ts
+/** Constructor dependencies. */
+interface WorkBuddyCreditRouteOptions {
+  /** The accounting to read from; see {@link WorkBuddySessionCreditIndex}. */
+  credits: WorkBuddySessionCreditIndex;
+  /**
+   * Route path to mount, defaulting to the CN variant's. The international
+   * variant passes its own so the two halves never share a route: the browser
+   * bundle and the host bundle are built independently, and a computed path is
+   * one build-config drift away from asking a route that was never mounted.
+   */
+  path?: string;
+}
+/**
+ * One Session's accounting.
+ *
+ * A missing `sessionId` is answered with an empty document rather than an
+ * error: the browser half asks on behalf of whatever Session it is rendering,
+ * and "this Session has no recorded costs" is a normal, silent state — the row
+ * simply shows no label.
+ *
+ * @param deps - the accounting index.
+ * @param sessionId - the Session to answer for.
+ * @returns the document the browser half renders from.
+ */
+declare function workBuddySessionCredits(deps: WorkBuddyCreditRouteOptions, sessionId: string): WorkBuddyWebSessionCredits;
+/** The credit route's request handler, extracted so tests can mount it bare. */
+declare function workBuddyCreditHandler(deps: WorkBuddyCreditRouteOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+/** Mount the GET credit route on an optional webServer context. */
+declare function registerWorkBuddyCreditRoute(ctx: Context, deps: WorkBuddyCreditRouteOptions): void;
 //#endregion
 //#region src/catalog/store.d.ts
 /** Basename of the CN variant's saved catalog inside the Harness home. */
@@ -1639,4 +1813,4 @@ declare function visibilityAccountOf(credential: Pick<WorkBuddyCredential, 'uid'
  */
 declare function apply(ctx: Context, refs: ConfigRefs): void;
 //#endregion
-export { AI_VARIANT, type AppVersionInfo, CN_APP_VERSION_FILENAME, CN_VARIANT, type ChatIdentity, Config, ConfigRefs, FALLBACK_CN_APP_VERSION, FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS, PROBE_EFFORT_CANDIDATES, type ProbeAttempt, type ProbeOutcome, type ProbeSender, type ResolveChatIdentityOptions, type UpstreamErrorKind, WORKBUDDY_APP_VERSION_FILENAME, WORKBUDDY_AUTH_FILENAME, WORKBUDDY_AUTH_FILE_ENV, WORKBUDDY_CATALOG_FILENAME, WORKBUDDY_HOST_HEARTBEAT_FILENAME, WORKBUDDY_PROBE_FILENAME, WORKBUDDY_PROVIDER, WORKBUDDY_STREAM_IDLE_TIMEOUT_MS, WORKBUDDY_VARIANTS, WORKBUDDY_VISIBILITY_FILENAME, type WorkBuddyAdapter, type WorkBuddyAppVersionSource, type WorkBuddyAuthStatus, WorkBuddyCatalog, type WorkBuddyCatalogFetch, WorkBuddyCatalogStore, type WorkBuddyChatResult, type WorkBuddyCredential, WorkBuddyCredentialStore, type WorkBuddyCredits, type WorkBuddyEffort, type WorkBuddyHostHeartbeat, type WorkBuddyModelBilling, type WorkBuddyModelInfo, type WorkBuddyModelReasoning, type WorkBuddyProbeRecord, WorkBuddyProbeService, type WorkBuddyProbeStatus, WorkBuddyProbeStore, type WorkBuddyProbeValidation, type WorkBuddyPromotion, type WorkBuddyRefreshOutcome, type WorkBuddyShim, WorkBuddyUpstreamClient, type WorkBuddyUpstreamModel, type WorkBuddyVariant, WorkBuddyVisibilityStore, appUserAgent, apply, chatUserAgent, classifyUpstreamError, clearHostHeartbeat, createWorkBuddyAdapter, createWorkBuddyShim, defaultDesktopAuthCandidates, defaultDesktopAuthPath, desktopAuthCandidatesFor, fallbackChatIdentity, fingerprintModel, inject, installedAppVersion, isHeartbeatProcessAlive, modelWithCurrentPromotion, name, normalizeCredits, parseModelCatalog, parseWorkBuddyAuth, prepareChatBody, prepareInternationalChatBody, probeModel, processStartTimeMs, randomSentinel, readBundleVersion, readCliVersion, readHostHeartbeat, regionOf, resolveAppVersion, resolveChatIdentity, validAppVersion, validCliVersion, variantFor, visibilityAccountOf, workbuddyCatalogPath, workbuddyHostHeartbeatPath, workbuddyOwnAuthPath, workbuddyProbePath, workbuddyVisibilityPath };
+export { AI_VARIANT, type AppVersionInfo, CN_APP_VERSION_FILENAME, CN_VARIANT, type ChatIdentity, Config, ConfigRefs, FALLBACK_CN_APP_VERSION, FALLBACK_WORKBUDDY_AI_MODELS, FALLBACK_WORKBUDDY_MODELS, PROBE_EFFORT_CANDIDATES, type ProbeAttempt, type ProbeOutcome, type ProbeSender, type ResolveChatIdentityOptions, type UpstreamErrorKind, WORKBUDDY_APP_VERSION_FILENAME, WORKBUDDY_AUTH_FILENAME, WORKBUDDY_AUTH_FILE_ENV, WORKBUDDY_CATALOG_FILENAME, WORKBUDDY_CREDIT_PATH, WORKBUDDY_HOST_HEARTBEAT_FILENAME, WORKBUDDY_PROBE_FILENAME, WORKBUDDY_PROVIDER, WORKBUDDY_STREAM_IDLE_TIMEOUT_MS, WORKBUDDY_VARIANTS, WORKBUDDY_VISIBILITY_FILENAME, type WorkBuddyAdapter, type WorkBuddyAppVersionSource, type WorkBuddyAuthStatus, WorkBuddyCatalog, type WorkBuddyCatalogFetch, WorkBuddyCatalogStore, type WorkBuddyChatResult, type WorkBuddyCredential, WorkBuddyCredentialStore, WorkBuddyCreditLog, type WorkBuddyCreditRouteOptions, type WorkBuddyCredits, type WorkBuddyEffort, type WorkBuddyHostHeartbeat, type WorkBuddyModelBilling, type WorkBuddyModelInfo, type WorkBuddyModelReasoning, type WorkBuddyProbeRecord, WorkBuddyProbeService, type WorkBuddyProbeStatus, WorkBuddyProbeStore, type WorkBuddyProbeValidation, type WorkBuddyPromotion, type WorkBuddyRefreshOutcome, WorkBuddySessionCreditIndex, type WorkBuddyShim, WorkBuddyUpstreamClient, type WorkBuddyUpstreamModel, type WorkBuddyVariant, WorkBuddyVisibilityStore, type WorkBuddyWebSessionCredits, appUserAgent, apply, chatUserAgent, classifyUpstreamError, clearHostHeartbeat, createWorkBuddyAdapter, createWorkBuddyShim, defaultDesktopAuthCandidates, defaultDesktopAuthPath, desktopAuthCandidatesFor, fallbackChatIdentity, fingerprintModel, inject, installedAppVersion, isHeartbeatProcessAlive, modelWithCurrentPromotion, name, normalizeCredits, parseModelCatalog, parseWorkBuddyAuth, prepareChatBody, prepareInternationalChatBody, probeModel, processStartTimeMs, randomSentinel, readBundleVersion, readCliVersion, readHostHeartbeat, regionOf, registerWorkBuddyCreditRoute, resolveAppVersion, resolveChatIdentity, validAppVersion, validCliVersion, variantFor, visibilityAccountOf, workBuddyCreditHandler, workBuddySessionCredits, workbuddyCatalogPath, workbuddyHostHeartbeatPath, workbuddyOwnAuthPath, workbuddyProbePath, workbuddyVisibilityPath };

@@ -59,27 +59,57 @@ describe('package version sync', () => {
    * `lib/` is tracked in this repository, so the emitted class map must be in a
    * stable order: an unstable build turns every rebuild into a diff and makes
    * "did the artifact change?" unanswerable. The map is emitted as
-   * `"<local>": "<hash>_<local>"` pairs — assert those keys come out sorted.
+   * `"<local>": "<hash>_<local>"` pairs.
    *
    * Guards tsdown.config.ts's cssModulesPlugin, which sorts the keys before
    * emitting them (lightningcss returns `exports` in a non-deterministic order).
+   *
+   * **The order is per stylesheet, not per bundle.** The plugin sorts one
+   * stylesheet's map; the bundle then concatenates those maps in source order,
+   * so a class appearing in two stylesheets appears twice and the *global*
+   * sequence is only incidentally ascending. Sorting the whole bundle used to
+   * be asserted and passed by luck: lightningcss derives `[hash]` from the
+   * stylesheet's **absolute path**, and a hash starting with a digit is escaped
+   * to a leading underscore, which the old scan's `"[0-9a-zA-Z]+_…"` pattern
+   * silently skipped. Checking a checkout at a different path (or a new
+   * stylesheet whose hash starts with a letter) therefore flipped this red
+   * without any real regression — so each module's run is checked instead,
+   * which is the guarantee the plugin actually makes.
    */
-  it('emits the CSS class map in a stable, sorted order', () => {
+  it('emits each stylesheet’s CSS class map in a stable, sorted order', () => {
     const libDir = new URL('../lib/', import.meta.url)
     if (!existsSync(libDir)) return
     const bundle = readdirSync(libDir).find((name) => name === 'client.js')
     if (bundle === undefined) return
     const text = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
-    const keys = [...text.matchAll(/"([A-Za-z][\w]*)": "[0-9a-zA-Z]+_\1"/g)].map(
-      (match) => match[1] as string,
-    )
-    // Self-check: the scan must actually see the class map.
+
+    // One entry per `"<hash>_<local>"` literal, carrying the hash so runs from
+    // different stylesheets can be told apart. The leading `-` and `_` matter:
+    // lightningcss escapes a digit-leading hash with `_`, so requiring an
+    // alphanumeric first character is what hid whole stylesheets before.
+    const pairs = [...text.matchAll(/"([A-Za-z][\w]*)": "(-?[0-9a-zA-Z]+)_\1"/g)].map((match) => ({
+      local: match[1] as string,
+      hash: match[2] as string,
+    }))
+    // Self-check: the scan must actually see a class map.
     expect(
-      keys.length,
+      pairs.length,
       'no CSS class map found in lib/client.js — is the scan still right?',
     ).toBeGreaterThan(0)
-    expect(keys, 'CSS class map is not sorted — the build is non-deterministic').toEqual(
-      [...keys].sort(),
-    )
+
+    // Rebuild the run lengths in emission order: consecutive entries sharing a
+    // hash are one stylesheet's sorted map.
+    const runs: { hash: string; keys: string[] }[] = []
+    for (const pair of pairs) {
+      const current = runs.at(-1)
+      if (current !== undefined && current.hash === pair.hash) current.keys.push(pair.local)
+      else runs.push({ hash: pair.hash, keys: [pair.local] })
+    }
+    for (const run of runs) {
+      expect(
+        run.keys,
+        `CSS class map for hash "${run.hash}" is not sorted — the build is non-deterministic`,
+      ).toEqual([...run.keys].sort())
+    }
   })
 })
