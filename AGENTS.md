@@ -65,9 +65,11 @@
   机制、影响面与三个候选方向登记在 [issue #2](https://github.com/zlZayn/dsh-workbuddy-bridge/issues/2)；改法动的是启动语义，等拍板。
   **推荐方向（待实施）**：把「首次凭据读取 + `adoptIdentity`」提到 `registerAdapter` 之前 —— provider 一出现 catalog 就已揭示，空窗消失；
   凭据读取失败时照常以隐藏态注册并交给轮询，即今天的行为。待办与判据见 [决策记录](.agents/notes/2026-10-02-startup-window-fix-direction.md)
-- [ ] **实测灯泡改动的前置**：运行中的实例装的是 `<DSH_HOME>/profiles/<profile>/node_modules/<包名>` 的**真实目录副本（不是 symlink）**，
+- [ ] **实测本轮改动的前置**：运行中的实例装的是 `<DSH_HOME>/profiles/<profile>/node_modules/<包名>` 的**真实目录副本（不是 symlink）**，
   所以「改源码 → build」不会自动生效。流程：同步 `lib/`（+ `locale/`）进该副本 → **重启 dsh 进程**（宿主半只在启动时装载一次）。
-  判据：`/plugins/<包名>/status` 的 `probe` 键从 `candidates,results` 变成 `models`。2026-10-02 已同步，备份留在 `<包名>.bak-20261002-1830`
+  判据：`/plugins/<包名>/status` 的 `probe` 键从 `candidates,results` 变成 `models`。
+  2026-10-02 曾把新客户端同步进副本而宿主半仍是旧的 —— **两半体版本不一致会让控件整个不渲染**，当场回滚；
+  这条按 `lib/` 整体同步（不要只拷 `client.js`），或把安装形态改成 link（见 [docs/PUBLISHING.md](docs/PUBLISHING.md)）
 
 ## 活跃坑
 
