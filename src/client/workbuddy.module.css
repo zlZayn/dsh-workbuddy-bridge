@@ -119,149 +119,165 @@
   margin-top: 12px;
 }
 
+/*
+ * The card's action strip: one row, above everything the action covers.
+ *
+ * It exists so the card's single refresh does not read as some block's own
+ * button. Three things say "this is the card's", not "this is that block's":
+ * the row is its own (nothing else shares it), the label names the scope
+ * (`刷新全部`), and the control is the host's `md` — 36px, against the 28px `sm`
+ * every block action uses.
+ *
+ * The action is on the *first* line of the card rather than a footer, because
+ * refreshing is something you do before reading the data below it — the host's
+ * footer position (`SettingsForm`'s `.footer`) is for committing an edit, which
+ * this card never does.
+ */
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ---- Field rows --------------------------------------------------------- */
 
 /*
- * A field row: everything the reader needs on the left, the control on the right.
+ * A field row: at most two lines, and the control rides the first.
  *
- *   .field      { padding: 12px 0 }
- *   .field + .field { border-top: 0.5px solid var(--dsw-alias-border-l2) }
+ *   .field  { flex-direction: column; gap: 6px }        ← 宿主 .field
+ *   .head   { display: flex; align-items: center; gap: 8px }  ← 宿主 .head
+ *   .main   { flex: 1; min-width: 0 }                   ← 宿主 .label 的位置
+ *   .note   { ... }                                     ← 宿主 .hint 的位置
  *
- * Two rules, both from the host's own field geometry (`ui-primitives/lib/
- * settings-form/fields.module.css`) and both learned from a rendering that read
- * wrong on screen:
+ * Both numbers are the host's own (`ui-primitives/lib/settings-form/
+ * fields.module.css`): the 6px is the `.field` gap between its label row and its
+ * hint, the 8px is its `.head` gap. Nothing here is a value this plugin chose.
  *
- * ❶ **The rule, not whitespace, separates stacked fields.** The host draws a
- *    0.5px line between consecutive fields; the card used padding alone, so the
- *    account block read as unrelated lines drifting down the page. The line is
- *    drawn by `+` so it only ever appears *between* fields — a leading rule
- *    under a heading would read as an underline on the heading.
- *
- * ❷ **The right column holds the control and nothing else.** Text and a button
- *    on the same side compete for the same glance and end up literally adjacent
- *    (`…更新于 00:59 刷新模型列表`), which is neither a sentence nor a table. The
- *    value belongs under the thing it describes, on the left; the button gets
- *    the right edge to itself.
+ * **The control is inside the first line, not the block.** That is the host's
+ * `.head` — label and input on one row — and it is why a button never drifts when
+ * the note under it grows: the note is a sibling of `.head`, so its length cannot
+ * move anything on the line above.
  *
  * A **lone** field carries no vertical padding of its own: its distance from the
- * heading above and the list below is `.section`'s 12px. Padding here would add
- * to that and make a single-fact block twice as airy as a two-fact one — the
- * spacing would then depend on how many facts a block happens to have.
+ * list below is `.section`'s (12px, the host's `.preparation` margin). The host
+ * pads `.field` because its form stacks fields with no container rhythm; ours
+ * has a container, and padding here would double the gap.
  */
 .field {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* Stacked fields: the rule and its breathing room, and nothing on the ends. */
-.field + .field {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 0.5px solid var(--dsw-alias-border-l2);
+/* The first line: the main value, then the control at the right edge. */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* The left column: what this fact is, then its value, then any explanation —
-   stacked, so each tier is read in order rather than competing on one line. */
-.fieldText {
+/* The main value's room. `flex: 1` + `min-width: 0` is the host's `.label`:
+   without the min-width a long value refuses to shrink and pushes the control
+   off the row.
+
+   `baseline`, not `center`: the caption is 12px and the value 13px, so the two
+   boxes have different heights (18px and 19.5px) and centring them puts their
+   baselines 0.35px apart — which the browser rounds, leaving the grey word
+   visibly one pixel off the value beside it (2026-10-03, reported from a
+   screenshot as "粗体的字和灰色的字好像不在一个水平线上"). Baseline alignment
+   makes the offset exactly zero at any size. */
+.main {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* The static name of the fact. `flex: 1` + `min-width: 0` is the host's
-   `.label`: without the min-width a long value refuses to shrink. */
-.fieldLabel {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.5;
-  color: var(--dsw-alias-label-primary);
-}
-
-/*
- * A **dynamic** value: a time, a count, a state the plugin did not author.
- *
- * It gets its own element rather than being interpolated into a sentence, so
- * machine-produced content stays visibly distinct from the copy around it — a
- * reader can tell what the app measured from what the app says.
- *
- * `primary` ink, one weight below its label: the label names the fact, the value
- * answers it. Both are the reader's subject; only the grey tier below is
- * subordinate.
- */
-.fieldValue {
-  display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 8px;
-  min-width: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--dsw-alias-label-primary);
+  gap: 8px;
 }
 
-/*
- * The grey tier: explanation, metadata, and the caption of a figure.
- *
- * `flex-wrap` because a fact may carry several of these (when a reading was
- * taken, and which app build produced it). They lay out on one line and wrap as
- * a group rather than each forcing a new row.
- */
-.fieldHint {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 8px;
-  min-width: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--dsw-alias-label-tertiary);
-}
-
-/* A caption with its figure, held together so a wrap cannot split the two. */
-.figure {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-/* The figure inside a `.figure`: the part that must line up between rows.
-   `tabular-nums` so a value that ticks or re-reads does not shift the text
-   around it — the digits keep one advance width. */
-.fieldFigure {
-  font-variant-numeric: tabular-nums;
-}
-
-/*
- * A balance readout: the coin glyph and its figure as one object.
- *
- * The same pair the composer shows beside the model picker (`credit-balance.tsx`),
- * rebuilt here at the card's type scale. The glyph is the shared part — it is
- * what makes a reader recognise the number as credit in both places without
- * either one spelling it out.
- *
- * `align-items: center` rather than `baseline`: a stroked glyph has no baseline
- * of its own, and aligning the two optically is the whole point of putting them
- * in one row. The gap is larger than the readout's own 4px because these two sit
- * inside a 13px line rather than a 28px one.
- */
-.coinReadout {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-/* The right column: a control, or nothing. Never text. */
-.fieldAction {
+/* The control, and only the control. Never text: text and a button on one side
+   compete for the same glance and end up literally adjacent
+   (`…更新于 00:59 刷新模型列表`), which is neither a sentence nor a table. */
+.action {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+/* The second line: a grey sentence, or a caption and its value. The gap is the
+   host's `.head` gap; in practice a note holds one `Part`, so it only shows if a
+   fact ever needs two. */
+.note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+/*
+ * One line of tiered text: `caption value after`.
+ *
+ * **One font size for the whole line.** That is the invariant, and it is set
+ * here rather than on the two pieces below so it cannot drift: a grey word beside
+ * a value differs only in ink and weight.
+ *
+ * The first version gave the caption the host's `.hint` size (12px) and the value
+ * its `.label` size (13px) — two tiers copied from `fields.module.css`. That made
+ * the two runs unalignable: flex `align-items` aligns *boxes*, and boxes of
+ * different heights share neither baseline nor centre, so the grey word sat a
+ * fraction of a pixel off the value beside it and the browser's subpixel
+ * positioning turned that into a visible step (reported from a screenshot,
+ * 2026-10-03). The maintainer's own instruction was the simpler rule — "不是用同
+ * 一个字体，然后加粗了，同时放在那里就行吗" — and it removes the whole class of
+ * problem instead of compensating for it.
+ *
+ * `inline-flex` keeps a caption with the value it frames, so `有效期至` cannot end
+ * a line while its timestamp starts the next one.
+ */
+.part {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/*
+ * A static word: the frame around a value.
+ *
+ * Grey ink and nothing else — no size of its own, no weight of its own. It
+ * carries no information, so it must not compete with the value it introduces.
+ */
+.caption {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/*
+ * A **dynamic** value: a name, a time, a count — anything the plugin did not
+ * author.
+ *
+ * Primary ink, one weight heavier than the caption, and `tabular-nums` so a value
+ * that ticks or re-reads does not shift the words around it. Those three are the
+ * whole difference; the size comes from `.part`.
+ *
+ * `tabular-nums` is applied to every value rather than only to figures: singling
+ * out the numeric ones would leave two rules where one does, and a name has no
+ * digits to widen.
+ */
+.figure {
+  /* `inline-flex` because a value may be more than one node: the credits block's
+     value is the coin glyph *and* its figure, and the two sit on one optical line. */
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* A row of actions that belongs to the block above it rather than to one field
@@ -357,13 +373,17 @@
   border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
+/* One list row's top line: the package's name on the left, its reading on the
+   right. The size is set here because the two tiers inside carry no size of their
+   own — `.caption` and `.figure` are ink and weight only, so a list row and a
+   field row cannot drift apart. `baseline` for the same reason `.part` uses it. */
 .packageLabel {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--dsw-alias-label-secondary);
 }
 
 /* The quota track. It is a proportion, not a value, so it takes the neutral

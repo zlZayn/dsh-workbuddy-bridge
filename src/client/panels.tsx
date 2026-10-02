@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Checkbox, Tag, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatNumber, formatPercent, formatTime, formatTokens } from './format.ts'
-import { Field, Figure } from './field.tsx'
+import { Field, Part } from './field.tsx'
 import type { WorkBuddyLocaleKey, WorkBuddyTranslate } from './locales.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
 import type {
@@ -152,8 +152,8 @@ function CreditBar({
     return (
       <div className={css.package}>
         <div className={css.packageLabel}>
-          <span>{label}</span>
-          <span>{quota}</span>
+          <span className={css.caption}>{label}</span>
+          <span className={css.figure}>{quota}</span>
         </div>
         {/*
          * "Uncapped" is not "100% remaining", so the range attributes are
@@ -165,19 +165,34 @@ function CreditBar({
     )
   }
   const sizeKnown = size > 0
-  const detail = sizeKnown
-    ? t('exactRemaining', { remain: formatNumber(remain), size: formatNumber(size) })
-    : t('creditPackageUnknownSize', { remain: formatNumber(remain) })
   const percent = sizeKnown ? (remain / size) * 100 : undefined
+  /*
+   * One reading, on the right, with both forms in it.
+   *
+   * They used to be two: the percentage on the right of the label row and the
+   * exact figure in a grey line under the bar. That is one fact stated twice in
+   * two places, and it reads as two numbers until the reader compares them — the
+   * maintainer asked for them combined on the right (2026-10-03). They belong
+   * together anyway: a percentage alone cannot be quoted to support, and a
+   * fraction without its percent asks the reader to do the division the bar is
+   * already drawing.
+   *
+   * The label takes the grey tier and the reading the value tier — the same two
+   * rules the card's field rows use, so a list row and a field row are one object.
+   */
+  const reading =
+    percent === undefined
+      ? t('creditPackageUnknownSize', { remain: formatNumber(remain) })
+      : t('packageRemaining', {
+          remain: formatNumber(remain),
+          size: formatNumber(size),
+          percent: formatPercent(percent),
+        })
   return (
     <div className={css.package}>
       <div className={css.packageLabel}>
-        <span>{label}</span>
-        <span>
-          {percent === undefined
-            ? t('percentUnknown')
-            : t('percentRemaining', { percent: formatPercent(percent) })}
-        </span>
+        <span className={css.caption}>{label}</span>
+        <span className={css.figure}>{reading}</span>
       </div>
       {/*
        * No numeric value when the size is unknown: the range attributes are
@@ -189,16 +204,13 @@ function CreditBar({
         role="progressbar"
         aria-label={label}
         {...(percent === undefined
-          ? { 'aria-valuetext': detail }
+          ? { 'aria-valuetext': reading }
           : { 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': percent })}
       >
         {percent === undefined ? null : (
           <div className={css.fill} style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} />
         )}
       </div>
-      {/* The exact figure belongs on screen, not only in the progressbar's
-          accessibility text: a percentage alone cannot be quoted to support. */}
-      <span className={css.meta}>{detail}</span>
     </div>
   )
 }
@@ -272,9 +284,7 @@ export function ModelsPanel({
   toggling,
   disabled,
   catalog,
-  busy,
   onToggle,
-  onRefresh,
   t,
 }: {
   models: readonly WorkBuddyWebModelBadge[] | undefined
@@ -293,11 +303,7 @@ export function ModelsPanel({
    * — which made a fact about the catalog read as a fact about the account.
    */
   catalog: WorkBuddyWebCatalog | undefined
-  /** Whether the model-list read is in flight, for this panel's own button. */
-  busy: boolean
   onToggle: (modelId: string, visible: boolean, account: string) => void
-  /** Re-read the catalog. */
-  onRefresh: () => void
   t: WorkBuddyTranslate
 }): ReactNode {
   const rows = [...(models ?? [])].sort((a, b) => {
@@ -318,40 +324,18 @@ export function ModelsPanel({
   return (
     <>
       {/*
-       * The catalog's provenance and its refresh, as the panel's own first field
-       * row. The moment the list was read is the field's grey tier; the button
-       * owns the right edge on its own.
+       * The catalog's provenance: where the list came from, and when it was read.
+       * No button — the card's own refresh does both halves of this, and a second
+       * button named "refresh" that re-fetched upstream while the other one only
+       * re-read was what made the card's actions feel arbitrary.
        */}
       {catalog === undefined ? null : (
         <Field
-          label={t('catalogSourceLabel')}
-          value={catalogSourceText(catalog, t)}
-          hint={
-            <>
-              {catalog.fetchedAt === undefined ? null : (
-                <Figure label={t('catalogUpdatedAt')}>{formatTime(catalog.fetchedAt)}</Figure>
-              )}
-              {catalog.appVersion === undefined ? null : (
-                /*
-                 * Wrapped rather than left as a bare string: the hint is a flex
-                 * container, so a bare string would become an anonymous flex
-                 * item — laid out right by the browser's anonymous-box rules
-                 * rather than by this stylesheet.
-                 */
-                <span>{t('catalogAppVersion', { version: catalog.appVersion })}</span>
-              )}
-            </>
-          }
-          action={
-            <Button
-              size="sm"
-              disabled={disabled}
-              onClick={() => {
-                onRefresh()
-              }}
-            >
-              {busy ? t('refreshingModels') : t('refreshModels')}
-            </Button>
+          main={<Part caption={t('catalogSourceFrom')}>{catalogSourceText(catalog, t)}</Part>}
+          note={
+            catalog.fetchedAt === undefined ? undefined : (
+              <Part caption={t('catalogUpdatedAt')}>{formatTime(catalog.fetchedAt)}</Part>
+            )
           }
         />
       )}
@@ -521,22 +505,29 @@ export function ProbePanel({
   return (
     <>
       {/*
-       * The panel's own field row, mirroring the models panel: name, the dynamic
-       * count, the cost of the action, and the one control on the right edge.
+       * The panel's own field row: the count, the cost of a run, and the one
+       * control this panel owns on the first line's right edge.
        *
-       * The clear button used to sit in a right-aligned row *below* the list,
-       * which read as an orphan — it was the only thing under a bordered box,
-       * with no visible connection to what it clears. Moving it onto this row
-       * both anchors it and says what it acts on: the count above it.
+       * `清除结果` stays here while the card's refresh moved out, because the two
+       * are different verbs: refreshing re-reads, clearing *deletes* recorded
+       * observations. It is the only action in the card that destroys something,
+       * so it belongs beside the count that says how much there is to destroy.
+       *
+       * The button used to sit in a right-aligned row *below* the list, which read
+       * as an orphan — the only thing under a bordered box, with nothing on screen
+       * saying what it clears.
        */}
       <Field
-        label={t('probeHeading')}
-        value={
-          detected.length === 0
-            ? t('probeDetectedNone')
-            : t('probeDetectedCount', { count: detected.length })
+        main={
+          detected.length === 0 ? (
+            <Part caption={t('probeDetectedNone')} />
+          ) : (
+            <Part caption={t('probeDetectedCaption')} after={t('probeDetectedUnit')}>
+              {detected.length}
+            </Part>
+          )
         }
-        hint={t('probeCostNote')}
+        note={<Part caption={t('probeCostNote')} />}
         action={
           detected.length === 0 ? undefined : (
             <Button size="sm" disabled={busy} onClick={onClear}>

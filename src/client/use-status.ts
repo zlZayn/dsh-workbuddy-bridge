@@ -47,10 +47,17 @@ export interface WorkBuddyStatusApi {
   busy: boolean
   /** The model ids whose visibility writes are in flight; only those rows lock. */
   toggling: ReadonlySet<string>
-  /** Re-read now, as the user asked. */
+  /** Re-read now, as the user asked — the document only. */
   refresh: () => Promise<void>
-  /** Re-read the credential and re-fetch this variant's catalog. */
-  refreshModels: () => Promise<void>
+  /**
+   * The card's one action: re-read the document **and** have the host re-fetch
+   * the catalog from upstream.
+   *
+   * This is what the card's single refresh button calls. `refresh` alone would
+   * only re-read what the host already knows, which is why the card used to need
+   * a second, differently-acting button on the model list.
+   */
+  refreshAll: () => Promise<void>
   /** Detect the reasoning levels one model accepts. */
   detect: (model: string) => Promise<void>
   /** Drop every recorded detection for this variant. */
@@ -241,13 +248,34 @@ export function useWorkBuddyStatus(
     }
   }, [read, track])
 
+  /*
+   * The card's one refresh.
+   *
+   * The control route's `refresh` re-fetches the catalog upstream and then
+   * re-reads the document (`control` ends with a `read`), so one call covers the
+   * account, the credits and the model list — which is the whole reason the card
+   * can have a single button instead of one per block.
+   *
+   * The write needs a `probeKey` to authorize it. Without one — signed out, or a
+   * document that has not landed yet — the read is still the useful half, so the
+   * button refreshes rather than sitting inert.
+   */
+  const refreshAll = useCallback(async (): Promise<void> => {
+    const key = status?.status === 'signed-in' ? status.probeKey : undefined
+    if (key === undefined) {
+      await refresh()
+      return
+    }
+    await control({ action: 'refresh' })
+  }, [control, refresh, status])
+
   return {
     status,
     readFailure,
     busy,
     toggling,
     refresh,
-    refreshModels: useCallback(() => control({ action: 'refresh' }), [control]),
+    refreshAll,
     detect: useCallback((model: string) => control({ action: 'probe', model }), [control]),
     clearDetections: useCallback(() => control({ action: 'clear' }), [control]),
     setVisibility: useCallback(

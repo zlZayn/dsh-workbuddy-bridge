@@ -906,6 +906,14 @@ interface WorkBuddyAuthStatus {
   expiresAtMs?: number;
   refreshExpiresAtMs?: number;
   nickname?: string;
+  /**
+   * The account's own id (`account.uid`), when the credential carries one.
+   *
+   * The fallback display name: the desktop document is the only source of a
+   * nickname, and it does not always have one. Non-secret — the same identity
+   * the per-account state is keyed by, sent upstream as `X-User-Id`.
+   */
+  uid?: string;
   domain?: string;
   source?: 'desktop' | 'dsh';
   /**

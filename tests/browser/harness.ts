@@ -146,9 +146,16 @@ export function textOf(view: ReactTestRenderer): string {
     .join(' ')
 }
 
-/** Every rendered `<button>`'s concatenated text. */
+/**
+ * Every rendered `<button>`'s concatenated text.
+ *
+ * Reads the subtree rather than joining `children` directly: a button with an
+ * icon has an element among its children, and `join('')` would stringify it into
+ * the label (`[object Object]Refresh all`), silently breaking every assertion
+ * that looks a button up by name.
+ */
 export function buttonLabels(view: ReactTestRenderer): string[] {
-  return view.root.findAllByType('button').map((node) => node.children.join(''))
+  return view.root.findAllByType('button').map((node) => subtreeText(node))
 }
 
 /**

@@ -122,6 +122,9 @@ export async function workBuddyWebStatus(
   const status: WorkBuddyWebStatus = {
     status: 'signed-in',
     ...(authStatus.nickname === undefined ? {} : { nickname: authStatus.nickname }),
+    // The display-name fallback: the desktop document often has no nickname, and
+    // the card must still be able to say *which* account it is showing state for.
+    ...(authStatus.uid === undefined ? {} : { uid: authStatus.uid }),
     ...(authStatus.domain === undefined || authStatus.domain === ''
       ? {}
       : { domain: authStatus.domain }),

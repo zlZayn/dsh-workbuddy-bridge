@@ -341,14 +341,43 @@ describe('插件页样式跟着宿主走', () => {
 
   it('机器产出的数字一律等宽（tabular-nums）', () => {
     // 时间与计数是**动态**值：每次读取都可能变。不等宽的话，数字一刷新整行就跟着
-    // 抖一下，读者会以为别处也变了。`.fieldFigure` 是这类值的唯一落点 ——
-    // 它由 `src/client/field.tsx` 的 `Figure` 渲染，卡片上每个时间戳都走它。
+    // 抖一下，读者会以为别处也变了。`.figure` 是这类值的唯一落点 ——
+    // 它由 `src/client/field.tsx` 的 `Part` 渲染，卡片上每个值都走它（名字有数字
+    // 也一样，所以不必再分出一档「只给数字」的规则）。
     const css = read('src/client/workbuddy.module.css').replace(/\/\*[\s\S]*?\*\//g, '')
-    const rule = /\.fieldFigure\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
-    expect(rule, '没扫到 .fieldFigure —— 改名了？').not.toBe('')
-    expect(rule, '.fieldFigure 没声明等宽数字，动态值刷新时会抖动').toContain(
+    const rule = /\.figure\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(rule, '没扫到 .figure —— 改名了？').not.toBe('')
+    expect(rule, '.figure 没声明等宽数字，动态值刷新时会抖动').toContain(
       'font-variant-numeric: tabular-nums',
     )
+  })
+
+  it('同一行的灰字与取值只有一档字号', () => {
+    /*
+     * 灰字曾经是宿主的 hint 档（12px）、取值是 label 档（13px），两档抄自
+     * `fields.module.css`。字号不同就**必然**对不齐：flex 的 `align-items` 对齐的是
+     * 盒子，而盒高不同的两个盒子既不共基线、也不共中心，于是灰字比它旁边那个值高
+     * 一点点，再被浏览器的亚像素定位放大成肉眼可见的台阶（2026-10-03 维护者从截图
+     * 报出「粗体的字和灰色的字好像不在一个水平线上」）。
+     *
+     * 维护者的规则更简单：**同一个字体，加粗一下就行**。所以字号只写在容器上
+     * （`.part`、`.packageLabel`），两个档位类自己不许带字号——一旦带上就会各自漂移，
+     * 而「对齐」这件事就没有任何一条规则在保证了。
+     */
+    const css = read('src/client/workbuddy.module.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const rule = (name: string): string =>
+      new RegExp(`\\.${name}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
+    const size = (name: string): string | undefined =>
+      rule(name)
+        .match(/font-size:\s*([^;]+);/)?.[1]
+        ?.trim()
+    expect(rule('caption'), '没扫到 .caption —— 改名了？').not.toBe('')
+    expect(rule('figure'), '没扫到 .figure —— 改名了？').not.toBe('')
+    expect(size('caption'), '.caption 带了自己的字号：灰字会与取值漂开').toBeUndefined()
+    expect(size('figure'), '.figure 带了自己的字号：取值会与灰字漂开').toBeUndefined()
+    // 两个宿主容器必须同档，否则同一张卡上两处的行内字号又不一致。
+    expect(size('part'), '没扫到 .part 的字号').toBeDefined()
+    expect(size('packageLabel')).toBe(size('part'))
   })
 
   it('同一行的名字只有一档字号', () => {

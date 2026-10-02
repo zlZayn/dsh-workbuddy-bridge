@@ -14,12 +14,11 @@ export type WorkBuddyLocaleKey =
   | 'signedOutHint'
   | 'signedOutHintAI'
   | 'signedIn'
-  | 'signedInAs'
+  | 'signedInLabel'
   /*
-   * The account block's static labels. The *values* beside them are dynamic
-   * (a state, a timestamp) and are rendered as their own elements rather than
-   * interpolated into these strings — see the `.fieldValue` / `.fieldFigure`
-   * rules in workbuddy.module.css for why.
+   * Static words, rendered at the grey tier as their own elements beside the
+   * dynamic values they frame — never interpolated together. See the `Field` /
+   * `Part` pair in field.tsx for why.
    */
   | 'sessionExpiryLabel'
 
@@ -27,33 +26,26 @@ export type WorkBuddyLocaleKey =
   | 'requestFailed'
   | 'statusRefreshFailed'
   | 'statusResponseInvalid'
-  // Catalog provenance: a short source value, plus the moment as its own field
-  | 'catalogSourceLabel'
+  // Catalog provenance: a caption, the source it frames, and the moment
+  | 'catalogSourceFrom'
   | 'catalogSourceLive'
   | 'catalogSourceSaved'
   | 'catalogSourceFallback'
   | 'catalogUpdatedAt'
   | 'catalogError'
-  | 'catalogAppVersion'
-  // Actions
-  | 'refresh'
-  | 'refreshing'
-  | 'refreshModels'
-  | 'refreshingModels'
+  // The card's one action, and the panel's own
+  | 'refreshAll'
+  | 'refreshingAll'
   // Tabs
   | 'tabLabel'
   | 'tabCredits'
   | 'tabModels'
   | 'tabProbe'
   // Credit
-  | 'creditsTotalLabel'
   | 'creditsTotalUnlimitedValue'
   | 'unlimitedQuota'
   | 'packageEnterprise'
-  | 'cycleResetLabel'
-  | 'percentRemaining'
-  | 'percentUnknown'
-  | 'exactRemaining'
+  | 'packageRemaining'
   | 'creditPackageUnknownSize'
   | 'creditsError'
   // Per-message and beside-the-picker credit. The verbs differ from the card's
@@ -77,8 +69,8 @@ export type WorkBuddyLocaleKey =
   | 'visibilityIntro'
   | 'visibilityStaleAccount'
   // Reasoning-effort detection (card tab)
-  | 'probeHeading'
-  | 'probeDetectedCount'
+  | 'probeDetectedCaption'
+  | 'probeDetectedUnit'
   | 'probeDetectedNone'
   | 'probeListIntro'
   | 'probeCostNote'
@@ -159,41 +151,48 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   signedOutHintAI:
     'Sign in once in the WorkBuddy AI desktop app; this plugin follows that sign-in automatically.',
   signedIn: 'Signed in',
-  signedInAs: 'Signed in as {nickname}',
-  /* The account block's one label; its value is rendered as a separate element. */
+  /*
+   * The account block: a grey caption and the identity it frames, as two
+   * elements. `signedInLabel` is the caption used when there is an identity to
+   * show; `signedIn` is the whole line when there is none. Neither interpolates —
+   * the value is rendered beside them, not inside them.
+   */
+  signedInLabel: 'Signed in as',
+  /* The expiry's caption; the timestamp is its own element. */
   sessionExpiryLabel: 'Expires',
 
   requestFailed: 'Request failed',
   statusRefreshFailed: 'Refresh failed: {message} — showing the last known state',
   statusResponseInvalid: 'WorkBuddy returned an unreadable status reply',
   /*
-   * Catalog provenance, split into a source and a moment. The source is the
-   * value; the moment is its own figure, so a long localized date cannot pull
-   * the sentence it used to sit inside out of shape.
+   * Catalog provenance: a caption, the source it frames, and the moment the list
+   * was read. Three elements rather than one sentence, so a long localized date
+   * cannot pull the sentence it used to sit inside out of shape.
    */
-  catalogSourceLabel: 'Model list',
-  catalogSourceLive: 'Live from the app',
-  catalogSourceSaved: 'Saved copy',
-  catalogSourceFallback: 'Built-in list',
+  catalogSourceFrom: 'From',
+  catalogSourceLive: 'the app',
+  catalogSourceSaved: 'a saved copy',
+  catalogSourceFallback: 'the built-in list',
   catalogUpdatedAt: 'Updated',
   catalogError: 'Last update failed: {message}',
-  catalogAppVersion: 'app {version}',
-  refresh: 'Refresh',
-  refreshing: 'Refreshing…',
-  refreshModels: 'Refresh model list',
-  refreshingModels: 'Refreshing models…',
+  /*
+   * The card's one action. Labelled for its scope, not its mechanism: it re-reads
+   * the status document *and* has the host re-fetch the catalog, so a bare
+   * "Refresh" beside one block would understate it — and two buttons named
+   * "refresh" that did different things is what this replaces.
+   */
+  refreshAll: 'Refresh all',
+  refreshingAll: 'Refreshing…',
   tabLabel: 'WorkBuddy detail',
   tabCredits: 'Credits',
   tabModels: 'Models',
   tabProbe: 'Detection',
-  creditsTotalLabel: 'Total',
   creditsTotalUnlimitedValue: 'Unlimited',
   unlimitedQuota: 'Unlimited',
   packageEnterprise: 'Enterprise quota',
-  cycleResetLabel: 'Resets',
-  percentRemaining: '{percent}% remaining',
-  percentUnknown: 'Remaining share unknown',
-  exactRemaining: '{remain} / {size} remaining',
+  /* One package's reading: both forms in one string, because they are one fact. */
+  packageRemaining: '{remain} / {size} left ({percent}%)',
+
   creditPackageUnknownSize: '{remain} remaining',
   creditsError: 'Credit unavailable: {message}',
   creditConsumed: 'Used {credit}',
@@ -226,11 +225,13 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
    * the *cost* were welded together, and the pair sat against the list's border
    * with nothing separating them. Three homes now:
    */
-  /** The panel's name, in the field row that also carries the clear action. */
-  probeHeading: 'Level detection',
-  /** The dynamic value: how many models have a recorded answer.
-      Phrased so it needs no plural branch — "1 detected" and "3 detected" both read. */
-  probeDetectedCount: '{count} detected',
+  /*
+   * The count line: a grey caption, the number, and a trailing unit. The unit is
+   * empty in English on purpose — "Detected 7" needs no noun, while "1 models"
+   * would, and a plural branch is not worth a word the reader infers anyway.
+   */
+  probeDetectedCaption: 'Detected',
+  probeDetectedUnit: '',
   probeDetectedNone: 'Nothing detected yet',
   /** Why the list contains models that need no detection — the list's own header. */
   probeListIntro: 'Some models reason but declare no selectable effort levels.',
@@ -325,11 +326,11 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   signedOutHint: '在 WorkBuddy 桌面 App 里登录一次即可，插件会自动跟随当前登录的账号。',
   signedOutHintAI: '在 WorkBuddy AI 国际版桌面 App 里登录一次即可，插件会自动跟随当前登录的账号。',
   signedIn: '已登录',
-  signedInAs: '已登录：{nickname}',
+  signedInLabel: '已登录',
   sessionExpiryLabel: '有效期至',
 
-  catalogSourceLabel: '模型列表',
-  catalogSourceLive: '来自客户端实时读取',
+  catalogSourceFrom: '来自',
+  catalogSourceLive: '客户端实时读取',
   catalogSourceSaved: '已保存的副本',
   catalogSourceFallback: '内置列表',
   catalogUpdatedAt: '更新于',
@@ -337,23 +338,17 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   statusRefreshFailed: '刷新失败：{message} — 当前显示的是上次成功获取的状态',
   statusResponseInvalid: 'WorkBuddy 返回的状态数据无法识别',
   catalogError: '上次更新失败：{message}',
-  catalogAppVersion: 'App 版本 {version}',
-  refresh: '刷新',
-  refreshing: '正在刷新…',
-  refreshModels: '刷新模型列表',
-  refreshingModels: '正在刷新模型…',
+  refreshAll: '刷新全部',
+  refreshingAll: '正在刷新…',
   tabLabel: 'WorkBuddy 详情',
   tabCredits: '积分',
   tabModels: '模型',
   tabProbe: '检测',
-  creditsTotalLabel: '合计',
   creditsTotalUnlimitedValue: '不限额',
   unlimitedQuota: '不限额',
   packageEnterprise: '企业额度',
-  cycleResetLabel: '重置时间',
-  percentRemaining: '剩余 {percent}%',
-  percentUnknown: '剩余占比未知',
-  exactRemaining: '剩余 {remain} / {size}',
+  packageRemaining: '剩余 {remain} / {size}（{percent}%）',
+
   creditPackageUnknownSize: '剩余 {remain}',
   creditsError: '积分查询失败：{message}',
   creditConsumed: '共消耗 {credit}',
@@ -373,8 +368,8 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   visibilityIntro:
     '取消勾选即可将该模型从选择器中隐藏；按登录账号分别保存，已在用该模型的会话不受影响。',
   visibilityStaleAccount: '登录账号已切换——本次修改未保存。',
-  probeHeading: '档位检测',
-  probeDetectedCount: '已检测 {count} 个模型',
+  probeDetectedCaption: '已检测',
+  probeDetectedUnit: '个模型',
   probeDetectedNone: '尚未检测',
   probeListIntro: '部分模型具备思考能力，但没有声明可选档位。',
   probeCostNote: '检测会向一个模型发送少量真实请求以确认可用档位，可能消耗少量积分。',

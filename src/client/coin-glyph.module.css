@@ -10,4 +10,16 @@
    which is the one case where the number must win instead. */
 .glyph {
   flex: none;
+  /*
+   * Opt out of the row's baseline, which both callers now ask for.
+   *
+   * A stroked glyph has no baseline of its own, so `align-items: baseline` would
+   * align its *bottom edge* to the text's baseline and leave it sitting entirely
+   * above the line, looking oversized. `center` keeps it optically centred on the
+   * figure instead — the same treatment the composer readout gives it.
+   *
+   * A per-item override, not a change to either container: the container has to
+   * stay baseline-aligned for the text it also holds (a caption beside a value).
+   */
+  align-self: center;
 }

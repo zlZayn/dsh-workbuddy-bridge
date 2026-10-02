@@ -1,27 +1,30 @@
 /**
  * The card's field row, in one place.
  *
- * Every block in the settings card is a stack of *facts*: the account's state and
- * when it expires, which catalog the model list came from, the credit total and
- * its reset. All of them render as the same object — a name, its value beneath,
- * an optional grey line, and at most one control on the right — which is the
- * host's own field geometry (`ui-primitives/lib/settings-form/fields.module.css`).
+ * Every block in the settings card is the same object, and the object is the
+ * host's own field (`ui-primitives/lib/settings-form/fields.module.css`):
+ *
+ * ```text
+ *   .field   { flex-direction: column; gap: 6px }      ← 块内两行
+ *   .head    { display: flex; align-items: center; gap: 8px }   ← 第一行
+ *   .label   { flex: 1; min-width: 0 }                  ← 主值占满，控件靠右
+ *   .hint    { font-size: 12px; color: label-tertiary } ← 第二行
+ * ```
+ *
+ * So a block is at most two lines — main value plus an optional control on the
+ * first, an optional note on the second — and the control rides the *first*
+ * line, which is what the host's `.head` does with its input.
+ *
+ * **Where this departs from the host.** The host's `.label` is one string in one
+ * tier. Ours interleaves two: the static words around a value (`已登录`,
+ * `更新于`) sit at the host's `.hint` tier, and the value itself at the host's
+ * `.label` tier. There is no host rule for that mixture, so it is mapped onto the
+ * host's two existing tiers rather than invented — {@link Part} is the mapping.
  *
  * **Why this is a module and not markup at each call site.** It was markup at
- * each call site first, and the geometry drifted: the account block ended up with
- * a value and a button sharing the right edge, and a fact that was a *property*
- * of another fact (a session's expiry) got a row and a rule of its own. Both were
- * visible in one screenshot. A primitive makes the right shape the default, so
- * departing from it has to be deliberate rather than accidental.
- *
- * Two rules the shape encodes, each learned from that screenshot:
- *
- * - **The right column holds a control, never text.** Text and a button on the
- *   same side compete for one glance and end up literally adjacent
- *   (`…更新于 00:59 刷新模型列表`), which is neither a sentence nor a table.
- * - **Machine output is its own element.** A timestamp is not prose: it gets
- *   {@link Figure} so it is set in `tabular-nums` (it stops shifting when a read
- *   refreshes it) and stays typographically distinct from the copy around it.
+ * each call site first, and the geometry drifted: a value and a button ended up
+ * sharing the right edge, and a fact that was a *property* of another fact got a
+ * row of its own. Both were visible in one screenshot.
  *
  * @module dsh-workbuddy-bridge/client/field
  */
@@ -29,68 +32,71 @@
 import type { ReactNode } from 'react'
 import css from './workbuddy.module.css'
 
-/** One labelled fact. */
+/** One field row. */
 export interface FieldProps {
-  /**
-   * The name of the fact, when it needs one.
-   *
-   * **Omit it when the value names itself.** A label earns its line only by
-   * adding something the value does not already say: `Account` over
-   * `Signed in as 阿七` was the same fact a third time, under a card header that
-   * already said it (2026-10-02 — the heading was deleted, and then the word had
-   * to go too, because a field label renders on its own line just like the
-   * heading did). Compare `Model list` over `Live from the app`, which the value
-   * cannot be read without.
-   */
-  label?: string
-  /** The value. Wrap a figure in {@link Figure} when it has a caption. */
-  value?: ReactNode
-  /** The grey tier under the value: a {@link Figure}, a static note, or several of either. */
-  hint?: ReactNode
-  /** The one control this fact owns. Omitted when the fact has no action. */
+  /** The first line's left side, composed from {@link Part}s. */
+  main: ReactNode
+  /** The second line, when the fact has one: a {@link Part}, or plain grey copy. */
+  note?: ReactNode
+  /** The control on the first line's right edge. Omitted when the fact has no action. */
   action?: ReactNode
 }
 
 /**
- * Render one fact as a field row.
+ * Render one fact: a main line with an optional control, and an optional note.
  *
  * @param props - see {@link FieldProps}.
  */
-export function Field({ label, value, hint, action }: FieldProps): ReactNode {
+export function Field({ main, note, action }: FieldProps): ReactNode {
   return (
     <div className={css.field}>
-      <div className={css.fieldText}>
-        {label === undefined ? null : <span className={css.fieldLabel}>{label}</span>}
-        {value === undefined ? null : <span className={css.fieldValue}>{value}</span>}
-        {hint === undefined ? null : <span className={css.fieldHint}>{hint}</span>}
+      <div className={css.head}>
+        <div className={css.main}>{main}</div>
+        {action === undefined ? null : <div className={css.action}>{action}</div>}
       </div>
-      {action === undefined ? null : <div className={css.fieldAction}>{action}</div>}
+      {note === undefined ? null : <div className={css.note}>{note}</div>}
     </div>
   )
 }
 
-/** A caption and the figure it names, kept together when the line wraps. */
-export interface FigureProps {
-  /** What the figure is, e.g. "Expires". */
-  label: string
-  /** The figure itself. Set in `tabular-nums`; never a sentence. */
-  children: ReactNode
+/** A caption, the value it frames, and an optional trailing word. */
+export interface PartProps {
+  /** Static words before the value — grey, at the host's hint tier. */
+  caption?: string
+  /**
+   * The value the caption frames — normal ink, one step heavier.
+   *
+   * Rendered as its own element, never interpolated into the caption: a timestamp
+   * is machine output, and a sentence containing one changes shape with the
+   * locale (`2026年11月26日 17:40` / `Nov 26, 2026, 5:40 PM`).
+   */
+  children?: ReactNode
+  /**
+   * Static words after the value (`已检测 7 个模型`). Grey, like the caption.
+   *
+   * An empty string renders nothing rather than an empty span: a locale that
+   * needs no trailing word (English's "Detected 7") would otherwise leave a flex
+   * slot's worth of gap, which reads as a missing word rather than as none.
+   */
+  after?: string
 }
 
 /**
- * Render a caption with its figure: `Expires 2026-11-26 17:40`.
+ * Render one line of tiered text: `caption value after`.
  *
- * The two are one inline-flex unit rather than two loose nodes, so a narrow card
- * wraps the pair onto the next line instead of splitting the caption from the
- * number it introduces.
+ * Omit `children` for a line that is pure copy — a caption alone renders as the
+ * grey sentence it is, which is how the note under the detection list works.
  *
- * @param props - see {@link FigureProps}.
+ * @param props - see {@link PartProps}.
  */
-export function Figure({ label, children }: FigureProps): ReactNode {
+export function Part({ caption, children, after }: PartProps): ReactNode {
   return (
-    <span className={css.figure}>
-      <span>{label}</span>
-      <span className={css.fieldFigure}>{children}</span>
+    <span className={css.part}>
+      {caption === undefined || caption === '' ? null : (
+        <span className={css.caption}>{caption}</span>
+      )}
+      {children === undefined ? null : <span className={css.figure}>{children}</span>}
+      {after === undefined || after === '' ? null : <span className={css.caption}>{after}</span>}
     </span>
   )
 }

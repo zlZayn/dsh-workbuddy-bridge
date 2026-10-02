@@ -24,6 +24,7 @@ import {
   clickText,
   expandDisclosure,
   signedIn,
+  subtreeText,
   t,
   textOf,
   useBrowserStubs,
@@ -87,12 +88,51 @@ describe('WorkBuddy card', () => {
     expect(text).not.toContain(t('signedOut'))
   })
 
+  it('says the same thing collapsed and expanded when nobody is signed in', async () => {
+    /*
+     * Regression, 2026-10-03. The collapsed header rendered one string and the
+     * expanded block a caption plus a value, and each derived it separately. The
+     * body branched on *having an identity* rather than on the sign-in state —
+     * and a signed-out document has no identity either, so the card read 未登录
+     * in the header and 已登录 in the body, with the state dot correctly unlit
+     * beside them. The maintainer reported exactly that split.
+     *
+     * Both halves are asserted here because either alone would have passed: the
+     * header was right and the body was wrong.
+     */
+    stub.body = { status: 'signed-out', reasonCode: 'no-credential' }
+    await mount(false)
+    const collapsed = textOf(box.view!)
+    expect(collapsed).toContain(t('signedOut'))
+    expect(collapsed).not.toContain(t('signedIn'))
+    await expandDisclosure(box.view!)
+    const expanded = textOf(box.view!)
+    expect(expanded).toContain(t('signedOut'))
+    expect(expanded).not.toContain(t('signedIn'))
+  })
+
+  it('keeps the account line identical in the header and the body when signed in', async () => {
+    // The same agreement, from the other side: the identity the header names is
+    // the identity the block shows, and the caption is the one that frames a value
+    // (`Signed in as`), not the one for a state that names itself (`Signed in`).
+    // No nickname in this document — the id is the only identity it carries, so
+    // the block has to fall back to it rather than showing a bare "Signed in".
+    stub.body = signedIn({ nickname: undefined, uid: '5ea76081-0e98-4452-af93-b652d3ea1fd4' })
+    await mount(false)
+    expect(textOf(box.view!)).toContain(t('signedInLabel'))
+    await expandDisclosure(box.view!)
+    const view = box.view!
+    expect(textOf(view)).toContain('5ea76081-0e98-4452-af93-b652d3ea1fd4')
+    const field = byClass(view, 'field')[0]!
+    expect(subtreeText(byClass(field, 'caption')[0]!)).toBe(t('signedInLabel'))
+  })
+
   it('keeps the document on screen when a later read fails', async () => {
     stub.body = signedIn({ nickname: '阿七' })
     await mount(true)
     // Make every subsequent read fail, then ask for one.
     stub.call.mockImplementation(async () => ({ ok: false, status: 500, json: async () => ({}) }))
-    await clickText(box.view!, t('refresh'))
+    await clickText(box.view!, t('refreshAll'))
     const text = textOf(box.view!)
     // The account is still named (in the collapsed status), and the failure is
     // stated beside the document — not in place of it. Blanking the card over one
@@ -126,7 +166,7 @@ describe('WorkBuddy card', () => {
     })
     await mount(true)
     // A manual refresh starts read #2 while read #1 is still in flight.
-    await clickText(box.view!, t('refresh'))
+    await clickText(box.view!, t('refreshAll'))
     await act(async () => {
       for (const resolve of resolvers)
         resolve({
@@ -178,25 +218,32 @@ describe('WorkBuddy card', () => {
     expect(stub.call.mock.calls[0]?.[0]).toBe(AI_CARD_VARIANT.statusPath)
   })
 
-  it('offers a model-list refresh on the models tab, and nowhere else', async () => {
+  it('has one refresh, on its own row, and no block offers a second', async () => {
     /*
-     * The refresh belongs to the model list, so it lives on the model list's own
-     * tab. It used to sit in the account block above the tabs — reachable from
-     * every tab, and reading as an action on the account.
+     * The card used to have two: `Refresh` in the account block (a plain re-read)
+     * and `Refresh model list` in the models panel (which had the host re-fetch
+     * upstream). Both read as "refresh" while doing different things, which is
+     * what made the card's actions feel arbitrary.
      *
-     * Both halves are asserted: present where it belongs, absent where it does
-     * not. Only the first would pass with the button duplicated.
+     * Now there is one button, it does both halves, and it is the card's — on a
+     * row of its own with a label that names its scope. So the assertion has two
+     * sides: present exactly once at card level, and absent from every block.
      */
     stub.body = signedIn({
       catalog: { source: 'live', fetchedAt: Date.now() },
       models: [{ id: 'hy3', name: 'HY3', contextWindow: 200_000 }],
     })
     await mount(true)
-    // Not on the default (credits) tab.
-    expect(buttonLabels(box.view!)).not.toContain(t('refreshModels'))
-    await clickText(box.view!, t('tabModels'))
-    expect(buttonLabels(box.view!)).toContain(t('refreshModels'))
-    await clickText(box.view!, t('refreshModels'))
+    expect(buttonLabels(box.view!).filter((label) => label === t('refreshAll'))).toHaveLength(1)
+    // Its row is outside every tab panel: the same button stays put on all three.
+    for (const tab of [t('tabCredits'), t('tabModels'), t('tabProbe')]) {
+      await clickText(box.view!, tab)
+      expect(buttonLabels(box.view!)).toContain(t('refreshAll'))
+      expect(buttonLabels(box.view!)).not.toContain('Refresh model list')
+    }
+    // It does both halves: the control route re-fetches the catalog upstream and
+    // then re-reads the document, so one press covers account, credits and models.
+    await clickText(box.view!, t('refreshAll'))
     expect(stub.posts).toHaveLength(1)
     expect(stub.posts[0]?.url).toBe(CN_CARD_VARIANT.probePath)
     expect(stub.posts[0]?.body).toContain('"refresh"')
@@ -228,13 +275,20 @@ describe('WorkBuddy card', () => {
     const { formatNumber } = await import('../../src/client/format.ts')
     const text = textOf(box.view!)
     // The total and the bars live on one tab; the old split (total under
-    // "Status", bars under "Details") cannot reappear. The total is a field row
-    // now, so label and figure are separate nodes — asserted separately, which
-    // also pins that both halves survived the change.
-    expect(text).toContain(t('creditsTotalLabel'))
+    // "Status", bars under "Details") cannot reappear. The total is the coin
+    // readout — a glyph and its figure, no caption — so the figure is what to
+    // assert, and the card's own composer readout asserts the same way.
     expect(text).toContain(formatNumber(3767))
+    // The package's reading is **one** string carrying both forms: the exact
+    // figure and its percent. They used to be two — the percentage on the right
+    // of the label row and the figure on a grey line under the bar — which read
+    // as two numbers until compared.
     expect(text).toContain(
-      t('exactRemaining', { remain: formatNumber(2767), size: formatNumber(10000) }),
+      t('packageRemaining', {
+        remain: formatNumber(2767),
+        size: formatNumber(10000),
+        percent: '27.7',
+      }),
     )
     // The old "Status" tab label asserted as a literal: the key was deleted, so
     // a typed key here would no longer compile — the literal is the guard.
@@ -283,11 +337,12 @@ describe('WorkBuddy card', () => {
     expect(text).toContain('boom')
     // ...and everything outside that block survives. That is the whole point:
     // before the boundary, this crash took the account block, the tabs, and
-    // every other panel with it. The account block is asserted through its
-    // *value* — it carries no label of its own (see the field-grammar note).
-    expect(text).toContain(t('signedInAs', { nickname: '阿七' }))
-    // The card's own header and the refresh action are outside the boundary too.
-    expect(text).toContain(t('refresh'))
+    // every other panel with it. The account block is a caption and the identity
+    // beside it, so both are asserted (see the field-grammar note).
+    expect(text).toContain(t('signedInLabel'))
+    expect(text).toContain('阿七')
+    // The card's own header and its one refresh are outside the boundary too.
+    expect(text).toContain(t('refreshAll'))
     const labels = buttonLabels(box.view!)
     expect(labels).toContain(t('tabCredits'))
     expect(labels).toContain(t('tabModels'))
@@ -297,7 +352,6 @@ describe('WorkBuddy card', () => {
     // reach.
     await clickText(box.view!, t('tabCredits'))
     const { formatNumber: fmt } = await import('../../src/client/format.ts')
-    expect(textOf(box.view!)).toContain(t('creditsTotalLabel'))
     expect(textOf(box.view!)).toContain(fmt(100))
     await clickText(box.view!, t('tabModels'))
     expect(textOf(box.view!)).toContain('HY3')
@@ -337,8 +391,8 @@ describe('WorkBuddy card', () => {
     const list = byClass(panel, 'list')
     expect(field).toHaveLength(1)
     expect(list).toHaveLength(1)
-    // The action lives inside the field row...
-    expect(byClass(panel, 'fieldAction')[0]!.findAllByType('button')).toHaveLength(1)
+    // The action lives on the field row's first line...
+    expect(byClass(panel, 'action')[0]!.findAllByType('button')).toHaveLength(1)
     // ...and the field row comes before the list it acts on.
     const order = panel.findAll(
       (node) =>
@@ -349,8 +403,10 @@ describe('WorkBuddy card', () => {
     )
     expect(order[0]!.props.className).toContain('_field_')
     // The count it acts on is the field's dynamic value, so the button is
-    // anchored to something that says how much there is to clear.
-    expect(textOf(view)).toContain(t('probeDetectedCount', { count: 1 }))
+    // anchored to something that says how much there is to clear. Caption and
+    // figure are separate elements — that is the field grammar's whole point.
+    expect(textOf(view)).toContain(t('probeDetectedCaption'))
+    expect(subtreeText(byClass(panel, 'figure')[0]!)).toBe('1')
     // The old orphan slot is gone from this panel entirely.
     expect(byClass(panel, 'sectionActions')).toEqual([])
   })

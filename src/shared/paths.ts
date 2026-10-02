@@ -325,6 +325,16 @@ export type WorkBuddyWebStatus =
   | {
       status: 'signed-in'
       nickname?: string
+      /**
+       * The account's own id (`account.uid`), when the credential carries one.
+       *
+       * The card names the account with `nickname ?? uid`: the desktop document is
+       * the only source of a nickname and it does not always have one, while the
+       * uid is what the per-account state (hidden models, probe records) is keyed
+       * by — so it is the one identifier that is always there to distinguish two
+       * accounts. Non-secret; `src/credential/store.ts` says why.
+       */
+      uid?: string
       domain?: string
       source?: 'desktop' | 'dsh'
       expiresAt?: number

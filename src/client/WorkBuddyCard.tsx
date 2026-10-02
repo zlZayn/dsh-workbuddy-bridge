@@ -13,15 +13,16 @@ import { useId, useState, type ReactNode } from 'react'
 import {
   Button,
   DisclosureRow,
+  IconRefreshOutlineRegular,
   SegmentedTabs,
   StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SegmentedTab, StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AssistBlock, CreditsPanel, ModelsPanel, ProbePanel, assistCodeFor } from './panels.tsx'
 import { PanelBoundary } from './PanelBoundary.tsx'
-import { Field, Figure } from './field.tsx'
+import { Field, Part } from './field.tsx'
 import { CoinGlyph } from './coin-glyph.tsx'
-import { formatCycleReset, formatNumber, formatTime } from './format.ts'
+import { formatNumber, formatTime } from './format.ts'
 import { useWorkBuddyStatus } from './use-status.ts'
 import type { WorkBuddyLocaleKey, WorkBuddyTranslate } from './locales.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
@@ -58,21 +59,46 @@ function dotState(status: WorkBuddyWebStatus | undefined): StateDotState {
   return status.status === 'error' ? 'error' : 'idle'
 }
 
-/** The one-line account state. `undefined` status is "not read yet", not signed-out. */
-function accountLabel(status: WorkBuddyWebStatus | undefined, t: WorkBuddyTranslate): string {
-  if (status === undefined) return t('loading')
-  if (status.status === 'signed-in') {
-    return status.nickname === undefined
-      ? t('signedIn')
-      : t('signedInAs', { nickname: status.nickname })
-  }
-  return status.status === 'error' ? t('requestFailed') : t('signedOut')
+/** The account block's one line, as the two tiers that render it. */
+interface AccountLine {
+  /** The static words — grey. */
+  caption: string
+  /** The account's identity — primary ink. Absent when the state names itself. */
+  value?: string
 }
 
-/** Where the model list on screen came from, and when.
+/**
+ * What the account state says, in one place.
  *
- * Moved to `panels.tsx` with the row that renders it: the sentence describes the
- * catalog, and the catalog is the models panel's subject — not the account's. */
+ * **One home, because two homes already disagreed.** The collapsed header renders
+ * this as one string and the expanded block renders it as a caption plus a value;
+ * when each derived the line itself, the body branched on *having an identity*
+ * instead of on the sign-in state — and since a signed-out document has no
+ * identity either, a signed-out card read 未登录 in the header and 已登录 in the
+ * body, with the state dot correctly unlit beside them (reported 2026-10-03).
+ *
+ * The identity is the nickname when the desktop app reports one, otherwise the
+ * account id: the credential does not always carry a nickname, while the id is
+ * what the per-account state (hidden models, probe records) is keyed by, so it is
+ * the one name that is always there.
+ */
+function accountLine(status: WorkBuddyWebStatus | undefined, t: WorkBuddyTranslate): AccountLine {
+  // `undefined` status is "not read yet", which is not the same as signed out.
+  if (status === undefined) return { caption: t('loading') }
+  if (status.status === 'signed-in') {
+    const identity = status.nickname ?? status.uid
+    return identity === undefined
+      ? { caption: t('signedIn') }
+      : { caption: t('signedInLabel'), value: identity }
+  }
+  return { caption: status.status === 'error' ? t('requestFailed') : t('signedOut') }
+}
+
+/** The same line flattened for the collapsed header, where it is one string. */
+function accountLabel(status: WorkBuddyWebStatus | undefined, t: WorkBuddyTranslate): string {
+  const { caption, value } = accountLine(status, t)
+  return value === undefined ? caption : `${caption} ${value}`
+}
 
 /** Render one variant's live status card. */
 export function WorkBuddyCard({
@@ -90,7 +116,7 @@ export function WorkBuddyCard({
     busy,
     toggling,
     refresh,
-    refreshModels,
+    refreshAll,
     detect,
     clearDetections,
     setVisibility,
@@ -128,6 +154,9 @@ export function WorkBuddyCard({
    */
   const assistCode = status?.status === 'signed-out' ? assistCodeFor(status.reasonCode) : undefined
   const signedIn = status?.status === 'signed-in' ? status : undefined
+  // The block's two tiers. Derived once so the header and the body cannot
+  // disagree — which they did, and the maintainer caught it.
+  const account = accountLine(status, t)
 
   return (
     <DisclosureRow
@@ -151,39 +180,52 @@ export function WorkBuddyCard({
       }
     >
       <div className={css.body}>
+        {/*
+         * The card's one action, on a row of its own above everything it
+         * refreshes.
+         *
+         * It used to be two buttons: `Refresh` in this block and `Refresh model
+         * list` in the models panel. They did different things — one re-read the
+         * document, the other had the host re-fetch the catalog upstream — while
+         * both read as "refresh", which is what made the card's buttons feel
+         * arbitrary. Now there is one button that does both.
+         *
+         * Three signals keep it card-level rather than a block's own action: it
+         * is on its own row, its label names the scope, and it is the host's `md`
+         * (36px) control while every block action is `sm` (28px).
+         */}
+        <div className={css.cardActions}>
+          <Button
+            icon={<IconRefreshOutlineRegular />}
+            disabled={busy}
+            onClick={() => {
+              void refreshAll()
+            }}
+          >
+            {busy ? t('refreshingAll') : t('refreshAll')}
+          </Button>
+        </div>
+
         <div className={css.section}>
           {/*
-           * The account block is one unlabelled fact: the value says what it is
-           * (`Signed in as 阿七`), so a name over it would be the same fact again
-           * — which is what `Account` over `Sign-in` over `Signed in as 阿七` was,
-           * under a card header that already said it.
+           * The account block: a grey caption and, when the state has one, the
+           * identity it frames. Both tiers come from `accountLine`, which is the
+           * same source the collapsed header reads — see its comment for why
+           * there is exactly one of them.
            *
-           * The expiry rides along as the field's grey tier rather than taking a
-           * row of its own: it only means anything as a property of the session.
-           * The value and the button stay on opposite edges — see `field.tsx` for
-           * the shape's rules.
+           * The expiry is the note line: it only means anything as a property of
+           * the session. See `field.tsx` for the shape's rules.
            */}
           <Field
-            value={accountLabel(status, t)}
-            hint={
-              signedIn?.expiresAt === undefined ? undefined : (
-                <Figure label={t('sessionExpiryLabel')}>{formatTime(signedIn.expiresAt)}</Figure>
-              )
+            main={
+              <Part caption={account.caption}>
+                {account.value === undefined ? undefined : account.value}
+              </Part>
             }
-            action={
-              /* The assist block carries the re-check in its state, so the
-                 refresh button steps aside rather than duplicating it. */
-              assistCode === undefined ? (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => {
-                    void refresh()
-                  }}
-                >
-                  {busy ? t('refreshing') : t('refresh')}
-                </Button>
-              ) : undefined
+            note={
+              signedIn?.expiresAt === undefined ? undefined : (
+                <Part caption={t('sessionExpiryLabel')}>{formatTime(signedIn.expiresAt)}</Part>
+              )
             }
           />
           {/*
@@ -216,37 +258,27 @@ export function WorkBuddyCard({
                 >
                   {signedIn.credits === undefined ? null : (
                     /*
-                     * One fact with three tiers: the total, and when the cycle it
-                     * counts against resets. The reset is a property of the total
-                     * — reading it without the total says nothing — so it is the
-                     * field's grey tier rather than a second row.
-                     *
-                     * The total is the **coin readout**, the same glyph-and-figure
+                     * The total, as the **coin readout**: the same glyph-and-figure
                      * pair the composer shows beside the model picker. That is the
-                     * point of it: the balance appears in two places two clicks
+                     * point of it — the balance appears in two places two clicks
                      * apart, and the shared glyph is what makes a reader recognise
                      * it as the same number without either place spelling it out.
+                     *
+                     * One line and nothing else: the same shape the composer uses,
+                     * which has no caption either (at 28px a caption would compete
+                     * with the number it labels). It is not an exception to the
+                     * template — every element but the main value is optional.
                      */
                     <Field
-                      label={t('creditsTotalLabel')}
-                      value={
-                        <span className={css.coinReadout}>
+                      main={
+                        <Part>
                           <CoinGlyph />
                           {/* `unlimited` first: the placeholder total is 0 and
                               rendering it would claim the quota is exhausted. */}
-                          <span className={css.fieldFigure}>
-                            {signedIn.credits.unlimited === true
-                              ? t('creditsTotalUnlimitedValue')
-                              : formatNumber(signedIn.credits.total)}
-                          </span>
-                        </span>
-                      }
-                      hint={
-                        signedIn.credits.cycleResetTime === undefined ? undefined : (
-                          <Figure label={t('cycleResetLabel')}>
-                            {formatCycleReset(signedIn.credits.cycleResetTime)}
-                          </Figure>
-                        )
+                          {signedIn.credits.unlimited === true
+                            ? t('creditsTotalUnlimitedValue')
+                            : formatNumber(signedIn.credits.total)}
+                        </Part>
                       }
                     />
                   )}
@@ -272,13 +304,9 @@ export function WorkBuddyCard({
                     toggling={toggling}
                     disabled={busy}
                     catalog={signedIn.catalog}
-                    busy={busy}
                     t={t}
                     onToggle={(model, visible, account) => {
                       void setVisibility(model, visible, account)
-                    }}
-                    onRefresh={() => {
-                      void refreshModels()
                     }}
                   />
                 </div>

@@ -8,10 +8,12 @@
   `conversation.chat.assistant-actions`（每消息的消耗积分）
 - config-controller.ts —— `ctx.configForms.get(ENTRY_ID)` 的staged 表单模型；四字段全部 volatile
 - WorkBuddyConfigPage.tsx —— 配置页：宿主 `SettingsForm`（两个文本字段）+ 两个官方开关行，然后是实时卡片
-- WorkBuddyCard.tsx —— 变体卡片：宿主 `DisclosureRow` 壳（`expandOnRowClick`，整行可点）；展开区顶部是账号块（登录状态与
-  有效期同一条事实），下面按「读者任务」分三个 SegmentedTabs：积分（合计+重置+套餐）/ 模型（目录来源+刷新、显隐+窗口+倍率）/ 检测
-- field.tsx —— 卡片的字段行原语（`Field` / `Figure`）：左侧名称与取值，右侧至多一个控件，相邻行 0.5px 规则线。
-  卡片上每一块都走它；形状的三条不变式见 [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) 的「卡片的视觉语法」，
+- WorkBuddyCard.tsx —— 变体卡片：宿主 `DisclosureRow` 壳（`expandOnRowClick`，整行可点）；展开区自上而下是
+  **卡片的唯一动作行**（`刷新全部`，`md` 尺寸）+ 账号块，然后按「读者任务」分三个 SegmentedTabs：
+  积分（币读数 + 套餐）/ 模型（目录来源 + 显隐/窗口/倍率）/ 检测（档位清单）
+- field.tsx —— 卡片的字段行原语（`Field` / `Part`）：**最多两行**——第一行是「主值 + 右端至多一个控件」，
+  第二行是副说明。静态词（`Part` 的 `caption`/`after`）走宿主 `.hint` 档的灰字，动态值走宿主 `.label` 档的正常色。
+  卡片上每一块都走它；不变式见 [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) 的「卡片的视觉语法」，
   结构守卫是 [../../tests/browser/field.spec.ts](../../tests/browser/field.spec.ts)
 - panels.tsx —— 标签页内容：积分条与套餐明细 / 模型目录表（`ModelsPanel`）/ 档位清单（`ProbePanel`，每个推理模型一行）/ Agent assist
 - PanelBoundary.tsx —— 面板级错误边界（class 组件，React 只支持 class）。宿主的槽边界会**闩锁**：

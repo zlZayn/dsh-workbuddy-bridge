@@ -48,6 +48,14 @@ export interface WorkBuddyAuthStatus {
   expiresAtMs?: number
   refreshExpiresAtMs?: number
   nickname?: string
+  /**
+   * The account's own id (`account.uid`), when the credential carries one.
+   *
+   * The fallback display name: the desktop document is the only source of a
+   * nickname, and it does not always have one. Non-secret — the same identity
+   * the per-account state is keyed by, sent upstream as `X-User-Id`.
+   */
+  uid?: string
   domain?: string
   source?: 'desktop' | 'dsh'
   /**
@@ -487,6 +495,13 @@ export class WorkBuddyCredentialStore {
           ? {}
           : { refreshExpiresAtMs: credential.refreshExpiresAtMs }),
         ...(credential.nickname === undefined ? {} : { nickname: credential.nickname }),
+        // The account's own id, when the credential carries one. Reported so the
+        // card can name the account even when the app never wrote a nickname —
+        // the desktop document is the only place a display name could come from,
+        // and on this maintainer's install it carries none (2026-10-02). It is
+        // the same non-secret identity the per-account state is keyed by, not a
+        // secret: it travels upstream in `X-User-Id` on every request.
+        ...(credential.uid === '' ? {} : { uid: credential.uid }),
         ...(credential.domain === '' ? {} : { domain: credential.domain }),
         source: credential.source,
       }
