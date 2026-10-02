@@ -471,84 +471,170 @@ function ModelProbe({
           any popover — click away, press Escape, or click the icon again. */}
       {open
         ? createPortal(
-            <section
-              ref={panelRef}
-              className={css.panel}
+            <ProbePanel
+              panelRef={panelRef}
               style={position ?? MEASURE_STYLE}
-              role="dialog"
-              aria-label={t('probeLabel')}
-            >
-              <div className={css.panelTitle}>
-                <span className={css.panelTitleIcon}>
-                  <ProbeIcon lit={lit} />
-                </span>
-                <span className={css.panelTitleText}>{model}</span>
-              </div>
-
-              <div className={css.titleRule} aria-hidden />
-
-              <p className={css.levelsLabel}>{t('probePanelLevels')}</p>
-              <p className={css.levels} role="status" aria-live="polite">
-                {levels ?? t('probePanelNoLevels')}
-              </p>
-              {/*
-               * Why there are no levels, when that is the answer. Three distinct
-               * facts, and the panel must not collapse them: a declared model
-               * whose set is empty does not exist (it would have levels), a
-               * completed sweep that found no validation is a *result*, and
-               * silence means nobody has asked yet.
-               *
-               * The old copy rendered `probePanelNone` ("not detected yet")
-               * whenever `levels` was undefined, so a `non-validating` result
-               * printed "not detected yet" directly above its own verdict —
-               * telling the user a question they had just paid to ask was still
-               * open.
-               */}
-              {notValidating ? <p className={css.dim}>{t('probePanelNotValidating')}</p> : null}
-              {!notValidating && levels === undefined && !detectable && shown !== undefined ? (
-                <p className={css.dim}>{t('probePanelDeclaredNone')}</p>
-              ) : null}
-              {failed && shown === undefined ? (
-                <p className={css.dim}>{t('probePanelFailed')}</p>
-              ) : null}
-
-              {/* The cost note belongs to the action, so it steps aside once
-                there is nothing left to ask — a declared set, or a model with
-                no detection to offer. */}
-              {detectable && levels === undefined && !notValidating ? (
-                <p className={css.note}>{t('probePanelNote')}</p>
-              ) : null}
-
-              <div className={css.panelActions}>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={actionDisabled}
-                  onClick={() => {
-                    void detect()
-                  }}
-                >
-                  {busy
-                    ? t('probePanelDetecting')
-                    : /*
-                       * A settled model's button explains why it is inert rather
-                       * than saying "Detect" and going grey: an action label that
-                       * names something the button will not do is what makes a
-                       * disabled control read as broken.
-                       */
-                      !detectable
-                      ? t('probePanelNotNeeded')
-                      : levels === undefined
-                        ? t('probePanelDetect')
-                        : t('probePanelRedetect')}
-                </Button>
-              </div>
-            </section>,
+              model={model}
+              lit={lit}
+              levels={levels}
+              notValidating={notValidating}
+              detectable={detectable}
+              failed={failed}
+              shown={shown}
+              busy={busy}
+              actionDisabled={actionDisabled}
+              onDetect={() => {
+                void detect()
+              }}
+              t={t}
+            />,
             document.body,
           )
         : null}
     </span>
   )
+}
+
+/**
+ * The open popover's contents.
+ *
+ * Split out of {@link ModelProbe} because the panel is a self-contained reading
+ * of one model — a title, the levels, why there are none, and the one action —
+ * while the parent is a state machine (reads, races, an anchored portal). The
+ * boundary is *what the panel needs to know*, not a slice of the parent's state:
+ * every prop here is already computed by the time the panel renders, and the
+ * panel holds none of its own. That is what keeps the split from moving the
+ * implicit constraints the parent carries.
+ */
+function ProbePanel({
+  panelRef,
+  style,
+  model,
+  lit,
+  levels,
+  notValidating,
+  detectable,
+  failed,
+  shown,
+  busy,
+  actionDisabled,
+  onDetect,
+  t,
+}: {
+  /** The portalled surface, measured by the anchor hook and used by the dismissal test. */
+  panelRef: React.RefObject<HTMLElement>
+  style: CSSProperties
+  model: string
+  lit: boolean
+  levels: string | undefined
+  notValidating: boolean
+  detectable: boolean
+  failed: boolean
+  shown: WorkBuddyWebEffortModel | undefined
+  busy: boolean
+  actionDisabled: boolean
+  onDetect: () => void
+  t: WorkBuddyTranslate
+}): ReactNode {
+  return (
+    <section
+      ref={panelRef}
+      className={css.panel}
+      style={style}
+      role="dialog"
+      aria-label={t('probeLabel')}
+    >
+      <div className={css.panelTitle}>
+        <span className={css.panelTitleIcon}>
+          <ProbeIcon lit={lit} />
+        </span>
+        <span className={css.panelTitleText}>{model}</span>
+      </div>
+
+      <div className={css.titleRule} aria-hidden />
+
+      <p className={css.levelsLabel}>{t('probePanelLevels')}</p>
+      <p className={css.levels} role="status" aria-live="polite">
+        {levels ?? t('probePanelNoLevels')}
+      </p>
+      {/*
+       * Why there are no levels, when that is the answer. Three distinct
+       * facts, and the panel must not collapse them: a declared model
+       * whose set is empty does not exist (it would have levels), a
+       * completed sweep that found no validation is a *result*, and
+       * silence means nobody has asked yet.
+       *
+       * The old copy rendered `probePanelNone` ("not detected yet")
+       * whenever `levels` was undefined, so a `non-validating` result
+       * printed "not detected yet" directly above its own verdict —
+       * telling the user a question they had just paid to ask was still
+       * open.
+       */}
+      <PanelReason
+        notValidating={notValidating}
+        levels={levels}
+        detectable={detectable}
+        shown={shown}
+        failed={failed}
+        t={t}
+      />
+
+      {/* The cost note belongs to the action, so it steps aside once
+        there is nothing left to ask — a declared set, or a model with
+        no detection to offer. */}
+      {detectable && levels === undefined && !notValidating ? (
+        <p className={css.note}>{t('probePanelNote')}</p>
+      ) : null}
+
+      <div className={css.panelActions}>
+        <Button size="sm" variant="primary" disabled={actionDisabled} onClick={onDetect}>
+          {busy
+            ? t('probePanelDetecting')
+            : /*
+               * A settled model's button explains why it is inert rather
+               * than saying "Detect" and going grey: an action label that
+               * names something the button will not do is what makes a
+               * disabled control read as broken.
+               */
+              !detectable
+              ? t('probePanelNotNeeded')
+              : levels === undefined
+                ? t('probePanelDetect')
+                : t('probePanelRedetect')}
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+/**
+ * The one line explaining *why* there are no levels, when that is the answer.
+ *
+ * Three facts, kept apart on purpose — see the call site. Extracted so the three
+ * mutually exclusive branches read as one decision rather than three adjacent
+ * conditionals interleaved with unrelated markup.
+ */
+function PanelReason({
+  notValidating,
+  levels,
+  detectable,
+  shown,
+  failed,
+  t,
+}: {
+  notValidating: boolean
+  levels: string | undefined
+  detectable: boolean
+  shown: WorkBuddyWebEffortModel | undefined
+  failed: boolean
+  t: WorkBuddyTranslate
+}): ReactNode {
+  if (notValidating) return <p className={css.dim}>{t('probePanelNotValidating')}</p>
+  if (levels === undefined && !detectable && shown !== undefined) {
+    return <p className={css.dim}>{t('probePanelDeclaredNone')}</p>
+  }
+  if (failed && shown === undefined) return <p className={css.dim}>{t('probePanelFailed')}</p>
+  return null
 }
 
 /** The bulb's body — the maintainer's artwork, one filled path with the base cut out. */
