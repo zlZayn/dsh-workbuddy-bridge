@@ -56,6 +56,30 @@
 - **本仓只支持一条线**，不提供跨代兼容层：宿主换线时，同一次改动内抬 `engines.dsh` 与全部 `@deepseek-ai/dsh-*` 的下限，并同步 [README.md](../README.md) 的「兼容与已知限制」一节（中英两份）。
 - 判断「声明还罩不罩得住被跟的那条线」用 `pnpm run check:release`（它比 peer 与 `engines.dsh` 的下限）。
 
+## 本地开发装法（link:）
+
+改源码要能立刻见效，装法必须是 `link:`。**默认装法是真实目录副本**，`build` 完不会自动生效，
+每次都得手动同步 `lib/` 再重启 —— 而且半同步（只换客户端半）会让控件整个不渲染。
+
+**四步，缺一步都挂不上或双挂载：**
+
+1. profile 的 `package.json`：依赖改 `"dsh-workbuddy-bridge": "link:<本仓绝对路径>"`
+2. 同一文件：从 `dsh.profile.bundles` **摘除**本插件 —— bundle 通道会自动应用包自带的
+   `cordis.patch.yml`，与第 3 步并存就是 `duplicate loader entry id: llm-workbuddy`
+3. profile 的 `cordis.patch.yml`：补回手动 insert（内容抄包自带的 `cordis.patch.yml`）
+4. `node_modules/<包名>` 换成指向本仓的 symlink，然后 `pnpm install --config.node-linker=hoisted` 重解析
+
+**判据（三条都要过）：**
+
+- `pnpm-lock.yaml` 里该包是 `specifier: link:<路径>`（不是版本号）
+- `(Get-Item node_modules/<包名>).LinkType` 是 `SymbolicLink`
+- 重启后 `/plugins/<包名>/status` 正常返回，且 `probe` 键是新形状
+
+**收益**：之后 `build` 完只需重启 dsh 进程（宿主半只在启动时装载一次），不用再拷文件。
+**代价**：仓库 `lib/` 必须始终是构建过的状态 —— link 直接读它，没 build 就是旧产物或缺失。
+
+回滚：把四步各自还原（备份见 profile 下的 `*.bak-link-<时间戳>`），或直接改回版本号依赖 + 恢复 bundle 条目。
+
 ## 平台契约的取真源方式
 
 宿主平台契约（客户端槽名、客户端服务的名字与形状）只能从**实装宿主包**里读，不从记忆或旧文档推断：

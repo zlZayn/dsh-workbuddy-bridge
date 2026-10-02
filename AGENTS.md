@@ -6,10 +6,13 @@
   **发布走 [.github/workflows/release.yml](.github/workflows/release.yml)，两个入口**：推 tag（`git push origin v<版本>`）
   或手动 dispatch；两条进同一个 job，全有或全无（先发成功、再建 tag 与 Release）。流程与判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md)。
   `0.1.0` 是维护者本地 `npm publish` 发的（当时 workflow 还没用上，git 侧产物缺失）；`0.2.0` 起全部由 workflow 产出。
-- 装法只有一条：`dsh plugin --profile <profile> add <包名或仓库路径>`。包内声明了 `dsh.bundle.patch`，
+- 装法默认只有一条：`dsh plugin --profile <profile> add <包名或仓库路径>`。包内声明了 `dsh.bundle.patch`，
   安装器自己会把它写进该 profile 的 `dsh.profile.bundles`；**不要再往 profile 的 `cordis.patch.yml` 手写 patch 行**，
-  两者并存就是双挂载。
+  两者并存就是双挂载。**唯一例外是本地开发的 `link:` 形态**（见下条），它必须摘除 bundle 条目并改回手动 insert。
 - 运行形态：装进 profile 的 `node_modules`，由该 profile 的 `dsh.profile.bundles` 装载（bundle 层来自包内的 `cordis.patch.yml`）。
+  **本机维护者的 profile 走 `link:` 形态**（2026-10-02 起）：依赖指向本仓、`bundles` 摘除本插件、`cordis.patch.yml` 手动 insert、
+  `node_modules/<包名>` 是 symlink。所以 `build` 完**只需重启 dsh**，不用再同步 `lib/`。
+  四步与三条判据、回滚方式见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「本地开发装法」。
 - **`lib/` 是被跟踪的产物**（本仓与另两个插件仓不同）：`link:` 装法直接读它，所以改源码后要重建并**连同源码一起提交**。
 
 ## 全局规则
@@ -68,11 +71,9 @@
   「读凭据并采纳身份 → 注册 provider → 抓目录」，provider 一出现 catalog 就已揭示。守卫在
   `tests/catalog-lifecycle.spec.ts`（采样循环必须在 `ctx.plugin` 之前起并与之并发，否则两种顺序都会绿）；
   已反证：改回旧顺序该用例报 2 处违规。判据与替代方案见 [决策记录](.agents/notes/2026-10-02-startup-window-fix-direction.md)
-- [ ] **实测本轮改动的前置**：运行中的实例装的是 `<DSH_HOME>/profiles/<profile>/node_modules/<包名>` 的**真实目录副本（不是 symlink）**，
-  所以「改源码 → build」不会自动生效。流程：同步 `lib/`（+ `locale/`）进该副本 → **重启 dsh 进程**（宿主半只在启动时装载一次）。
-  判据：`/plugins/<包名>/status` 的 `probe` 键从 `candidates,results` 变成 `models`。
-  2026-10-02 曾把新客户端同步进副本而宿主半仍是旧的 —— **两半体版本不一致会让控件整个不渲染**，当场回滚；
-  这条按 `lib/` 整体同步（不要只拷 `client.js`），或把安装形态改成 link（见 [docs/PUBLISHING.md](docs/PUBLISHING.md)）
+- [x] **实测改动的前置**（2026-10-02 解决）：此前装的是真实目录副本，改源码 → build 不生效，还得手动同步 + 重启，
+  且半同步（只换客户端半）会让控件整个不渲染。现已改为 **`link:` 形态**，`build` 完只需重启 dsh。
+  形态判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「本地开发装法」；回滚备份在 profile 下的 `*.bak-link-<时间戳>`
 
 ## 活跃坑
 
