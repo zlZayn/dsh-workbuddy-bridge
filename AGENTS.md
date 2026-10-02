@@ -62,7 +62,12 @@
 - [x] 发布链落地并跑通：`release.yml` 支持推 tag 触发（带 tag/版本一致性闸）、守卫基线排除正在发的 tag、Release 步对 5xx 重试 —— `0.2.0` 全链绿
 - [ ] **英文版门面截图**：现六张全是中文界面；门面两份按语言引用同一张图，补不补取决于要不要英文门面独立成图 —— 判据与拍摄路径见 [assets/AGENTS.md](assets/AGENTS.md)，拍法复用 `.local/browser/workbuddy-shots.mjs`（本机资产）
 - [ ] **注册与揭示之间的空窗**：真实会话在首次凭据扫描采纳账号前发消息会拿到 `UNKNOWN_MODEL`（不是测试独有问题，本轮只给测试补了 gate）。
-  机制、影响面与三个候选方向登记在 [issue #2](https://github.com/zlZayn/dsh-workbuddy-bridge/issues/2)；改法动的是启动语义，等拍板
+  机制、影响面与三个候选方向登记在 [issue #2](https://github.com/zlZayn/dsh-workbuddy-bridge/issues/2)；改法动的是启动语义，等拍板。
+  **推荐方向（待实施）**：把「首次凭据读取 + `adoptIdentity`」提到 `registerAdapter` 之前 —— provider 一出现 catalog 就已揭示，空窗消失；
+  凭据读取失败时照常以隐藏态注册并交给轮询，即今天的行为。待办与判据见 [决策记录](.agents/notes/2026-10-02-startup-window-fix-direction.md)
+- [ ] **实测灯泡改动的前置**：运行中的实例装的是 `<DSH_HOME>/profiles/<profile>/node_modules/<包名>` 的**真实目录副本（不是 symlink）**，
+  所以「改源码 → build」不会自动生效。流程：同步 `lib/`（+ `locale/`）进该副本 → **重启 dsh 进程**（宿主半只在启动时装载一次）。
+  判据：`/plugins/<包名>/status` 的 `probe` 键从 `candidates,results` 变成 `models`。2026-10-02 已同步，备份留在 `<包名>.bak-20261002-1830`
 
 ## 活跃坑
 
