@@ -31,8 +31,18 @@ import css from './workbuddy.module.css'
 
 /** One labelled fact. */
 export interface FieldProps {
-  /** The static name of the fact. Two or three words; a label that restates its value is prose. */
-  label: string
+  /**
+   * The name of the fact, when it needs one.
+   *
+   * **Omit it when the value names itself.** A label earns its line only by
+   * adding something the value does not already say: `Account` over
+   * `Signed in as 阿七` was the same fact a third time, under a card header that
+   * already said it (2026-10-02 — the heading was deleted, and then the word had
+   * to go too, because a field label renders on its own line just like the
+   * heading did). Compare `Model list` over `Live from the app`, which the value
+   * cannot be read without.
+   */
+  label?: string
   /** The value. Wrap a figure in {@link Figure} when it has a caption. */
   value?: ReactNode
   /** The grey tier under the value: a {@link Figure}, a static note, or several of either. */
@@ -50,7 +60,7 @@ export function Field({ label, value, hint, action }: FieldProps): ReactNode {
   return (
     <div className={css.field}>
       <div className={css.fieldText}>
-        <span className={css.fieldLabel}>{label}</span>
+        {label === undefined ? null : <span className={css.fieldLabel}>{label}</span>}
         {value === undefined ? null : <span className={css.fieldValue}>{value}</span>}
         {hint === undefined ? null : <span className={css.fieldHint}>{hint}</span>}
       </div>

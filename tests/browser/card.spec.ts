@@ -283,8 +283,9 @@ describe('WorkBuddy card', () => {
     expect(text).toContain('boom')
     // ...and everything outside that block survives. That is the whole point:
     // before the boundary, this crash took the account block, the tabs, and
-    // every other panel with it.
-    expect(text).toContain(t('accountHeading'))
+    // every other panel with it. The account block is asserted through its
+    // *value* — it carries no label of its own (see the field-grammar note).
+    expect(text).toContain(t('signedInAs', { nickname: '阿七' }))
     // The card's own header and the refresh action are outside the boundary too.
     expect(text).toContain(t('refresh'))
     const labels = buttonLabels(box.view!)

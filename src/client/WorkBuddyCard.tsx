@@ -153,18 +153,17 @@ export function WorkBuddyCard({
       <div className={css.body}>
         <div className={css.section}>
           {/*
-           * One fact, not three: the block has no heading of its own, because the
-           * heading, the field's label and its value were all naming the same
-           * thing (`账号` → `登录状态` → `已登录：阿七`). The field's label carries
-           * the block's name instead, and the state is its value.
+           * The account block is one unlabelled fact: the value says what it is
+           * (`Signed in as 阿七`), so a name over it would be the same fact again
+           * — which is what `Account` over `Sign-in` over `Signed in as 阿七` was,
+           * under a card header that already said it.
            *
            * The expiry rides along as the field's grey tier rather than taking a
            * row of its own: it only means anything as a property of the session.
-           * The state and the button stay on opposite edges — see `field.tsx` for
+           * The value and the button stay on opposite edges — see `field.tsx` for
            * the shape's rules.
            */}
           <Field
-            label={t('accountHeading')}
             value={accountLabel(status, t)}
             hint={
               signedIn?.expiresAt === undefined ? undefined : (

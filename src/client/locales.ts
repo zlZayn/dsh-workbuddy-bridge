@@ -15,7 +15,6 @@ export type WorkBuddyLocaleKey =
   | 'signedOutHintAI'
   | 'signedIn'
   | 'signedInAs'
-  | 'accountHeading'
   /*
    * The account block's static labels. The *values* beside them are dynamic
    * (a state, a timestamp) and are rendered as their own elements rather than
@@ -161,7 +160,6 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
     'Sign in once in the WorkBuddy AI desktop app; this plugin follows that sign-in automatically.',
   signedIn: 'Signed in',
   signedInAs: 'Signed in as {nickname}',
-  accountHeading: 'Account',
   /* The account block's one label; its value is rendered as a separate element. */
   sessionExpiryLabel: 'Expires',
 
@@ -328,7 +326,6 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   signedOutHintAI: '在 WorkBuddy AI 国际版桌面 App 里登录一次即可，插件会自动跟随当前登录的账号。',
   signedIn: '已登录',
   signedInAs: '已登录：{nickname}',
-  accountHeading: '账号',
   sessionExpiryLabel: '有效期至',
 
   catalogSourceLabel: '模型列表',

@@ -67,6 +67,27 @@ describe('field row', () => {
     expect(byClass(view, 'fieldAction')).toEqual([])
   })
 
+  it('renders no label line when the value names itself', async () => {
+    /*
+     * A label earns its line only by saying something the value does not. This
+     * is not a cosmetic option: `label` was required at first, so deleting the
+     * account block's heading left the word `Account` on screen anyway — a field
+     * label renders on its own line exactly as the heading had (2026-10-02).
+     */
+    const view = await render(
+      createElement(Field, {
+        value: 'Signed in as 阿七',
+        hint: createElement(Figure, { label: 'Expires', children: '2026-11-26 17:40' }),
+        action: createElement('button', null, 'Refresh'),
+      }),
+    )
+    expect(byClass(view, 'fieldLabel')).toEqual([])
+    // The rest of the row is unchanged: value, then hint, beside the control.
+    expect(textOf(view)).toBe('Signed in as 阿七 Expires 2026-11-26 17:40 Refresh')
+    const text = byClass(view, 'fieldText')[0]!
+    expect(text.children).toHaveLength(2)
+  })
+
   it('keeps label, value and hint in that order', async () => {
     const view = await render(
       createElement(Field, {
