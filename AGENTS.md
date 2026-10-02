@@ -84,7 +84,11 @@
   从 `^0.85.1` 抬到 `^0.87.1`）。本仓若把它写死在旧版，pnpm 会装出**两份同名包**，
   类型互不兼容 → 编译报「A 不能赋给 B」而两个路径都是 `node_modules`。判据：报错里出现两个
   不同层级的 `node_modules`；处置：把本仓那份升到与宿主同源的范围。
-  核验兼容性用**仓库外**的临时目录装目标线宿主包（装在本仓内会被 pnpm 当 workspace 成员）。
+  核验兼容性用**仓库外**的临时目录装目标线宿主包。在仓内建目录的代价是双份的：
+  pnpm 把它当 workspace 成员，`pnpm add` 会顺带重排本仓 `node_modules`，并往 `pnpm-lock.yaml`
+  写一条 **importer** 记录 —— 目录删了记录还在，而**本机 `pnpm install` 不带 `--frozen-lockfile`，
+  会静默自愈**，只有 CI 的 frozen 模式才判红（2026-10-02 三平台齐红，失败在第一步 install）。
+  判据：`Select-String pnpm-lock.yaml '<目录名>'`；处置：`pnpm install` 重解析（别手工编辑 lockfile）。
 - **浏览器产物里不能出现 `process` 这个词，注释也不行**：`tests/redlines.spec.ts` 拿它当「内联了 React 运行时」的
   signature（2026-09-25 真机事故：整份 react-dom 被内联，顶层 `process.env.NODE_ENV` 在浏览器里抛错）。
   判据是对**整份产物**做正则，**注释同样命中** —— 而打包器会把被引用语句周围的注释一起留下。
