@@ -25,6 +25,7 @@ import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { WorkBuddyCredentialStore } from '../credential/store.ts'
 import type { WorkBuddyCatalog, WorkBuddyModelInfo } from '../catalog/index.ts'
 import type { WorkBuddyProbeRecord } from '../probe/store.ts'
+import { resolveEfforts } from '../probe/efforts.ts'
 import type { WorkBuddyShim } from '../llm/shim.ts'
 import { normalizeCredits } from '../protocol/client.ts'
 
@@ -160,30 +161,15 @@ export interface WorkBuddyAdapter {
 }
 
 /**
- * Resolve a WorkBuddy model's reasoning capability into pi-ai's
+ * Translate a model's resolved thinking-level switch into pi-ai's
  * `thinkingLevelMap` (every level pinned to its wire spelling or `null` for
  * unsupported), mirroring `dsh-llm-pi-ai`'s own `resolveModelReasoning`.
  *
- * Two sources, strictly ordered (the merge is what `tests/reasoning-merge.spec.ts`
- * pins end-to-end):
- *
- * 1. **The declared set.** When the upstream declares a non-empty
- *    `supportedEfforts`, exactly those values are offered and nothing else.
- *    This always wins: an observation never widens or narrows a declared set.
- * 2. **A local observation.** Rows without a declared set (the older
- *    `{effort, summary}` shape) normally get no control at all — their
- *    selectable set is client-side knowledge the catalog does not carry, and
- *    the desktop app differs per model there. If the user authorized a probe
- *    and it established that the upstream *validates* the parameter, the
- *    verified spellings are offered.
- *
- * A `non-validating` observation deliberately yields no control: the upstream
- * accepts values that cannot exist (measured on `glm-5.2`), so every per-level
- * acceptance it produced would be a false positive.
- *
- * `off` is offered only when the upstream declares `canDisableThinking: true`.
- * It is never probed — disabling thinking is a separate capability, and the
- * per-model acceptance of `off` cannot be inferred from the row's shape.
+ * The *decision* of which levels a model offers is not made here — it lives in
+ * {@link resolveEfforts}, which the status document reads too. That sharing is
+ * the point: the composer's bulb is lit from the same answer the picker is
+ * built from, so a model cannot show a control in one place and none in the
+ * other. This function only reshapes that answer for pi-ai.
  *
  * The offered set is described internally as "verified accepted", never as
  * "verified effective": acceptance proves the upstream did not reject the
@@ -193,31 +179,16 @@ export function reasoningFields(
   info: WorkBuddyModelInfo,
   observed?: WorkBuddyProbeRecord,
 ): { reasoning: boolean; thinkingLevelMap?: ThinkingLevelMap } {
-  const reasoning = info.reasoning
-  if (reasoning === undefined || reasoning.supports !== true) {
-    // Not a reasoning model: pi-ai reads a falsy `reasoning` as "off only".
+  const resolved = resolveEfforts(info, observed)
+  if (resolved.efforts.length === 0) {
+    // No switch: pi-ai reads a falsy `reasoning` as "off only", and no
+    // `reasoning_effort` is put on the wire.
     return { reasoning: false }
   }
-  const declared = reasoning.supportedEfforts
-  const efforts =
-    declared !== undefined && declared.length > 0
-      ? declared
-      : // Only a validating observation may supply a set, and only for rows the
-        // upstream left undeclared.
-        observed?.validation === 'validating' && observed.efforts.length > 0
-        ? observed.efforts
-        : undefined
-  if (efforts === undefined) {
-    // Undeclared and unobserved (or observed as non-validating): no thinking
-    // control, and no `reasoning_effort` on the wire.
-    return { reasoning: false }
-  }
+  const efforts = resolved.efforts
   const map: Record<ModelThinkingLevel, string | null> = {
     // Probing never grants `off`; only an explicit declaration does.
-    off:
-      reasoning.canDisableThinking === true && declared !== undefined && declared.length > 0
-        ? 'off'
-        : null,
+    off: resolved.canDisable ? 'off' : null,
     // `minimal` is not in the upstream effort vocabulary (low / medium / high /
     // xhigh / max), so no declared set — and no probe candidate — can contain it.
     minimal: null,

@@ -343,16 +343,24 @@ export function ModelsPanel({
 }
 
 /**
- * Reasoning-effort detection: one row per detectable model.
+ * Reasoning levels: one row per reasoning model, and what its switch does.
  *
- * Two deliberate UX rules:
- * - **one press detects.** The row states what the model accepts and the button
+ * Three deliberate UX rules:
+ * - **The list covers every reasoning model, not just the detectable ones.**
+ *   Showing only the detectable rows was what made the panel unable to answer
+ *   "why does this model have no levels?" — the models whose answer was already
+ *   known were exactly the ones missing from the list;
+ * - **one press detects.** The row states the current answer and the button
  *   beside it runs the check; the cost is stated once, above the list, instead
  *   of being asked again per row. A confirmation whose only other option is
  *   "cancel" costs a click and answers nothing;
- * - a `non-validating` result is presented as an observation about the
- *   parameter ("this model does not check it"), never as a statement that a
- *   level is unsupported.
+ * - **a settled row says so.** A declared set cannot be improved by detecting,
+ *   so its button names that instead of offering a run that would spend credit
+ *   to learn nothing.
+ *
+ * A `non-validating` result is presented as an observation about the parameter
+ * ("this model does not check it"), never as a statement that a level is
+ * unsupported.
  *
  * The tab bar owns the heading, so this panel renders no heading of its own.
  */
@@ -394,45 +402,45 @@ export function ProbePanel({
     setRunningModel(undefined)
   }, [runningModel, busy, probe.running])
 
-  if (probe.candidates.length === 0) return <p className={css.text}>{t('probeResultEmpty')}</p>
+  if (probe.models.length === 0) return <p className={css.text}>{t('probeResultEmpty')}</p>
+
+  const detected = probe.models.filter((entry) => entry.probedAt !== undefined)
 
   return (
     <div className={css.section}>
       <p className={css.text}>{t('probeCostNote')}</p>
       {/*
-       * One row per probeable model, each carrying its own result and button.
+       * One row per reasoning model, each carrying its own state and button.
        * Buttons used to live in a block above the results, so a detected model
        * left the button list and reappeared only as a result below — re-running
        * it meant clearing every other result. Rows keep the model and its
-       * action together, and the order is fixed by the catalog, so nothing
-       * moves when a detection lands.
+       * action together, so nothing moves when a detection lands.
        */}
       <div className={css.list}>
-        {probe.candidates.map((id) => {
-          const result = probe.results.find((entry) => entry.id === id)
-          // Display name: the catalog's own label first, then whatever the
-          // recorded probe stored, then the bare id. The *action* below keeps
-          // using the id regardless of what the name resolves to.
-          const name = models?.find((model) => model.id === id)?.name ?? result?.name ?? id
+        {probe.models.map((entry) => {
+          const id = entry.id
+          // Display name: the catalog's own label first, then the model id.
+          const name = models?.find((model) => model.id === id)?.name ?? entry.name ?? id
+          const hasLevels = entry.efforts.length > 0
           return (
             <div key={id} className={css.modelStack}>
               <div className={css.probeRow}>
                 <span className={css.name}>{name}</span>
                 <span className={css.probeEnd}>
-                  {result === undefined ? null : (
-                    <Tag tone={result.validation === 'validating' ? 'success' : 'neutral'}>
-                      {result.validation === 'validating' && result.efforts.length > 0
-                        ? result.efforts.join(' / ')
-                        : t(
-                            result.validation === 'non-validating'
+                  <Tag tone={hasLevels ? 'success' : 'neutral'}>
+                    {hasLevels
+                      ? entry.efforts.join(' / ')
+                      : t(
+                          entry.detectable
+                            ? entry.validation === 'non-validating'
                               ? 'probeResultNotValidating'
-                              : 'probeResultUnknown',
-                          )}
-                    </Tag>
-                  )}
+                              : 'probeResultUnknown'
+                            : 'probeResultDeclaredNone',
+                        )}
+                  </Tag>
                   <Button
                     size="sm"
-                    disabled={probe.running || busy}
+                    disabled={busy || probe.running || !entry.detectable}
                     onClick={() => {
                       setRunningModel(id)
                       onDetect(id)
@@ -440,22 +448,24 @@ export function ProbePanel({
                   >
                     {/* Only the button that was pressed reports progress; the
                       card-wide `busy` flag cannot pick the label. */}
-                    {runningModel === id
+                    {runningModel === id && entry.detectable
                       ? t('probeRunning', { model: name })
-                      : t(result === undefined ? 'probeStart' : 'probeRedetect')}
+                      : !entry.detectable
+                        ? t('probeActionDeclared')
+                        : t(entry.probedAt === undefined ? 'probeStart' : 'probeRedetect')}
                   </Button>
                 </span>
               </div>
-              {result === undefined ? null : (
+              {entry.probedAt === undefined ? null : (
                 <span className={css.meta}>
-                  {t('probeResultAt', { time: formatTime(result.probedAt) })}
+                  {t('probeResultAt', { time: formatTime(entry.probedAt) })}
                 </span>
               )}
             </div>
           )
         })}
       </div>
-      {probe.results.length === 0 ? null : (
+      {detected.length === 0 ? null : (
         <div className={css.sectionActions}>
           <Button size="sm" disabled={busy} onClick={onClear}>
             {t('probeClear')}

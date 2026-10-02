@@ -43,7 +43,8 @@ import {
   type AssistantMessageEventData,
 } from './llm/credit-log.ts'
 import { WorkBuddyProbeService } from './probe/service.ts'
-import { newestFirst, WorkBuddyProbeStore, workbuddyProbePath } from './probe/store.ts'
+import { resolveEfforts } from './probe/efforts.ts'
+import { WorkBuddyProbeStore, workbuddyProbePath } from './probe/store.ts'
 import { WorkBuddyUpstreamClient } from './protocol/client.ts'
 import { registerWorkBuddyStatusRoute } from './web/status.ts'
 import { registerWorkBuddyCreditRoute } from './web/credit.ts'
@@ -572,51 +573,58 @@ function catalogSection(runtime: VariantRuntime): WorkBuddyWebCatalog {
 }
 
 /**
- * Whether a model can be probed by hand: it reasons and the upstream declares
- * no effort set for it.
+ * One row per reasoning model, describing its thinking-level switch.
  *
- * Deliberately *not* filtered by whether a result already exists. Dropping a
- * model once it has been detected made the list shrink with use, so
- * re-detecting one model — after an upstream change, say — meant clearing every
- * other result first. The list stays stable and the card marks which entries
- * already have an answer.
+ * The judgement comes from {@link resolveEfforts} — the *same* function the
+ * adapter builds the model picker from — so the composer's bulb and the picker
+ * cannot describe different models. That sharing is the fix for what used to be
+ * two independent answers: a candidate list ("who could be probed") beside a
+ * result list ("who has been probed"), which between them told the user nothing
+ * about the only question they had, namely which models let them pick a level.
+ *
+ * Read through `recordFor` rather than straight from the store, so a record the
+ * adapter already discounts — its catalog row changed, it aged past the TTL, or
+ * the upstream has since declared a set — is discounted here too. A model the
+ * upstream dropped leaves the catalog entirely and drops out of this list.
  */
-function isProbeCandidate(info: WorkBuddyModelInfo): boolean {
-  if (info.reasoning?.supports !== true) return false
-  return (info.reasoning.supportedEfforts?.length ?? 0) === 0
-}
-
-/** Compact probe state for one card: consent, candidates, observations. */
 function probeSection(runtime: VariantRuntime, consent: boolean): WorkBuddyWebProbeSection {
-  const models = runtime.catalog.current()
-  // Read results through the *same* judgement the adapter uses, rather than
-  // straight from the store. A raw record can be stale in ways the adapter
-  // already discounts — its catalog row changed, it aged past the TTL, or the
-  // upstream has since declared an effort set (which always wins) — and showing
-  // one would have the card promise levels the model picker does not offer. A
-  // model the upstream dropped leaves the catalog entirely, so it drops out
-  // here too.
-  const results = models.flatMap((info) => {
+  const models = runtime.catalog.current().flatMap((info) => {
+    // A model that does not reason has no switch to describe.
+    if (info.reasoning?.supports !== true) return []
     const record = runtime.probeService.recordFor(info.id)
-    if (record === undefined) return []
+    const resolved = resolveEfforts(info, record)
     return [
       {
         id: info.id,
         name: info.name,
-        validation: record.validation,
-        efforts: record.efforts,
-        probedAt: record.probedAtMs,
+        efforts: resolved.efforts,
+        source: resolved.source,
+        detectable: resolved.detectable,
+        ...(record === undefined
+          ? {}
+          : { validation: record.validation, probedAt: record.probedAtMs }),
       },
     ]
   })
   return {
     consent,
     running: runtime.probeService.isRunning(),
-    candidates: models.filter(isProbeCandidate).map((info) => info.id),
-    // Newest first: a detection the user just ran belongs at the top, not
-    // appended below every earlier one.
-    results: newestFirst(results),
+    models: detectedFirst(models),
   }
+}
+
+/**
+ * Order the effort rows for display: most recently detected first, then the
+ * catalog's own order.
+ *
+ * The list is no longer "the models you could probe" but "every model and what
+ * its switch does", so it must stay stable as detections land — a row that
+ * moves when its own result arrives is a row the user has to find again. Only
+ * the detected rows are promoted, and ties keep catalog order (a stable sort),
+ * which is what makes the movement predictable.
+ */
+function detectedFirst<T extends { probedAt?: number }>(rows: readonly T[]): T[] {
+  return [...rows].sort((a, b) => (b.probedAt ?? -1) - (a.probedAt ?? -1))
 }
 
 /**

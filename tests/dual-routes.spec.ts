@@ -101,7 +101,7 @@ async function mount(
     client,
     models: () => options.catalog.current(),
     catalog: () => ({ source: 'fallback' }),
-    probe: () => ({ consent: true, running: false, candidates: [], results: [] }),
+    probe: () => ({ consent: true, running: false, models: [] }),
     ...(options.probeKey === undefined ? {} : { probeKey: options.probeKey }),
   })
   const probes = new Map<string, number>()

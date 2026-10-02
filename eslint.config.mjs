@@ -4,7 +4,11 @@ import tseslint from 'typescript-eslint'
 import eslintConfigPrettier from 'eslint-config-prettier'
 
 export default [
-  { ignores: ['lib/**', 'node_modules/**', 'assets/**'] },
+  // `.local/` is the maintainer's own scratch space and is gitignored, so CI
+  // never checks out what it holds. Ignoring it keeps `pnpm lint` (which runs
+  // `eslint .`) agreeing with CI instead of failing on a file the pipeline
+  // cannot even see.
+  { ignores: ['lib/**', 'node_modules/**', 'assets/**', '.local/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

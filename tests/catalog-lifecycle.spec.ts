@@ -8,6 +8,7 @@ import LlmRuntime from '@deepseek-ai/dsh-llm'
 import * as WorkBuddy from '../src/index.ts'
 import { WorkBuddyCredentialStore } from '../src/credential/store.ts'
 import { fingerprintModel } from '../src/probe/store.ts'
+import { parseModelCatalog } from '../src/protocol/client.ts'
 
 /**
  * Catalog lifecycle: what happens across a credential change and a failed fetch.
@@ -47,7 +48,7 @@ function credentialDocument(domain: string, uid: string): string {
 }
 
 /** A CN catalog envelope with one recognizable model id. */
-function catalogEnvelope(modelId: string, name: string): string {
+function catalogEnvelope(modelId: string, name: string, reasoning = false): string {
   return JSON.stringify({
     code: 0,
     msg: 'ok',
@@ -59,6 +60,7 @@ function catalogEnvelope(modelId: string, name: string): string {
           maxInputTokens: 100_000,
           maxOutputTokens: 1_000,
           supportsImages: true,
+          ...(reasoning ? { supportsReasoning: true } : {}),
         },
       ],
       agents: [{ name: 'cli', models: [modelId] }],
@@ -348,15 +350,20 @@ describe('catalog lifecycle', () => {
     // Seed a probe observation belonging to account A. The fingerprint must
     // match the row the LIVE catalog serves (the fetch succeeds first here), so
     // it is computed over exactly the fields fingerprintModel hashes — the
-    // reasoning shape parseModelCatalog emits for an envelope with no
-    // supportsReasoning/onlyReasoning/reasoning keys.
+    // reasoning shape parseModelCatalog emits for an envelope with
+    // `supportsReasoning: true` and no `reasoning` block, which is what this
+    // test's roster serves so the row appears in the effort list at all.
+    const reasoningShape = parseModelCatalog(
+      (JSON.parse(catalogEnvelope('x', 'x', true)) as { data: Record<string, unknown> }).data,
+    )[0]!.reasoning
+    if (reasoningShape === undefined) throw new Error('the reasoning envelope lost its block')
     const liveRowA = {
       id: 'acct-a-model',
       name: 'acct-a-model',
       contextWindow: 100_000,
       maxTokens: 1_000,
       supportsImages: true,
-      reasoning: { supports: false, onlyReasoning: false, canDisableThinking: true },
+      reasoning: reasoningShape,
     }
     await writeFile(
       join(root, '.workbuddy-probe.json'),
@@ -389,7 +396,7 @@ describe('catalog lifecycle', () => {
       vi.fn(async (url: string | URL, init?: RequestInit) => {
         if (String(url).startsWith('http://127.0.0.1')) return realFetch(url, init)
         if (failCatalog) return fakeResponse('upstream down', false, 503)
-        return fakeResponse(catalogEnvelope(rosterModel, rosterModel))
+        return fakeResponse(catalogEnvelope(rosterModel, rosterModel, true))
       }),
     )
 
@@ -425,7 +432,11 @@ describe('catalog lifecycle', () => {
     // A's observation is live on the card before the switch.
     const before = await get('/plugins/dsh-workbuddy-bridge/status')
     const key = before.probeKey as string
-    expect(before.probe.results.map((r: { id: string }) => r.id)).toContain('acct-a-model')
+    expect(
+      before.probe.models
+        .filter((m: { probedAt?: number }) => m.probedAt !== undefined)
+        .map((m: { id: string }) => m.id),
+    ).toContain('acct-a-model')
     expect(before.catalog.source).toBe('live')
 
     // Switch the account in place, and make the catalog fetch fail.
@@ -438,8 +449,21 @@ describe('catalog lifecycle', () => {
 
     // The invariant: nothing of account A's is *served* under account B. Its
     // observation survives on disk (keyed to A) but no read under B sees it.
+    //
+    // Asserted on the observation fields rather than on the list being empty:
+    // the list describes every reasoning model the *serving* catalog holds, so
+    // under B it is populated by B's roster — what must not appear is A's
+    // recorded verdict, or any level attributed to it.
     const after = await get('/plugins/dsh-workbuddy-bridge/status')
-    expect(after.probe.results).toEqual([])
+    const servedAfter = after.probe.models as {
+      id: string
+      source: string
+      probedAt?: number
+      validation?: string
+    }[]
+    expect(servedAfter.some((m) => m.probedAt !== undefined)).toBe(false)
+    expect(servedAfter.some((m) => m.source === 'observed')).toBe(false)
+    expect(servedAfter.map((m) => m.id)).not.toContain('acct-a-model')
     expect(after.catalog.source).toBe('fallback')
     expect(String(after.catalog.error)).toMatch(/503|upstream/i)
     const serving = (await ctx.llm.listModels('workbuddy')).map((model) => model.id)
@@ -465,7 +489,11 @@ describe('catalog lifecycle', () => {
     expect(await back.json()).toMatchObject({ state: 'refreshed' })
     await vi.waitFor(async () => {
       const status = await get('/plugins/dsh-workbuddy-bridge/status')
-      expect(status.probe.results.map((r: { id: string }) => r.id)).toContain('acct-a-model')
+      expect(
+        status.probe.models
+          .filter((m: { probedAt?: number }) => m.probedAt !== undefined)
+          .map((m: { id: string }) => m.id),
+      ).toContain('acct-a-model')
       expect((await ctx.llm.listModels('workbuddy')).map((model) => model.id)).toEqual([
         'acct-a-model',
       ])

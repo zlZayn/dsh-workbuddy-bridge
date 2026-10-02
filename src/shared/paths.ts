@@ -68,26 +68,68 @@ export interface WorkBuddyWebSessionCredits {
   credits: Readonly<Record<string, number>>
 }
 
-/** One model's recorded probe observation, as the card displays it. */
-export interface WorkBuddyWebProbeModel {
+/**
+ * One reasoning model, described by what its thinking-level switch does now.
+ *
+ * Every field here describes the **switch**, not the detection that may have
+ * established it. The two are kept apart on purpose: a reader asking "why does
+ * this model offer no levels?" is asking about the switch, and "has it been
+ * probed?" is only ever the explanation, never the question.
+ */
+export interface WorkBuddyWebEffortModel {
   id: string
   name: string
-  /** `validating` results carry efforts; the other states never do. */
-  validation: 'validating' | 'non-validating' | 'unknown'
+  /**
+   * The levels the model picker offers right now, in upstream order.
+   *
+   * **Empty means this model cannot switch thinking.** Both halves key on this
+   * one field — the picker offers exactly these spellings, and the composer's
+   * bulb is lit exactly when the list is non-empty — so "has levels" and "bulb
+   * lit" cannot drift apart.
+   */
   efforts: readonly string[]
-  probedAt: number
+  /**
+   * Where {@link efforts} came from.
+   *
+   * - `declared`: the upstream named the set, so the answer is already known.
+   * - `observed`: a local detection established it.
+   * - `none`: unknown, so the model has no switch until a detection runs.
+   */
+  source: 'declared' | 'observed' | 'none'
+  /**
+   * Whether a detection could change this row.
+   *
+   * False for a declared set — a declaration always wins, so a sweep would
+   * spend credit to learn nothing — and false for a model that does not reason.
+   * Deliberately **true** for a row already observed as `non-validating`: that
+   * verdict describes today's upstream and is worth re-testing later.
+   */
+  detectable: boolean
+  /** The recorded observation this account has for this model, when any. */
+  validation?: 'validating' | 'non-validating' | 'unknown'
+  /** When that observation was made, epoch ms. */
+  probedAt?: number
 }
 
-/** Probe section of the status document. */
+/**
+ * Probe section of the status document.
+ *
+ * One list, not a candidate list beside a result list. Both halves need "what
+ * can this model do", and splitting the answer in two is what let the composer
+ * and the settings card disagree about which models were worth showing at all.
+ */
 export interface WorkBuddyWebProbeSection {
   /** Whether the user has authorized probing. */
   consent: boolean
   /** Whether a sweep is in flight right now. */
   running: boolean
-  /** Models the user could probe by hand (undeclared yet reasoning-capable). */
-  candidates: readonly string[]
-  /** Recorded observations. */
-  results: readonly WorkBuddyWebProbeModel[]
+  /**
+   * Every reasoning model this variant serves, in catalog order.
+   *
+   * Models that do not reason are absent: they offer no thinking level to
+   * switch, so neither the picker nor the bulb has anything to say about them.
+   */
+  models: readonly WorkBuddyWebEffortModel[]
 }
 
 /** Action requested from the probe control route. */

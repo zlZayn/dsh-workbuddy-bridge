@@ -229,7 +229,7 @@ describe('maximum-context preference capability', () => {
    */
   it('carries the field when the getter answers a value', async () => {
     const port = await startStatusServer({
-      probe: () => ({ consent: true, running: false, candidates: [], results: [] }),
+      probe: () => ({ consent: true, running: false, models: [] }),
       useMaximumContextWindow: () => true,
     })
     const response = await requestOnce({ port, method: 'GET', headers: { host: '127.0.0.1' } })
@@ -239,7 +239,7 @@ describe('maximum-context preference capability', () => {
 
   it('omits the field when the getter answers undefined, keeping the rest of the document', async () => {
     const port = await startStatusServer({
-      probe: () => ({ consent: true, running: false, candidates: [], results: [] }),
+      probe: () => ({ consent: true, running: false, models: [] }),
       useMaximumContextWindow: () => undefined,
     })
     const response = await requestOnce({ port, method: 'GET', headers: { host: '127.0.0.1' } })

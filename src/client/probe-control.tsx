@@ -59,7 +59,7 @@ import { cardVariantFor } from './variants.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
 import { isWorkBuddyWebStatus } from './status-document.ts'
 import type { WorkBuddyTranslate } from './locales.ts'
-import type { WorkBuddyWebProbeModel, WorkBuddyWebStatus } from '../shared/paths.ts'
+import type { WorkBuddyWebEffortModel, WorkBuddyWebStatus } from '../shared/paths.ts'
 import css from './probe-control.module.css'
 
 /** Injected props; `directory` resolves the session's current model selection. */
@@ -82,49 +82,61 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
 const POPOVER_GAP = 8
 const POPOVER_MARGIN = 12
 
-/** Pick the model's recorded observation out of the probe section. */
-function resultFor(status: WorkBuddyWebStatus, model: string): WorkBuddyWebProbeModel | undefined {
+/** One model's row out of the probe section's single list. */
+function effortModelFor(
+  status: WorkBuddyWebStatus,
+  model: string,
+): WorkBuddyWebEffortModel | undefined {
   if (status.status !== 'signed-in') return undefined
-  return status.probe?.results.find((result) => result.id === model)
+  return status.probe?.models.find((entry) => entry.id === model)
 }
 
 /**
- * What hovering the icon says: the levels this model accepts, when they are
- * known.
+ * What hovering the icon says.
  *
- * The answer is the *result*, not the action — a user hovering a small glyph
- * beside the model picker is asking "what does this model support?", and the
- * action is what the panel they can open is for.
+ * The bulb answers one question — *can I pick a thinking level on this model?* —
+ * so the tooltip leads with that answer and only then explains it. Three states,
+ * and the distinction between the last two is the whole point:
  *
- * A recorded result outranks a remembered failure: `failed` only means "the last
- * run from this control did not finish", and the host can record a result for
- * the same model at any time (a detection started from the settings card,
- * another conversation, or a finished sweep). The levels the user already paid
- * for are the better answer; failure copy is what remains when there is none.
+ * - levels are offered: name them, and where they came from;
+ * - nothing is offered but a detection could still find some: say so, and that
+ *   pressing is what asks;
+ * - nothing is offered and a detection already proved there is nothing to find:
+ *   say *that*, rather than implying the question is still open. Reporting a
+ *   completed answer as "not checked yet" was the old copy's defect.
+ *
+ * A remembered failure is the last resort: it describes this control's own run,
+ * while `entry` describes the model, and the model is what the user asked about.
  */
 function tooltipText(
   t: WorkBuddyTranslate,
-  model: string,
-  state: { busy: boolean; failed: boolean; result?: WorkBuddyWebProbeModel | undefined },
+  state: {
+    busy: boolean
+    failed: boolean
+    entry?: WorkBuddyWebEffortModel | undefined
+  },
 ): string {
-  if (state.busy) return t('probeRunning', { model })
-  const result = state.result
-  if (result !== undefined) {
-    if (result.validation === 'validating' && result.efforts.length > 0) {
-      return t('probeTooltipLevels', { levels: result.efforts.join(' / ') })
+  if (state.busy) return t('probeTooltipRunning')
+  const entry = state.entry
+  if (entry !== undefined) {
+    if (entry.efforts.length > 0) {
+      return t(entry.source === 'declared' ? 'probeTooltipDeclared' : 'probeTooltipLevels', {
+        levels: entry.efforts.join(' / '),
+      })
     }
-    if (result.validation === 'non-validating') return t('probeTooltipNotValidating')
+    if (entry.validation === 'non-validating') return t('probeTooltipNotValidating')
+    if (entry.detectable) return t('probeTooltipIdle')
+    // No levels, nothing left to probe, and no verdict recorded: the only
+    // honest reading is that the answer did not arrive.
     return t('probeTooltipFailed')
   }
-  return state.failed ? t('probeTooltipFailed') : t('probeTooltipIdle', { model })
+  return state.failed ? t('probeTooltipFailed') : t('probeTooltipIdle')
 }
 
-/** The levels this model accepts, as one line; undefined when there are none to show. */
-function levelsLine(result: WorkBuddyWebProbeModel | undefined): string | undefined {
-  if (result === undefined) return undefined
-  if (result.validation === 'validating' && result.efforts.length > 0)
-    return result.efforts.join(' / ')
-  return undefined
+/** The levels this model offers as one line; undefined when there are none. */
+function levelsLine(entry: WorkBuddyWebEffortModel | undefined): string | undefined {
+  if (entry === undefined || entry.efforts.length === 0) return undefined
+  return entry.efforts.join(' / ')
 }
 
 /** Model-independent shell: resolves the selection, then delegates per model. */
@@ -135,11 +147,16 @@ export function WorkBuddyProbeControl({ directory, t }: WorkBuddyProbeControlPro
   )
   const snapshot = useCallback(() => directory.getSnapshot(), [directory])
   const selection = useSyncExternalStore(subscribe, snapshot, snapshot).current
-  const card = selection === undefined ? undefined : cardVariantFor(selection.provider)
+  // `current` is `null` — not `undefined` — until a selection is projected, so
+  // this must be a truthy test. Testing `=== undefined` let the first frame
+  // dereference `null.provider`, which threw inside the host's slot boundary;
+  // that boundary latches on failure, so the control stayed gone for the life of
+  // the mount — the "bulb sometimes just disappears" report.
+  const card = selection == null ? undefined : cardVariantFor(selection.provider)
   // `card` identifies both the variant and its routes: a selection under either
   // provider resolves to exactly one card's status/probe pair, so the control
   // can never read one variant's state while probing the other.
-  if (card === undefined || selection === undefined) return null
+  if (card === undefined || selection == null) return null
   // A new selection gets fresh state; a late response cannot target the new model.
   return (
     <ModelProbe key={`${card.id}:${selection.model}`} model={selection.model} card={card} t={t} />
@@ -173,7 +190,7 @@ function ModelProbe({
    * Kept so a fresh answer is shown immediately, without waiting for the next
    * status read; `result` from the document is what stands when there is none.
    */
-  const [fresh, setFresh] = useState<WorkBuddyWebProbeModel>()
+  const [fresh, setFresh] = useState<WorkBuddyWebEffortModel>()
   const inFlight = useRef(false)
   const mounted = useRef(false)
   const readSeq = useRef(0)
@@ -231,17 +248,24 @@ function ModelProbe({
 
   const probe = status?.status === 'signed-in' ? status.probe : undefined
   const key = status?.status === 'signed-in' ? status.probeKey : undefined
-  const result = status === undefined ? undefined : resultFor(status, model)
-  const eligible = probe?.candidates.includes(model) === true
-  // Once a model has been detected it leaves the candidate list, so keep the
-  // entry visible for it: that is the case the tooltip reports a result in.
-  const visible = eligible || result !== undefined
+  const entry = status === undefined ? undefined : effortModelFor(status, model)
+  /**
+   * The bulb is shown for every reasoning model the host reports, and hidden
+   * only where the host says there is nothing to say.
+   *
+   * The old gate was `candidates.includes(model) || hasRecord`, i.e. "this model
+   * could be probed, or has been". That is a statement about *detection*, and it
+   * left the bulb off exactly the models whose switch already worked — a
+   * declared set made a model ineligible, so the best-configured models were the
+   * ones with no control beside them, and the user read that as a bug.
+   */
+  const visible = entry !== undefined
 
-  // A recorded result answers the question a remembered failure was about, so
+  // A recorded answer answers the question a remembered failure was about, so
   // the flag is dropped with it rather than lingering into the next render.
   useEffect(() => {
-    if (result !== undefined) setFailed(false)
-  }, [result])
+    if (entry?.validation !== undefined) setFailed(false)
+  }, [entry?.validation])
 
   // A selection change must not strand an open bubble.
   useEffect(() => {
@@ -267,10 +291,11 @@ function ModelProbe({
         validation?: string
         efforts?: unknown
       }
+      const validation = body.validation
       if (
         !response.ok ||
         body.state !== 'ok' ||
-        (body.validation !== 'validating' && body.validation !== 'non-validating') ||
+        (validation !== 'validating' && validation !== 'non-validating') ||
         !Array.isArray(body.efforts) ||
         !body.efforts.every((effort) => typeof effort === 'string')
       ) {
@@ -280,11 +305,17 @@ function ModelProbe({
       // an older cached result. Do not wait for /status (which fetches credit),
       // or infer completion from wall-clock timestamps and background polls.
       if (mounted.current) {
+        // Only a validating sweep produces a switchable set. A `non-validating`
+        // verdict is recorded *without* levels, exactly as the host stores it,
+        // so the fresh row cannot claim a control the picker does not offer.
+        const validating = validation === 'validating'
         setFresh({
           id: model,
           name: model,
-          validation: body.validation as WorkBuddyWebProbeModel['validation'],
-          efforts: body.efforts as string[],
+          efforts: validating ? (body.efforts as string[]) : [],
+          source: validating ? 'observed' : 'none',
+          detectable: true,
+          validation,
           probedAt: Date.now(),
         })
       }
@@ -324,24 +355,34 @@ function ModelProbe({
 
   if (!visible) return null
 
-  const text = tooltipText(t, model, { busy, result, failed })
-  const disabled = busy || probe?.running === true || key === undefined
-  // The freshly-answered result wins over the document's, so the panel the user
+  const text = tooltipText(t, { busy, entry, failed })
+  // The freshly-answered row wins over the document's, so the panel the user
   // just acted in shows what the action produced rather than the older snapshot.
-  const shown = fresh ?? result
+  const shown = fresh ?? entry
   const levels = levelsLine(shown)
   const notValidating = shown?.validation === 'non-validating'
   /*
-   * Whether the bulb is lit: a *recorded* outcome exists for this model.
+   * Whether the bulb is lit: **this model can switch thinking levels.**
    *
-   * Keyed on the record, not on this render's click and not on the levels: a
-   * `non-validating` answer is still an answer the user paid for, and it must
-   * survive a remount, a selection change back to this model, and a status read
-   * that arrives while the panel is closed. A remembered failure and a run in
-   * flight are deliberately excluded — neither is a result, and the tooltip
-   * already reports both.
+   * Keyed on whether levels are offered, never on whether a detection ran. The
+   * two disagree in both directions and the levels are what the user cares
+   * about: a declared set has levels and no detection, while a `non-validating`
+   * sweep has a detection and no levels. Lighting the bulb for the second case
+   * was the old behaviour, and it made "detected" look like "works".
    */
-  const lit = shown !== undefined
+  const lit = levels !== undefined
+  /*
+   * A declared set is already the answer, so there is nothing left to detect.
+   * The bulb stays — it is how the user learns the model *has* levels — but the
+   * action inside says so instead of offering to spend credit on a settled
+   * question.
+   */
+  const detectable = shown?.detectable === true
+  // Opening the panel is always allowed: for a declared model that is the only
+  // way to read which levels it offers, and a bulb that refuses to open is a
+  // worse answer than one that opens and explains. Only the action is gated.
+  const triggerDisabled = busy || probe?.running === true || key === undefined
+  const actionDisabled = !detectable || triggerDisabled
   // The open panel already says everything the tooltip would, so it steps aside
   // rather than hovering over the thing it describes.
   return (
@@ -353,7 +394,7 @@ function ModelProbe({
           aria-label={text}
           aria-busy={busy}
           aria-expanded={open}
-          disabled={disabled}
+          disabled={triggerDisabled}
           onClick={() => {
             setOpen(!open)
           }}
@@ -388,16 +429,33 @@ function ModelProbe({
 
               <p className={css.levelsLabel}>{t('probePanelLevels')}</p>
               <p className={css.levels} role="status" aria-live="polite">
-                {levels ?? t('probePanelNone')}
+                {levels ?? t('probePanelNoLevels')}
               </p>
+              {/*
+               * Why there are no levels, when that is the answer. Three distinct
+               * facts, and the panel must not collapse them: a declared model
+               * whose set is empty does not exist (it would have levels), a
+               * completed sweep that found no validation is a *result*, and
+               * silence means nobody has asked yet.
+               *
+               * The old copy rendered `probePanelNone` ("not detected yet")
+               * whenever `levels` was undefined, so a `non-validating` result
+               * printed "not detected yet" directly above its own verdict —
+               * telling the user a question they had just paid to ask was still
+               * open.
+               */}
               {notValidating ? <p className={css.dim}>{t('probePanelNotValidating')}</p> : null}
+              {!notValidating && levels === undefined && !detectable && shown !== undefined ? (
+                <p className={css.dim}>{t('probePanelDeclaredNone')}</p>
+              ) : null}
               {failed && shown === undefined ? (
                 <p className={css.dim}>{t('probePanelFailed')}</p>
               ) : null}
 
-              {/* The cost note belongs to the action, so it steps aside once the
-                levels are known and the button only repeats a run. */}
-              {levels === undefined && !notValidating ? (
+              {/* The cost note belongs to the action, so it steps aside once
+                there is nothing left to ask — a declared set, or a model with
+                no detection to offer. */}
+              {detectable && levels === undefined && !notValidating ? (
                 <p className={css.note}>{t('probePanelNote')}</p>
               ) : null}
 
@@ -405,16 +463,24 @@ function ModelProbe({
                 <Button
                   size="sm"
                   variant="primary"
-                  disabled={disabled}
+                  disabled={actionDisabled}
                   onClick={() => {
                     void detect()
                   }}
                 >
                   {busy
                     ? t('probePanelDetecting')
-                    : levels === undefined
-                      ? t('probePanelDetect')
-                      : t('probePanelRedetect')}
+                    : /*
+                       * A settled model's button explains why it is inert rather
+                       * than saying "Detect" and going grey: an action label that
+                       * names something the button will not do is what makes a
+                       * disabled control read as broken.
+                       */
+                      !detectable
+                      ? t('probePanelNotNeeded')
+                      : levels === undefined
+                        ? t('probePanelDetect')
+                        : t('probePanelRedetect')}
                 </Button>
               </div>
             </section>,

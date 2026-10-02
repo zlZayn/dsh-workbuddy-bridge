@@ -78,22 +78,28 @@ export type WorkBuddyLocaleKey =
   | 'probeClear'
   | 'probeResultNotValidating'
   | 'probeResultUnknown'
+  | 'probeResultDeclaredNone'
   | 'probeResultAt'
   | 'probeResultEmpty'
+  | 'probeActionDeclared'
   | 'probeFailed'
   // The composer control's own panel. Unlike the card, it has one action and no
   // confirmation step: the panel explains, the button acts.
   | 'probePanelLevels'
-  | 'probePanelNone'
+  | 'probePanelNoLevels'
   | 'probePanelNote'
   | 'probePanelDetect'
   | 'probePanelDetecting'
   | 'probePanelRedetect'
+  | 'probePanelNotNeeded'
   | 'probePanelNotValidating'
+  | 'probePanelDeclaredNone'
   | 'probePanelFailed'
   | 'probeLabel'
   | 'probeTooltipIdle'
+  | 'probeTooltipRunning'
   | 'probeTooltipLevels'
+  | 'probeTooltipDeclared'
   | 'probeTooltipNotValidating'
   | 'probeTooltipFailed'
   // Settings form
@@ -195,22 +201,28 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeRunning: 'Detecting {model}…',
   probeClear: 'Clear results',
   probeResultNotValidating: 'This model does not check the effort parameter',
-  probeResultUnknown: 'Detection did not complete',
+  probeResultUnknown: 'Not detected yet',
+  probeResultDeclaredNone: 'The provider declares no levels',
   probeResultAt: 'Detected {time}',
-  probeResultEmpty: 'No models need detecting right now.',
+  probeResultEmpty: 'No reasoning models are being served right now.',
+  probeActionDeclared: 'Declared',
   probeFailed: 'Detection failed: {message}',
   probeLabel: 'Reasoning levels',
   probePanelLevels: 'Supported levels',
-  probePanelNone: 'Not detected yet',
+  probePanelNoLevels: 'No level can be selected',
   probePanelNote:
     'Detection sends a few requests to this model and may consume a small amount of credit.',
   probePanelDetect: 'Detect',
   probePanelDetecting: 'Detecting…',
   probePanelRedetect: 'Detect again',
+  probePanelNotNeeded: 'Already declared — nothing to detect',
   probePanelNotValidating: 'This model does not check the effort parameter.',
+  probePanelDeclaredNone: 'This model declares no selectable levels.',
   probePanelFailed: 'Detection did not finish. You can run it again.',
-  probeTooltipIdle: 'Detect the reasoning levels {model} supports',
-  probeTooltipLevels: 'Supported levels: {levels}',
+  probeTooltipIdle: 'This model offers no levels yet — click to detect them',
+  probeTooltipRunning: 'Detecting…',
+  probeTooltipLevels: 'Detected levels: {levels}',
+  probeTooltipDeclared: 'Levels declared by the provider: {levels}',
   probeTooltipNotValidating: 'This model ignores the reasoning-level parameter',
   probeTooltipFailed: 'Detection did not finish · click to run it again',
   authFile: 'WorkBuddy auth file',
@@ -320,21 +332,27 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probeRunning: '正在检测 {model}…',
   probeClear: '清除结果',
   probeResultNotValidating: '该模型不校验档位参数',
-  probeResultUnknown: '检测未完成',
+  probeResultUnknown: '尚未检测',
+  probeResultDeclaredNone: '上游未声明档位',
   probeResultAt: '检测于 {time}',
-  probeResultEmpty: '当前没有需要检测的模型。',
+  probeResultEmpty: '当前没有提供可选档位的推理模型。',
+  probeActionDeclared: '已声明',
   probeFailed: '检测失败：{message}',
   probeLabel: '推理档位',
   probePanelLevels: '支持的档位',
-  probePanelNone: '尚未检测',
+  probePanelNoLevels: '无可选档位',
   probePanelNote: '检测会向该模型发送若干请求，可能消耗少量积分。',
   probePanelDetect: '检测',
   probePanelDetecting: '检测中…',
   probePanelRedetect: '重新检测',
+  probePanelNotNeeded: '上游已声明档位，无需检测',
   probePanelNotValidating: '该模型不校验档位参数。',
+  probePanelDeclaredNone: '上游未声明可选档位。',
   probePanelFailed: '检测未完成，可以再检测一次。',
-  probeTooltipIdle: '检测 {model} 支持的推理档位',
-  probeTooltipLevels: '支持的档位：{levels}',
+  probeTooltipIdle: '该模型暂无档位，点击可检测',
+  probeTooltipRunning: '正在检测…',
+  probeTooltipLevels: '检测出的档位：{levels}',
+  probeTooltipDeclared: '上游声明的档位：{levels}',
   probeTooltipNotValidating: '该模型忽略推理档位参数',
   probeTooltipFailed: '检测未完成 · 点击可再检测一次',
   authFile: 'WorkBuddy 登录文件',
