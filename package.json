@@ -20,7 +20,7 @@
   },
   "icon": "./icon.svg",
   "main": "lib/index.js",
-  "types": "lib/types/index.d.ts",
+  "types": "./lib/index.d.ts",
   "bin": {
     "dsh-workbuddy-bridge": "lib/bin.js"
   },
@@ -37,11 +37,10 @@
   },
   "exports": {
     ".": {
-      "types": "./lib/types/index.d.ts",
+      "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
     "./client": {
-      "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",

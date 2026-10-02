@@ -136,4 +136,61 @@ describe('package version sync', () => {
     // The backreference tie still holds: an unrelated pair is not a class map.
     expect(classMapBlocks('{ "x": "h_other" }')).toEqual([])
   })
+
+  /**
+   * `package.json` points consumers at the types via two fields (`types` and
+   * `exports["."].types`), and both name a path **inside the published tarball**.
+   * The build emits `lib/index.d.ts` / `lib/client.d.ts` at the package root of
+   * `lib/` — it does not create a `lib/types/` directory — so a declaration that
+   * drifted from the real layout makes TypeScript resolve nothing and fail
+   * *silently*: the consumer just sees an untyped module.
+   *
+   * The drift is real, not hypothetical: from 0.1.0 through 0.2.0 the fields said
+   * `lib/types/index.d.ts` while the build had never produced that path, so every
+   * published version shipped declarations no consumer could reach. Asserting the
+   * shipped layout (not the source tree) keeps this guard honest about what npm
+   * will actually contain.
+   */
+  it('declares type entry points that the build really emits', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+      types: string
+      exports: Record<string, { types?: string }>
+    }
+    const libDir = new URL('../lib/', import.meta.url)
+    if (!existsSync(libDir)) return
+
+    // `npm pack` is what decides which files ship; `files` in package.json governs
+    // it. A `types` path outside that set is unreachable even if the build emits it.
+    const pkgDir = new URL('../', import.meta.url)
+    const { files } = JSON.parse(
+      readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as { files: string[] }
+
+    const declared = [
+      pkg.types,
+      ...(pkg.exports['.']?.types ? [pkg.exports['.'].types!] : []),
+      ...(pkg.exports['./client']?.types ? [pkg.exports['./client'].types!] : []),
+    ]
+    expect(declared.length, 'package.json declares no type entry points').toBeGreaterThan(0)
+
+    for (const entry of declared) {
+      // `types` fields are conventionally prefixed `./`; normalise both spellings.
+      const relative = entry.replace(/^\.\//, '').replace(/^\//, '')
+      const onDisk = new URL(`./${relative}`, pkgDir)
+      expect(
+        existsSync(onDisk),
+        `package.json declares type entry "${entry}" but the file does not exist — ` +
+          'the build layout and the declaration have drifted, so consumers get no types',
+      ).toBe(true)
+      const shipped = files.some((pattern) => {
+        const prefix = pattern.replace(/^\.\//, '').replace(/\/\*.*$/, '')
+        return relative === prefix || relative.startsWith(`${prefix}/`)
+      })
+      expect(
+        shipped,
+        `type entry "${entry}" resolves on disk but is not covered by package.json "files" — ` +
+          'it would be missing from the published tarball',
+      ).toBe(true)
+    }
+  })
 })
