@@ -90,14 +90,80 @@
   padding: 4px 0 12px;
 }
 
-/* One labelled block inside a card. The official voice-input config card spaces
-   its blocks with `margin: 12px 0` and draws no rule between them — the heading
-   does the separating. Same here; the card body carries no extra gap either. */
+/* One labelled block inside a card.
+   The official voice-input config card spaces its blocks with `margin: 12px 0`
+   and draws no rule between them — the heading does the separating. Same here. */
 .section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   margin: 12px 0;
+}
+
+/* ---- Field rows --------------------------------------------------------- */
+
+/*
+ * A field row: a label on the left, its value and any action on the right.
+ *
+ * This is the host's own field geometry (`ui-primitives/lib/settings-form/
+ * fields.module.css`), and the separator is the part that matters:
+ *
+ *   .field      { gap: 6px; padding: 12px 0 }
+ *   .field + .field { border-top: 0.5px solid var(--dsw-alias-border-l2) }
+ *
+ * The host separates stacked fields with a **rule**, not with whitespace. The
+ * card used to separate them with padding alone (`padding: 12px 0` on every
+ * row, no rule), which is what made the account block read as unrelated lines
+ * drifting down the page: three stacked facts with 24px of air between each and
+ * nothing saying they belong together.
+ *
+ * The rule is drawn by `+` so it only ever appears *between* rows — a leading
+ * rule under a heading would read as an underline on the heading instead.
+ */
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.field + .field {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* The label half of a field: the fact, and optionally a hint under it.
+   `flex: 1` + `min-width: 0` is the host's `.label` — without the min-width a
+   long value refuses to shrink and pushes the control off the row. */
+.fieldLabel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* The value half: figures and metadata that sit opposite the label. */
+.fieldValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* A row of actions that belongs to the block above it rather than to one field
+   — a list-wide "clear", a section-wide "refresh". Right-aligned the way the
+   host's action rows are, and separated by the same rule a field uses so it
+   reads as part of the same block. */
+.sectionActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* A section heading. The host's own cards put the label at 13/1.5 w500 primary
@@ -111,17 +177,15 @@
   color: var(--dsw-alias-label-primary);
 }
 
-/* A row: text on the left, its control on the right. Layout follows the host's
-   `fields.module.css` `.head` (gap 8); the padding is the field rhythm — without
-   it the row's neighbours close to 0 and the control looks glued to the section
-   above. */
+/* A row: text on the left, its control on the right. Kept for rows that are not
+   field-shaped (a provenance line with a button, a probe row); `.field` is the
+   one to reach for when the row is a label/value pair. */
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 12px 0;
 }
 
 /* The disclosure header row, restated from the official voice-input card's
@@ -222,24 +286,31 @@
    to need one. */
 .list {
   display: grid;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
   max-height: 280px;
   margin: 0;
-  padding: 14px;
+  padding: 6px 14px;
   overflow: auto;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
 }
 
 /* One model: name and badges on the left, capacity or rate on the right.
-   No per-row padding and no per-row radius: the box above already gives the
-   list its breathing room, which is what the official card does too. */
+   No per-row radius and no per-row padding beyond the vertical rhythm the rule
+   needs: the box above already gives the list its breathing room, and a rule
+   between rows is what makes a long catalog scannable rather than a wall of
+   names (the same choice `.probeRow` makes). */
 .modelRow {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  padding: 8px 0;
+}
+
+.modelRow + .modelRow {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .modelMain {
@@ -293,22 +364,33 @@
   flex-wrap: wrap;
 }
 
-/* A list-scoped action sits right-aligned under the list, the way the host's
-   action rows do. Without this the flex column's default `stretch` would pull
-   the button across the full card width — which is exactly what made it read
-   as a second, stray control. */
-.sectionActions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* ---- Probe row ---------------------------------------------------------- */
 
+/*
+ * One reasoning model and its action.
+ *
+ * The rows live inside `.list`, which already frames them, so the separation
+ * here is a rule rather than more padding — the same choice the host's field
+ * stack makes. Without it, a list of twelve models read as twelve unrelated
+ * lines: name, tag and button repeating with nothing tying each triple
+ * together, which is what made the detection tab look like loose rows.
+ */
 .probeRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding: 8px 0;
+}
+
+/*
+ * The rule goes on the *stack*, not the row: each entry is a `modelStack`
+ * wrapping its row plus an optional "detected at" line, so a rule between rows
+ * would separate a row from its own timestamp. This is the boundary the user
+ * reads as "next model".
+ */
+.modelStack + .modelStack {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .probeEnd {

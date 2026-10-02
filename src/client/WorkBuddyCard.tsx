@@ -163,47 +163,59 @@ export function WorkBuddyCard({
       <div className={css.body}>
         <div className={css.section}>
           <h4 className={css.title}>{t('accountHeading')}</h4>
-          {/* `aria-busy` while nothing has been read: the value is pending, not absent. */}
-          <div className={css.row}>
-            {/* The header line already says who is signed in; this row carries the
-                action that belongs to that fact. */}
-            {/* The assist block carries the re-check in its state, so the
-                refresh button steps aside rather than duplicating it. */}
-            {assistCode === undefined ? (
-              <Button
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  void refresh()
-                }}
-              >
-                {busy ? t('refreshing') : t('refresh')}
-              </Button>
-            ) : null}
-          </div>
           {/*
-           * A failed read is reported beside the document still on screen,
-           * never in place of it: blanking the card over one transient error
-           * loses the account, credits and model list the user was reading.
+           * The account block is a stack of *field rows*, the host's own
+           * geometry: a label on the left, its value or action on the right, and
+           * a 0.5px rule between consecutive rows. Before this the three facts
+           * were three loose paragraphs each padded 12px top and bottom with no
+           * rule — which is what made the block read as lines drifting down the
+           * page rather than as one account's worth of state.
            */}
-          {readFailure === undefined || status === undefined ? null : (
-            <p className={css.error}>{t('statusRefreshFailed', { message: readFailure })}</p>
-          )}
+          <div className={css.field}>
+            <span className={css.fieldLabel}>
+              <span>{accountLabel(status, t)}</span>
+            </span>
+            <span className={css.fieldValue}>
+              {/* The assist block carries the re-check in its state, so the
+                  refresh button steps aside rather than duplicating it. */}
+              {assistCode === undefined ? (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    void refresh()
+                  }}
+                >
+                  {busy ? t('refreshing') : t('refresh')}
+                </Button>
+              ) : null}
+            </span>
+          </div>
           {signedIn?.expiresAt === undefined ? null : (
-            <p className={css.text}>
-              {t('accessTokenExpires', { time: formatTime(signedIn.expiresAt) })}
-            </p>
+            <div className={css.field}>
+              <span className={css.fieldLabel}>
+                <span>{t('sessionExpiryLabel')}</span>
+              </span>
+              <span className={css.fieldValue}>
+                <span className={css.dim}>
+                  {t('accessTokenExpires', { time: formatTime(signedIn.expiresAt) })}
+                </span>
+              </span>
+            </div>
           )}
-        </div>
-
-        {signedIn === undefined ? null : (
-          <>
-            {/* The card-level facts live above the tabs: the account section
-                names the session and its expiry, and this line says where the
-                model list came from — neither belongs to one tab. */}
-            {signedIn.catalog === undefined ? null : (
-              <div className={css.row}>
-                <span className={css.text}>{catalogProvenance(signedIn.catalog, t)}</span>
+          {signedIn?.catalog === undefined ? null : (
+            <div className={css.field}>
+              <span className={css.fieldLabel}>
+                <span>{t('catalogSourceLabel')}</span>
+              </span>
+              <span className={css.fieldValue}>
+                <span className={css.dim}>{catalogProvenance(signedIn.catalog, t)}</span>
+                {/*
+                 * The model-list refresh belongs to the model list, and the
+                 * model list lives in the Models tab — so this action moves
+                 * with it (see the models panel). It stays here only as the
+                 * provenance row's own re-read, which is a different verb.
+                 */}
                 <Button
                   size="sm"
                   disabled={busy}
@@ -213,12 +225,24 @@ export function WorkBuddyCard({
                 >
                   {busy ? t('refreshingModels') : t('refreshModels')}
                 </Button>
-              </div>
-            )}
-            {signedIn.catalog?.error === undefined ? null : (
-              <p className={css.error}>{t('catalogError', { message: signedIn.catalog.error })}</p>
-            )}
+              </span>
+            </div>
+          )}
+          {/*
+           * A failed read is reported beside the document still on screen,
+           * never in place of it: blanking the card over one transient error
+           * loses the account, credits and model list the user was reading.
+           */}
+          {readFailure === undefined || status === undefined ? null : (
+            <p className={css.error}>{t('statusRefreshFailed', { message: readFailure })}</p>
+          )}
+          {signedIn?.catalog?.error === undefined ? null : (
+            <p className={css.error}>{t('catalogError', { message: signedIn.catalog.error })}</p>
+          )}
+        </div>
 
+        {signedIn === undefined ? null : (
+          <>
             <SegmentedTabs items={tabs} value={tab} onChange={setTab} label={t('tabLabel')} />
 
             {/*

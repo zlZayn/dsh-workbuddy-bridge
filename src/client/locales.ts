@@ -17,6 +17,8 @@ export type WorkBuddyLocaleKey =
   | 'signedInAs'
   | 'accessTokenExpires'
   | 'accountHeading'
+  | 'sessionExpiryLabel'
+  | 'catalogSourceLabel'
   // Read failures
   | 'requestFailed'
   | 'statusRefreshFailed'
@@ -152,6 +154,13 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   signedInAs: 'Signed in as {nickname}',
   accessTokenExpires: 'Sign-in expires {time}; it renews automatically.',
   accountHeading: 'Account',
+  /*
+   * Field labels for the account block. The values beside them already carry
+   * the detail, so these stay to two or three words — a label that restates its
+   * value is what makes a settings row read as prose.
+   */
+  sessionExpiryLabel: 'Sign-in',
+  catalogSourceLabel: 'Model list',
   requestFailed: 'Request failed',
   statusRefreshFailed: 'Refresh failed: {message} — showing the last known state',
   statusResponseInvalid: 'WorkBuddy returned an unreadable status reply',
@@ -295,6 +304,8 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   signedInAs: '已登录：{nickname}',
   accessTokenExpires: '登录将于 {time} 过期，届时自动续期。',
   accountHeading: '账号',
+  sessionExpiryLabel: '登录状态',
+  catalogSourceLabel: '模型列表',
   requestFailed: '请求失败',
   statusRefreshFailed: '刷新失败：{message} — 当前显示的是上次成功获取的状态',
   statusResponseInvalid: 'WorkBuddy 返回的状态数据无法识别',
