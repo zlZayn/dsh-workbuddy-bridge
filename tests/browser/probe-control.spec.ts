@@ -133,7 +133,62 @@ function bulbPaths(view: ReactTestRenderer): number {
   return button.findAllByType('path' as never).length
 }
 
+/** How many times the status route has been read. */
+function statusReads(): number {
+  return stub.call.mock.calls.filter(([url]) => String(url).includes('/status')).length
+}
+
 describe('WorkBuddyProbeControl', () => {
+  it('keeps the bulb up across a model switch, and does not re-read status', async () => {
+    /*
+     * The reported defect: switching models made the bulb vanish for about half a
+     * second and then reappear, while the credit readout never flickered.
+     *
+     * The cause was where the document was held. The component that fetched it was
+     * keyed **by model**, so every switch unmounted it; the replacement started at
+     * `status === undefined`, could not resolve `entry`, and rendered nothing until
+     * its own `GET /status` returned. That also meant one extra upstream billing
+     * request per switch, because the status route fetches credit.
+     *
+     * Both halves are asserted here, because either alone could be satisfied by a
+     * wrong fix: the bulb must be present **and lit** immediately after the switch
+     * (no gap), and the read count must not move (no request).
+     */
+    const directory = directoryFor({ provider: 'workbuddy', model: 'glm-5.3-flash' })
+    stub.body = signedIn({
+      probe: {
+        consent: true,
+        running: false,
+        models: [
+          row({
+            id: 'glm-5.3-flash',
+            efforts: ['low', 'high', 'max'],
+            source: 'declared',
+            detectable: false,
+          }),
+          row({ id: 'glm-5.3', name: 'GLM-5.3' }),
+        ],
+      },
+    })
+    const view = await render(createElement(WorkBuddyProbeControl, { directory, t }))
+    expect(bulbPaths(view)).toBe(2)
+    const readsBefore = statusReads()
+
+    // Switch to the other model, exactly as the picker would.
+    await act(async () => {
+      directory.set({
+        ...directory.getSnapshot(),
+        current: { provider: 'workbuddy', model: 'glm-5.3' },
+      })
+    })
+
+    // The very next frame — before any promise settles — must already show it.
+    expect(bulb(view), 'the bulb disappeared during a model switch').toBeDefined()
+    expect(statusReads(), 'switching models re-read the status route').toBe(readsBefore)
+    // The new model has no levels, so the bolt is gone: correct state, no gap.
+    expect(bulbPaths(view)).toBe(1)
+  })
+
   it('survives the host store’s null selection without throwing', async () => {
     // The host initialises `current` to `null`, not `undefined`. Guarding on
     // `undefined` dereferenced it and killed the control for the whole mount.

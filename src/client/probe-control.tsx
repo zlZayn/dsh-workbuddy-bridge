@@ -139,7 +139,7 @@ function levelsLine(entry: WorkBuddyWebEffortModel | undefined): string | undefi
   return entry.efforts.join(' / ')
 }
 
-/** Model-independent shell: resolves the selection, then delegates per model. */
+/** Model-independent shell: resolves the selection, then delegates per variant. */
 export function WorkBuddyProbeControl({ directory, t }: WorkBuddyProbeControlProps): ReactNode {
   const subscribe = useCallback(
     (listener: () => void) => directory.subscribe(listener),
@@ -153,55 +153,47 @@ export function WorkBuddyProbeControl({ directory, t }: WorkBuddyProbeControlPro
   // that boundary latches on failure, so the control stayed gone for the life of
   // the mount — the "bulb sometimes just disappears" report.
   const card = selection == null ? undefined : cardVariantFor(selection.provider)
-  // `card` identifies both the variant and its routes: a selection under either
-  // provider resolves to exactly one card's status/probe pair, so the control
-  // can never read one variant's state while probing the other.
   if (card === undefined || selection == null) return null
-  // A new selection gets fresh state; a late response cannot target the new model.
-  return (
-    <ModelProbe key={`${card.id}:${selection.model}`} model={selection.model} card={card} t={t} />
-  )
+  /*
+   * Keyed by the **variant**, never by the model — and that distinction is the
+   * whole reason this level exists.
+   *
+   * The status document describes an *account*: one `probe.models` list holding
+   * every model the variant serves. It does not describe the selected model, so
+   * switching models cannot change it and must not re-read it. Keying the
+   * component that owns it by model was what made the bulb arrive late: React
+   * unmounted the old instance, the new one started with `status === undefined`,
+   * and the bulb could not render until a fresh `GET /status` came back — a
+   * visible half-second gap on every switch, plus one real upstream billing
+   * request per switch, because the status route fetches credit.
+   */
+  return <VariantProbe key={card.id} card={card} model={selection.model} t={t} />
 }
 
-function ModelProbe({
-  model,
+/**
+ * One variant's status document, held above the model-keyed layer.
+ *
+ * Living here means a model switch is a prop update rather than a remount, so
+ * the document read for the previous model is already in hand and the new
+ * model's row is rendered from it on the first frame — no gap, and no request.
+ *
+ * The reads that *do* belong here are the ones keyed to the account: the
+ * mount-time load, the reconcile poll (a detection run in another conversation
+ * or in the settings card has to reach this control), and the focus refresh.
+ */
+function VariantProbe({
   card,
+  model,
   t,
 }: {
-  model: string
   card: WorkBuddyCardVariant
+  model: string
   t: WorkBuddyTranslate
 }): ReactNode {
   const [status, setStatus] = useState<WorkBuddyWebStatus>()
-  const [busy, setBusy] = useState(false)
-  /**
-   * Whether the panel is open.
-   *
-   * One flag, not a confirmation-plus-result pair: the panel shows the same
-   * thing before and after a run (the levels, and the one button that gets
-   * them), so there is no second state to model. Opening it is not a commitment
-   * either — the button inside is.
-   */
-  const [open, setOpen] = useState(false)
-  const [failed, setFailed] = useState(false)
-  /**
-   * The outcome of the run this control just performed.
-   *
-   * Kept so a fresh answer is shown immediately, without waiting for the next
-   * status read; `result` from the document is what stands when there is none.
-   */
-  const [fresh, setFresh] = useState<WorkBuddyWebEffortModel>()
-  const inFlight = useRef(false)
   const mounted = useRef(false)
+  /** Number of the newest read that may write; assigned when a read starts. */
   const readSeq = useRef(0)
-  /** The control itself: the popover's anchor and the "inside" test for dismissal. */
-  const rootRef = useRef<HTMLSpanElement>(null)
-  /**
-   * The panel, portalled to `document.body` so it is not clipped by the composer
-   * row. It is measured by the anchor hook and passed to the outside-pointer test,
-   * which would otherwise read a click on the panel as a click outside it.
-   */
-  const panelRef = useRef<HTMLElement>(null)
 
   const refresh = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
@@ -215,12 +207,14 @@ function ModelProbe({
       /*
        * A 200 does not promise a status document: the body may be empty, literal
        * `null`, or a non-JSON page. Storing that unchecked would put a value in
-       * state that `resultFor` dereferences on the next render, so it is validated
-       * here with the same predicate the settings card uses. A rejection is left to
-       * the callers below, which already degrade quietly.
+       * state that the next render dereferences, so it is validated here with the
+       * same predicate the settings card uses. A rejection is left to the callers
+       * below, which already degrade quietly.
        */
       const value: unknown = await response.json().catch(() => undefined)
       if (!isWorkBuddyWebStatus(value)) throw new Error(t('statusResponseInvalid'))
+      // The newest read wins: a slow poll begun before a manual action must not
+      // settle after it and restore the older document.
       if (mounted.current && signal?.aborted !== true && seq === readSeq.current) setStatus(value)
     },
     [card.statusPath, t],
@@ -245,6 +239,72 @@ function ModelProbe({
       window.removeEventListener('focus', load)
     }
   }, [refresh])
+
+  return (
+    <ModelProbe
+      // Per-model state (the open panel, a remembered failure, this control's own
+      // fresh answer) must not survive a switch, so the layer below is keyed by
+      // model. The document itself is not per-model and deliberately stays above.
+      key={model}
+      model={model}
+      status={status}
+      probePath={card.probePath}
+      refresh={refresh}
+      t={t}
+    />
+  )
+}
+
+function ModelProbe({
+  model,
+  status,
+  probePath,
+  refresh,
+  t,
+}: {
+  model: string
+  /** The variant's document, read above this layer so a switch does not wait. */
+  status: WorkBuddyWebStatus | undefined
+  /** This variant's write route, for the one action the panel offers. */
+  probePath: string
+  refresh: (signal?: AbortSignal) => Promise<void>
+  t: WorkBuddyTranslate
+}): ReactNode {
+  const [busy, setBusy] = useState(false)
+  /**
+   * Whether the panel is open.
+   *
+   * One flag, not a confirmation-plus-result pair: the panel shows the same
+   * thing before and after a run (the levels, and the one button that gets
+   * them), so there is no second state to model. Opening it is not a commitment
+   * either — the button inside is.
+   */
+  const [open, setOpen] = useState(false)
+  const [failed, setFailed] = useState(false)
+  /**
+   * The outcome of the run this control just performed.
+   *
+   * Kept so a fresh answer is shown immediately, without waiting for the next
+   * status read; the document's own row is what stands when there is none.
+   */
+  const [fresh, setFresh] = useState<WorkBuddyWebEffortModel>()
+  const inFlight = useRef(false)
+  const mounted = useRef(false)
+  /** The control itself: the popover's anchor and the "inside" test for dismissal. */
+  const rootRef = useRef<HTMLSpanElement>(null)
+  /**
+   * The panel, portalled to `document.body` so it is not clipped by the composer
+   * row. It is measured by the anchor hook and passed to the outside-pointer test,
+   * which would otherwise read a click on the panel as a click outside it.
+   */
+  const panelRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   const probe = status?.status === 'signed-in' ? status.probe : undefined
   const key = status?.status === 'signed-in' ? status.probeKey : undefined
@@ -280,7 +340,7 @@ function ModelProbe({
     setBusy(true)
     setFailed(false)
     try {
-      const response = await fetch(card.probePath, {
+      const response = await fetch(probePath, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-WorkBuddy-Probe-Key': key },
