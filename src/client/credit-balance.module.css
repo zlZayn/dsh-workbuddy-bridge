@@ -1,34 +1,61 @@
 /*
- * The remaining-credit label beside the model picker.
+ * The remaining-credit readout beside the model picker.
  *
- * It is a plain flex item of `.standardControls` (`display:flex;
- * align-items:center; gap:12px`), sitting immediately left of `ModelSelect`'s
- * own root. The slot outlet contributes no box (`display:contents`), so this
- * element *is* the flex item — there is no wrapper to style.
+ * A coin glyph followed by the figure, and nothing else. It is a plain flex
+ * item of `.standardControls` (`display:flex; align-items:center; gap:12px`),
+ * sitting immediately left of `ModelSelect`'s own root; the slot outlet
+ * contributes no box (`display:contents`), so this element *is* the flex item —
+ * there is no wrapper to style.
  *
- * Height is pinned to the sibling control's 28px so the row does not grow and
- * the model seat stays vertically aligned with the other composer controls.
- * The 12px gap already separates it from the picker; no margin is added, since
- * a second space source is how a composer row drifts out of alignment.
+ * It is a **readout, not a control**: no button, no hover background, no
+ * pointer cursor. The only affordance is the `title`, which spells out what the
+ * number is for anyone who asks; at 28px a sentence would compete with the
+ * figure it labels, which is why the words "剩余" / "remaining" are not here.
  */
 
-.label {
+.readout {
   /*
-   * 28px matches `ModelSelect`'s `.trigger` height. Without it the row's height
-   * is decided by the tallest child and the label's own line box would leave
-   * the picker looking misaligned.
+   * 28px matches `ModelSelect`'s `.trigger` height and the reasoning-level
+   * button beside it. Without it the row's height is decided by the tallest
+   * child and the picker would sit misaligned with the rest of the chrome.
    */
   height: 28px;
   display: inline-flex;
   align-items: center;
-  /* A wrapping label would change the row's height; a balance is short. */
+  /*
+   * 4px is measured, not chosen: at 3px the glyph and the digits collided
+   * optically, and at 6px the pair stopped reading as one object and drifted
+   * toward the bulb on their right.
+   */
+  gap: 4px;
+  /* The figure never wraps; a two-line readout would grow the row. */
   white-space: nowrap;
+  /*
+   * Tertiary tone, like the row's other passive readouts (the clock, the usage
+   * pill) and like the bulb beside it. This is a fact the user reads, not a
+   * control they press, so it must not compete with the model name.
+   */
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* The glyph is fixed-size in a flex row: without this it can be squeezed by a
+   long figure, which is the one case where the number must win instead. */
+.glyph {
+  flex: none;
+}
+
+.amount {
+  /*
+   * One step below the secondary size, matching the sibling labels' caption
+   * tier. `line-height: 1` keeps the readout's own box out of the row's height
+   * calculation.
+   */
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
   line-height: 1;
   /*
-   * Tertiary tone, like the row's other passive readouts (the clock, the usage
-   * pill). This is a fact the user reads, not a control they press, so it must
-   * not compete with the model name beside it.
+   * Digits are compared across models ("what did that one cost me?"), so they
+   * get a tabular figure: proportional digits make a balance change width as it
+   * moves, which reads as a jumpy row.
    */
-  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
 }

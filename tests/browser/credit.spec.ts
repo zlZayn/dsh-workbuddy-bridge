@@ -199,6 +199,40 @@ describe('the balance label beside the model picker', () => {
     expect(textOf(box.view!)).toContain('5143')
   })
 
+  it('shows the figure as a coin glyph plus the number, with no wording', async () => {
+    /*
+     * The readout is deliberately wordless: at 28px a sentence competes with the
+     * number it labels, and the glyph says what the number is. So the assertion
+     * is two-sided — the figure is there, and the words "remaining" are not —
+     * because "shows the balance" alone would still pass with the old copy back.
+     */
+    await mount(signedIn({ credits: { total: 3398, accounts: [] } }))
+    const text = textOf(box.view!)
+    expect(text).toContain('3398')
+    expect(text).not.toContain(t('creditBalanceTitle', { product: 'WorkBuddy' }))
+
+    // The glyph is an inline svg, and it is drawn as *outlines*: a filled version
+    // was rejected for outweighing the thin-line bulb beside it, so the stroke
+    // (rather than a fill) is the property worth pinning.
+    const glyph = box.view!.root.findAllByType('svg')[0]
+    expect(glyph).toBeDefined()
+    expect(glyph!.props['stroke']).toBe('currentColor')
+    expect(glyph!.props['strokeWidth']).toBe('1')
+    expect(glyph!.props['fill']).toBe('none')
+    // Three coins: a top face, the walls/floor path, and the middle edge.
+    expect(glyph!.findAll((node) => node.type === 'ellipse')).toHaveLength(1)
+    expect(glyph!.findAll((node) => node.type === 'path')).toHaveLength(2)
+  })
+
+  it('keeps the full sentence as the title, for whoever hovers', async () => {
+    await mount(signedIn({ credits: { total: 3398, accounts: [] } }))
+    const readout = box.view!.root.findAll(
+      (node) =>
+        typeof node.props['title'] === 'string' && node.props['title'].includes('WorkBuddy'),
+    )
+    expect(readout.length).toBeGreaterThan(0)
+  })
+
   it('says unlimited rather than printing a sentinel', async () => {
     await mount(signedIn({ credits: { total: 0, accounts: [], unlimited: true } }))
     expect(textOf(box.view!)).toContain('Unlimited')

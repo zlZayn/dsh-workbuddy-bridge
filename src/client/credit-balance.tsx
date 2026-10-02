@@ -6,6 +6,13 @@
  * clicks away from where the choice is made. It answers "how much have I got?"
  * next to the control that spends it.
  *
+ * **It is a readout, not a control.** A coin glyph followed by the number, in
+ * the same 28px row as the reasoning-level bulb beside it. The words "remaining"
+ * / "剩余" are deliberately absent: at this size a sentence competes with the
+ * number it is labelling, and the glyph already says *what* the number is. The
+ * full sentence survives as the `title` for anyone who hovers, and the card's
+ * Credits tab remains the place that spells the figure out.
+ *
  * **It is shown only while the session runs a WorkBuddy model.** The balance
  * belongs to the WorkBuddy account, so it is offered exactly where that account
  * is the one being spent; a session on any other provider renders nothing and
@@ -143,13 +150,65 @@ export function WorkBuddyCreditBalance({ directory, t }: WorkBuddyCreditBalanceP
   }, [card])
 
   if (card === undefined || balance.kind === 'unknown') return null
-  const text =
-    balance.kind === 'unlimited'
-      ? t('creditRemainingUnlimited')
-      : t('creditRemaining', { credit: formatCredit(balance.total) })
+  // The figure alone; the glyph beside it carries the noun. `unlimited` has no
+  // number to show, so it keeps its word — a coin with nothing after it would
+  // read as a failed read rather than as "no cap".
+  const figure =
+    balance.kind === 'unlimited' ? t('creditRemainingUnlimited') : formatCredit(balance.total)
   return (
-    <span className={css.label} title={t('creditBalanceTitle', { product: card.appName })}>
-      {text}
+    <span className={css.readout} title={t('creditBalanceTitle', { product: card.appName })}>
+      <CoinGlyph />
+      <span className={css.amount}>{figure}</span>
     </span>
+  )
+}
+
+/**
+ * The credit glyph: a stack of three coins, drawn as outlines.
+ *
+ * This repository draws its own ink when the host has nothing to lend, and the
+ * host's 188 icons contain no coin, credit, wallet or currency shape at all
+ * (checked against the installed `dsh-client-ui-primitives`) — so this is
+ * artwork of ours, exactly as the reasoning-level bulb beside it is.
+ *
+ * **Stroked, not filled.** A filled stack was drawn first and rejected on
+ * sight: the bulb reads as a thin outline even though it is one filled path, so
+ * a solid glyph beside it looked like a different icon set. The line width is
+ * the host's own `1` on this grid, which is what makes the two read as peers.
+ *
+ * **Flatter than a cylinder.** The construction is the host's `database` idiom —
+ * a full top ellipse, straight walls, and a *front-half* arc per level below —
+ * so the ellipse's minor axis is what separates "a stack of coins" from "a
+ * database". At `ry = 1.25` it reads as coins; at `1.6` it reads as the
+ * database glyph with extra lines (both were rendered at 64px to check).
+ *
+ * Drawn on the host's own 16-unit grid with `viewBox="0 0 16 16"`, at the same
+ * 16px as the bulb, because the two sit in one row and are read together: a
+ * glyph at a different size would make the row look assembled from two sources.
+ * `currentColor` throughout, so both themes come from the row's colour token —
+ * no literal colour and no `[data-ds-dark-theme]` branch here.
+ */
+function CoinGlyph(): ReactNode {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1"
+      aria-hidden="true"
+      className={css.glyph}
+    >
+      {/* The top coin's face. */}
+      <ellipse cx="8" cy="4.7" rx="4.7" ry="1.25" />
+      {/* Left wall, the floor's front half, right wall — one open path, so the
+          hidden back half of the bottom coin is never drawn and the stack does
+          not close into a cylinder. */}
+      <path d="M3.3 4.7V10.7A4.7 1.25 0 0 0 12.7 10.7V4.7" />
+      {/* The front edge of the middle coin, the line that makes it a stack. */}
+      <path d="M3.3 7.7A4.7 1.25 0 0 0 12.7 7.7" />
+    </svg>
   )
 }

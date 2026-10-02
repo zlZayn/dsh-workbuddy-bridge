@@ -53,7 +53,6 @@ export type WorkBuddyLocaleKey =
   // directions of one ledger and must not read as the same number.
   | 'creditConsumed'
   | 'creditConsumedTitle'
-  | 'creditRemaining'
   | 'creditRemainingUnlimited'
   | 'creditRemainingUnknown'
   | 'creditBalanceTitle'
@@ -178,7 +177,12 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   creditsError: 'Credit unavailable: {message}',
   creditConsumed: 'Used {credit}',
   creditConsumedTitle: 'Credit this message consumed, as reported by WorkBuddy',
-  creditRemaining: '{credit} left',
+  /*
+   * No `creditRemaining` wording on purpose. The composer readout is a coin
+   * glyph followed by the bare figure — at 28px a sentence competes with the
+   * number it labels, and the glyph says what the number is. The full sentence
+   * lives in `creditBalanceTitle` below, which is what hovering reveals.
+   */
   creditRemainingUnlimited: 'Unlimited',
   creditRemainingUnknown: 'Credit unknown',
   creditBalanceTitle: 'Remaining credit on your {product} account',
@@ -309,7 +313,7 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   creditsError: '积分查询失败：{message}',
   creditConsumed: '共消耗 {credit}',
   creditConsumedTitle: '本条消息消耗的积分（由 WorkBuddy 返回）',
-  creditRemaining: '剩余 {credit}',
+  /* 见英文侧的说明：composer 那处只有图标 + 数字，说明文字在 title 里。 */
   creditRemainingUnlimited: '不限额',
   creditRemainingUnknown: '积分未知',
   creditBalanceTitle: '{product} 账号剩余积分',

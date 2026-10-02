@@ -10,9 +10,14 @@
 - WorkBuddyConfigPage.tsx —— 配置页：宿主 `SettingsForm`（两个文本字段）+ 两个官方开关行，然后是实时卡片
 - WorkBuddyCard.tsx —— 变体卡片：宿主 `DisclosureRow` 壳（`expandOnRowClick`，整行可点）；账号、令牌有效期、
   目录来源常驻展开区顶部，下面按「读者任务」分三个 SegmentedTabs：积分（合计+套餐）/ 模型（显隐+窗口+倍率）/ 检测
-- panels.tsx —— 标签页内容：积分条与套餐明细 / 模型目录表（`ModelsPanel`）/ 档位检测（`ProbePanel`）/ Agent assist
-- probe-control.tsx —— 输入区推理档位控件：一个图标按钮 + 一个陈述式浮层（一个按钮，无确认/取消）
-- credit-balance.tsx —— 模型选择器左边的剩余积分；只在会话用 WorkBuddy 模型时显示/取数
+- panels.tsx —— 标签页内容：积分条与套餐明细 / 模型目录表（`ModelsPanel`）/ 档位清单（`ProbePanel`，每个推理模型一行）/ Agent assist
+- probe-control.tsx —— 输入区推理档位控件：**灯泡 = 这个模型现在能不能切档位**（不是「探测过没有」）。
+  判据只一条：`efforts.length > 0` ⇔ 灯泡点亮 ⇔ 选择器提供档位，两头同源于 `src/probe/efforts.ts`。
+  上游已声明档位的模型**照常显示灯泡但禁用检测**（声明已是答案）；`non-validating` 保持可检测。
+  自绘灯泡墨迹，闪电只在有档位时出现
+- credit-balance.tsx —— 模型选择器左边的剩余积分；只在会话用 WorkBuddy 模型时显示/取数。
+  **纯读数、无按钮**：自绘细线「三枚币」图标 + 数字，不写「剩余」二字（28px 下文字与它标注的数字抢注意力），
+  完整句子留在 `title` 里
 - credit-label.tsx —— 助手回复操作行里的「共消耗 X」；同样只在 WorkBuddy 模型时显示，观测不到则不显示（绝不显示 0）
 - use-session-credits.ts —— 逐消息积分表的取数与轮询；读失败静默，保留上一份
 - use-status.ts —— 状态文档的轮询与读写
@@ -22,7 +27,7 @@
 - variants.ts —— 两个变体（CN / AI）与卡片路由
 - workbuddy.module.css —— 配置页与卡片的样式
 - probe-control.module.css —— 控件与浮层的样式
-- credit-balance.module.css —— 剩余积分标签的样式
+- credit-balance.module.css —— 积分读数与币图标的样式（图标 16px、线宽 1，与灯泡同档）
 - credit-label.module.css —— 每消息消耗标签的样式
 - css-modules.d.ts —— `*.module.css` 的类型声明
 
@@ -41,8 +46,11 @@
 ## 交互约定
 
 - 卡片折叠头 `expandOnRowClick`：整行可点。**浏览器测试展开用 `tests/browser/harness.ts` 的 `expandDisclosure`**，不要找第一个按钮
-- 探测：一个按钮直接跑（无确认/取消）；成本说明只在「还没有结果」时出现
+- 探测：一个按钮直接跑（无确认/取消）；成本说明只在「还有事可问」时出现（已声明档位的模型不显示）
 - 配置与实时状态是两半：表单有保存按钮，卡片没有 —— 不靠标题区分
+- **composer 那一行是两个自绘墨迹并排**：灯泡（能否切档位）与币（剩余积分）。两者都走 `currentColor`、
+  都在宿主的 16 格上、都是 16px，且都**不写字**——判据是「同一个 28px 行里读起来像一套」。
+  宿主自己的 188 个图标里没有币/额度/钱包形状，所以币是本仓自绘的；改它之前先看 `credit-balance.tsx` 的注释
 
 变更影响路由：改本目录 → 同步根 [AGENTS.md](../../AGENTS.md) 的待办与活跃坑；设计变化写
 [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)；样式改动的判据同步
