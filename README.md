@@ -53,9 +53,9 @@
 - **三种界面** —— Web / Desktop / TUI；仅 TUI 无手动检测。
 
 <p align="center">
-  <img src="assets/composer-row.png" alt="输入区那一行：剩余积分与推理档位灯泡并排" width="560">
+  <img src="assets/composer-row.png" alt="输入区那一行：币图标与余额、推理档位灯泡、模型名，从左到右一行" width="560">
   <br>
-  <em>对话窗口里每天看到的样子：左边是剩余积分，右边是推理档位灯泡——都在模型选择器旁。</em>
+  <em>对话窗口里每天看到的样子：币图标与余额、推理档位灯泡，再往右是模型名——都排在同一行。</em>
 </p>
 
 <p align="center">
@@ -100,9 +100,9 @@ dsh plugin --profile web add "$PWD"
 
 <p align="center">
   <img src="assets/detection-tab.png" alt="检测标签：每个推理模型一行" width="300">
-  <img src="assets/credits-tab.png" alt="积分标签：余额与各套餐余量" width="300">
+  <img src="assets/credits-tab.png" alt="积分标签：总余额与各套餐余量条" width="300">
   <br>
-  <em>左「检测」：每个推理模型一行，点按钮确认它接受哪些推理档位；右「积分」：上面是余额，下面是各套餐的余量条。</em>
+  <em>左「检测」：每个推理模型一行，点按钮确认它接受哪些推理档位；右「积分」：总余额，下面是各套餐的余量条。</em>
 </p>
 
 ## 为什么是手动检测

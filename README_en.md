@@ -59,10 +59,10 @@ models appear directly in the DSH model picker — no separate provider to confi
 - **Three surfaces** — Web, Desktop and TUI; only the TUI lacks manual detection.
 
 <p align="center">
-  <img src="assets/composer-row.png" alt="The composer row: remaining credit beside the reasoning-level bulb" width="560">
+  <img src="assets/composer-row.png" alt="The composer row: the coin and balance, the reasoning-level bulb and the model name in one line" width="560">
   <br>
-  <em>The everyday view in the conversation window: remaining credit on the left, the reasoning-level bulb on
-  the right — both beside the model picker.</em>
+  <em>The everyday view in the conversation window: the coin and its balance, the reasoning-level bulb, then the
+  model name — one row, left to right.</em>
 </p>
 
 <p align="center">
@@ -109,10 +109,10 @@ the description and takes effect on save:
 
 <p align="center">
   <img src="assets/detection-tab.png" alt="Detection tab: one row per reasoning model" width="300">
-  <img src="assets/credits-tab.png" alt="Credits tab: the balance and per-package allowances" width="300">
+  <img src="assets/credits-tab.png" alt="Credits tab: the total balance and per-package allowances" width="300">
   <br>
   <em>Left, "Detection": one row per reasoning model — press the button to confirm which reasoning levels it
-  accepts. Right, "Credits": the balance on top, each package's allowance as a row below.</em>
+  accepts. Right, "Credits": the total balance, each package's allowance as a row below.</em>
 </p>
 
 ## Why detection is manual

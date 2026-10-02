@@ -79,6 +79,8 @@
 - [ ] **发 `0.3.1`**（patch：修缺陷 + 等价重构）：`package.json` 已 bump、`v0.3.1` 已打在本地，等截图拍完
   推 `main` + tag 即走 `release.yml`。推送前逐条走 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「发版前确认」
   —— 其中三条真机脚本只能在本机跑（macOS 那条本机跑不了，Release notes 就别声称 macOS 已验证）
+  - **截图提交之后先把 tag 移到最终提交**（`git tag -f v0.3.1`）：workflow 从 **tag** 构建产物，
+    tag 落在截图之前，发出去的包就不是最终形态
 
 ## 活跃坑
 
