@@ -18,15 +18,29 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SegmentedTab, StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AssistBlock, CreditsPanel, ModelsPanel, ProbePanel, assistCodeFor } from './panels.tsx'
+import { PanelBoundary } from './PanelBoundary.tsx'
 import { formatCycleReset, formatNumber, formatTime } from './format.ts'
 import { useWorkBuddyStatus } from './use-status.ts'
-import type { WorkBuddyTranslate } from './locales.ts'
+import type { WorkBuddyLocaleKey, WorkBuddyTranslate } from './locales.ts'
 import type { WorkBuddyCardVariant } from './variants.ts'
 import type { WorkBuddyWebStatus } from '../shared/paths.ts'
 import css from './workbuddy.module.css'
 
 /** The card's three panels, in display order. */
 type CardTab = 'credits' | 'models' | 'probe'
+
+/**
+ * Locale key per tab, so the crash fallback can name the block it replaced.
+ *
+ * The tabs' own `label` field is a `ReactNode` (the host's `SegmentedTab` allows
+ * a node), so it cannot be fed back to `t()`. This map is the one place that
+ * knows both the tab identity and the key behind its label.
+ */
+const TAB_LABEL_KEY: Record<CardTab, WorkBuddyLocaleKey> = {
+  credits: 'tabCredits',
+  models: 'tabModels',
+  probe: 'tabProbe',
+}
 
 /**
  * The state dot's semantic.
@@ -207,83 +221,91 @@ export function WorkBuddyCard({
 
             <SegmentedTabs items={tabs} value={tab} onChange={setTab} label={t('tabLabel')} />
 
-            {tab === 'credits' ? (
-              <div
-                className={css.section}
-                id={creditsTab.panelId}
-                role="tabpanel"
-                aria-labelledby={creditsTab.id}
-              >
-                {signedIn.credits === undefined ? null : (
-                  <div className={css.section}>
-                    <div className={css.row}>
-                      {/* `unlimited` first: the placeholder total is 0 and
-                            rendering it would claim the quota is exhausted. */}
-                      <span className={css.title}>
-                        {signedIn.credits.unlimited === true
-                          ? t('creditsTotalUnlimited')
-                          : t('creditsTotal', { total: formatNumber(signedIn.credits.total) })}
-                      </span>
+            {/*
+             * One boundary per tab panel, keyed by the tab so a crash in one
+             * does not follow the user into the next. Without this, a throw in
+             * any panel reaches the host's own boundary, which latches — the
+             * whole configuration area stays gone until the plugin is toggled.
+             */}
+            <PanelBoundary key={tab} label={t(TAB_LABEL_KEY[tab])} t={t}>
+              {tab === 'credits' ? (
+                <div
+                  className={css.section}
+                  id={creditsTab.panelId}
+                  role="tabpanel"
+                  aria-labelledby={creditsTab.id}
+                >
+                  {signedIn.credits === undefined ? null : (
+                    <div className={css.section}>
+                      <div className={css.row}>
+                        {/* `unlimited` first: the placeholder total is 0 and
+                              rendering it would claim the quota is exhausted. */}
+                        <span className={css.title}>
+                          {signedIn.credits.unlimited === true
+                            ? t('creditsTotalUnlimited')
+                            : t('creditsTotal', { total: formatNumber(signedIn.credits.total) })}
+                        </span>
+                      </div>
+                      {signedIn.credits.cycleResetTime === undefined ? null : (
+                        <p className={css.dim}>
+                          {t('cycleResetAt', {
+                            time: formatCycleReset(signedIn.credits.cycleResetTime),
+                          })}
+                        </p>
+                      )}
                     </div>
-                    {signedIn.credits.cycleResetTime === undefined ? null : (
-                      <p className={css.dim}>
-                        {t('cycleResetAt', {
-                          time: formatCycleReset(signedIn.credits.cycleResetTime),
-                        })}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {signedIn.credits === undefined ? null : (
-                  <CreditsPanel credits={signedIn.credits} t={t} />
-                )}
-                {signedIn.creditsError === undefined ? null : (
-                  <p className={css.error}>
-                    {t('creditsError', { message: signedIn.creditsError })}
-                  </p>
-                )}
-              </div>
-            ) : tab === 'models' ? (
-              <div
-                className={css.section}
-                id={modelsTab.panelId}
-                role="tabpanel"
-                aria-labelledby={modelsTab.id}
-              >
-                <ModelsPanel
-                  models={signedIn.models}
-                  visibility={signedIn.visibility}
-                  toggling={toggling}
-                  disabled={busy}
-                  t={t}
-                  onToggle={(model, visible, account) => {
-                    void setVisibility(model, visible, account)
-                  }}
-                />
-              </div>
-            ) : (
-              <div
-                className={css.section}
-                id={probeTab.panelId}
-                role="tabpanel"
-                aria-labelledby={probeTab.id}
-              >
-                {signedIn.probe === undefined ? null : (
-                  <ProbePanel
-                    probe={signedIn.probe}
+                  )}
+                  {signedIn.credits === undefined ? null : (
+                    <CreditsPanel credits={signedIn.credits} t={t} />
+                  )}
+                  {signedIn.creditsError === undefined ? null : (
+                    <p className={css.error}>
+                      {t('creditsError', { message: signedIn.creditsError })}
+                    </p>
+                  )}
+                </div>
+              ) : tab === 'models' ? (
+                <div
+                  className={css.section}
+                  id={modelsTab.panelId}
+                  role="tabpanel"
+                  aria-labelledby={modelsTab.id}
+                >
+                  <ModelsPanel
                     models={signedIn.models}
-                    busy={busy}
+                    visibility={signedIn.visibility}
+                    toggling={toggling}
+                    disabled={busy}
                     t={t}
-                    onDetect={(model) => {
-                      void detect(model)
-                    }}
-                    onClear={() => {
-                      void clearDetections()
+                    onToggle={(model, visible, account) => {
+                      void setVisibility(model, visible, account)
                     }}
                   />
-                )}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div
+                  className={css.section}
+                  id={probeTab.panelId}
+                  role="tabpanel"
+                  aria-labelledby={probeTab.id}
+                >
+                  {signedIn.probe === undefined ? null : (
+                    <ProbePanel
+                      probe={signedIn.probe}
+                      models={signedIn.models}
+                      busy={busy}
+                      t={t}
+                      onDetect={(model) => {
+                        void detect(model)
+                      }}
+                      onClear={() => {
+                        void clearDetections()
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+            </PanelBoundary>
           </>
         )}
 

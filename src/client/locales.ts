@@ -94,6 +94,9 @@ export type WorkBuddyLocaleKey =
   | 'probePanelNotValidating'
   | 'probePanelDeclaredNone'
   | 'probePanelFailed'
+  // Panel boundary
+  | 'panelCrashed'
+  | 'panelRetry'
   | 'probeLabel'
   | 'probeTooltipIdle'
   | 'probeTooltipRunning'
@@ -223,6 +226,13 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probePanelNotValidating: 'This model does not check the effort parameter.',
   probePanelDeclaredNone: 'This model declares no selectable levels.',
   probePanelFailed: 'Detection did not finish. You can run it again.',
+  /*
+   * Panel boundary copy. `{panel}` names the block that broke, so the fallback
+   * replaces only what it can describe: "the detection list stopped working" is
+   * actionable, "something went wrong" is not.
+   */
+  panelCrashed: 'The {panel} section stopped working.',
+  panelRetry: 'Try again',
   probeTooltipIdle: 'This model offers no levels yet — click to detect them',
   probeTooltipRunning: 'Detecting…',
   probeTooltipLevels: 'Detected levels: {levels}',
@@ -353,6 +363,8 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probePanelNotValidating: '该模型不校验档位参数。',
   probePanelDeclaredNone: '上游未声明可选档位。',
   probePanelFailed: '检测未完成，可以再检测一次。',
+  panelCrashed: '{panel}这一块无法显示。',
+  panelRetry: '重试',
   probeTooltipIdle: '该模型暂无档位，点击可检测',
   probeTooltipRunning: '正在检测…',
   probeTooltipLevels: '检测出的档位：{levels}',

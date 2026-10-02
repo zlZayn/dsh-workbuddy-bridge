@@ -22,7 +22,14 @@ export function signedIn(overrides: Record<string, unknown> = {}): Record<string
     probeKey: 'test-key',
     credits: { total: 100, accounts: [] },
     models: [],
-    probe: { consent: true, running: false, candidates: [], results: [] },
+    /*
+     * The probe section is one `models` list. The candidate/result pair was
+     * replaced when the bulb's judgement became "can this model switch levels"
+     * (see docs/ARCHITECTURE.md), so a fixture still carrying the old shape is a
+     * document the shape guard now rejects — every card test would fail on the
+     * fixture rather than on the behaviour it means to check.
+     */
+    probe: { consent: true, running: false, models: [] },
     ...overrides,
   }
 }

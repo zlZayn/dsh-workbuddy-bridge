@@ -200,4 +200,64 @@ describe('WorkBuddy card', () => {
     // a typed key here would no longer compile — the literal is the guard.
     expect(buttonLabels(box.view!)).not.toContain('Status')
   })
+
+  it('keeps a crashing panel from taking the rest of the card with it', async () => {
+    /*
+     * The 2026-10-02 report: switching to the detection tab made the whole
+     * configuration area disappear, and only toggling the plugin brought it
+     * back. The cause was a throw inside one panel reaching the *host's* error
+     * boundary, which latches — so one bad panel cost every panel, the account
+     * block, and the tabs.
+     *
+     * Getting this test to fail for the *right* reason took two attempts worth
+     * recording. Feeding the card a malformed `probe` does **not** reach the
+     * boundary: the shape guard rejects the document first, the card renders its
+     * error state, and there are no tabs left to click (asserted separately in
+     * tests/status-document.spec.ts). The boundary only matters for a crash the
+     * guard cannot predict, so this test forces one from inside the panel by
+     * making `efforts` a value the guard accepts as an array but the panel cannot
+     * measure — an array-like proxy whose `length` throws.
+     */
+    const hostileEfforts = new Proxy([] as string[], {
+      get(target, property, receiver) {
+        if (property === 'length') throw new Error('boom')
+        return Reflect.get(target, property, receiver) as unknown
+      },
+    })
+    stub.body = signedIn({
+      nickname: '阿七',
+      probe: {
+        consent: true,
+        running: false,
+        models: [{ id: 'glm-5.3', name: 'GLM-5.3', efforts: hostileEfforts, source: 'declared' }],
+      },
+      models: [{ id: 'hy3', name: 'HY3', contextWindow: 200_000 }],
+    })
+    await mount(true)
+    await clickText(box.view!, t('tabProbe'))
+
+    const text = textOf(box.view!)
+    // The fallback names the block that broke, and carries the error's own
+    // message so a bug report has something to quote.
+    expect(text).toContain(t('panelCrashed', { panel: t('tabProbe') }))
+    expect(text).toContain('boom')
+    // ...and everything outside that block survives. That is the whole point:
+    // before the boundary, this crash took the account block, the tabs, and
+    // every other panel with it.
+    expect(text).toContain(t('accountHeading'))
+    // The card's own header and the refresh action are outside the boundary too.
+    expect(text).toContain(t('refresh'))
+    const labels = buttonLabels(box.view!)
+    expect(labels).toContain(t('tabCredits'))
+    expect(labels).toContain(t('tabModels'))
+    expect(labels).toContain(t('tabProbe'))
+    // Switching away shows the crashed panel did not poison the others: the
+    // credits panel renders its total, which the probe panel's throw could not
+    // reach.
+    await clickText(box.view!, t('tabCredits'))
+    const { formatNumber: fmt } = await import('../../src/client/format.ts')
+    expect(textOf(box.view!)).toContain(t('creditsTotal', { total: fmt(100) }))
+    await clickText(box.view!, t('tabModels'))
+    expect(textOf(box.view!)).toContain('HY3')
+  })
 })
