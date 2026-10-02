@@ -18,6 +18,10 @@
   </p>
 
   <p>
+    各版本改动 → <a href="https://github.com/zlZayn/dsh-workbuddy-bridge/releases">Releases</a>（与 npm 版本一一对应）
+  </p>
+
+  <p>
     <strong><a href="README.md">简体中文</a></strong> · <a href="README_en.md">English</a>
   </p>
 </div>
@@ -37,37 +41,40 @@
   <em>国内版在模型选择器中自成一组，模型名后直接跟积分倍率与促销徽章；装国际版则出现「WorkBuddy AI」组。</em>
 </p>
 
-## 它能做什么
+## 能力
 
-- **开箱即用** —— 装完启用，模型分组自己出现，没有必填项。
-- **两版互不串号** —— 国内版是「WorkBuddy」分组、国际版是「WorkBuddy AI」分组；模型、账号与积分互不混用，
-  各自只跟随自己那版 App 的登录状态。退出其中一版，对应分组消失，另一版不受影响。
-- **推理档位** —— 上游声明了档位的模型直接可选；没声明的模型可以在插件页里**手动检测**
-  （见[为什么是手动检测](#为什么是手动检测)）。未检测或没有可用档位的模型继续用 WorkBuddy 的默认档位。
-- **模型显隐** —— 卡片的「模型」标签里勾选哪些模型出现在选择器里，按登录账号分别保存；
-  隐藏只影响可选择性，已在用该模型的会话照常继续。
-- **积分与账户** —— 插件页里看登录账号、剩余积分、各套餐余量，并可手动刷新模型列表。
-- **图片输入** —— 多数模型可直接粘贴或拖入图片；少数纯文字模型会明确说明不支持。
-- **三种界面** —— Web / Desktop / TUI 都能跑；只有 TUI 不提供手动检测。
+- **开箱即用** —— 装完启用，模型分组自己出现。
+- **两版隔离** —— 国内版与国际版各自分组，模型、账号、积分互不混用，只跟随各自 App 的登录状态。
+- **推理档位** —— 上游声明了档位的模型直接可选；没声明的可在插件页**手动检测**。
+  灯泡表示「这个模型能切档位」，不是「检测过」——已声明的模型也显示灯泡，只是不需要检测。
+- **积分可见** —— 每条回复下方显示本次消耗，模型选择器旁常驻剩余积分。观测不到就不显示。
+- **模型显隐** —— 卡片「模型」标签里勾选哪些模型出现在选择器里，按登录账号分别保存。
+- **图片输入** —— 多数模型可直接粘贴或拖入图片；纯文字模型会明确说明。
+- **三种界面** —— Web / Desktop / TUI；仅 TUI 无手动检测。
 
 <p align="center">
-  <img src="assets/plugin-page.png" alt="插件详情页：配置表单与两张状态卡片" width="560">
+  <img src="assets/composer-row.png" alt="输入区那一行：剩余积分与推理档位灯泡并排" width="560">
   <br>
-  <em>插件页里的样子：上面是配置表单，下面两张卡片各跟随自己 App 的登录状态。</em>
+  <em>对话窗口里每天看到的样子：左边是剩余积分，右边是推理档位灯泡——都在模型选择器旁。</em>
+</p>
+
+<p align="center">
+  <img src="assets/plugin-page.png" alt="插件详情页：配置表单与两张状态卡片" width="480">
+  <br>
+  <em>插件页：上面是配置表单，下面两张卡片各跟随自己 App 的登录状态。</em>
 </p>
 
 ## 安装
 
-前置只有一条：已安装并登录 **WorkBuddy 桌面 App**（国际版为 WorkBuddy AI App）—— 插件复用 App 的登录状态，
-账号切换自动跟随。
+前置只有一条：已安装并登录 **WorkBuddy 桌面 App**（国际版为 WorkBuddy AI App）—— 插件复用 App 的登录状态。
 
 ```sh
 dsh plugin --profile web add dsh-workbuddy-bridge
 dsh web
 ```
 
-Desktop 与 TUI 把 `--profile web` 换成 `desktop` / `dsh-tui` 即可（TUI 需终端插件
-`@deepseek-harness-tui/dsh-tui` ≥ `0.10.0-beta.5`，且用 pnpm 11 安装，详见其文档）。
+Desktop 与 TUI 把 `--profile web` 换成 `desktop` / `dsh-tui`（TUI 需终端插件
+`@deepseek-harness-tui/dsh-tui` ≥ `0.10.0-beta.5`，详见其文档）。
 
 也可以从源码安装：
 
@@ -80,70 +87,49 @@ dsh plugin --profile web add "$PWD"
 
 ## 插件页
 
-侧边栏 **插件（Plugins）** → 已安装 → 点 **DSH WorkBuddy Bridge** 进详情页。配置区就在描述下面，直接可改，保存即生效：
+侧边栏 **插件（Plugins）** → 已安装 → 点 **DSH WorkBuddy Bridge**。配置区在描述下面，保存即生效：
 
-- **登录文件路径**（国内版 / 国际版）—— 留空即用 App 自己的位置，一般不用填。
-- **允许推理档位检测**、**使用上游声明的最大上下文窗口** —— 两个开关，默认够用。
-
-配置改动立即生效，不需要重启；卡片上的实时状态（账号、积分、模型列表）则来自下面的两张卡。
+- **登录文件路径**（国内版 / 国际版）—— 留空即用 App 自己的位置。
+- **允许推理档位检测**、**使用上游声明的最大上下文窗口** —— 两个开关。
 
 <p align="center">
-  <img src="assets/models-tab.png" alt="模型标签：显隐、窗口、倍率" width="300">
-  <img src="assets/detection-tab.png" alt="检测标签：每个推理模型一行，含上游已声明与已检测两态" width="300">
+  <img src="assets/models-tab.png" alt="模型标签：显隐、窗口、倍率" width="480">
   <br>
-  <em>展开「WorkBuddy（国内版）」卡片：左「模型」标签管理显隐、看窗口与倍率；右「检测」标签一模型一行，点「开始检测」确认它接受哪些推理档位，结果也回写到模型选择器里。</em>
+  <em>「模型」标签：勾选哪些模型出现在选择器里，同时看窗口与倍率。</em>
 </p>
 
 <p align="center">
-  <img src="assets/credits-tab.png" alt="积分标签：合计与套餐余量" width="640">
+  <img src="assets/detection-tab.png" alt="检测标签：每个推理模型一行" width="300">
+  <img src="assets/credits-tab.png" alt="积分标签：合计与套餐余量" width="300">
   <br>
-  <em>「积分」标签：合计一行，下面是各套餐余量条。</em>
+  <em>左「检测」：每个推理模型一行，点按钮确认它接受哪些推理档位；右「积分」：合计一行，下面是各套餐余量条。</em>
 </p>
 
 ## 为什么是手动检测
 
-WorkBuddy 的推理档位信息分散在上游接口与客户端私有 UI 逻辑里，且模型目录变化很快；而实测有些模型
-**接受** `reasoning_effort` 却忽略未知值、回退到默认行为 —— 一次请求成功并不能证明某个档位真的可用。
-所以插件不猜：先由你在配置里授权，再按需对单个模型发少量真实请求确认。检测可能消耗少量积分；
-结果只表示**上游当前接受该档位**，不承诺它改变推理效果、速度或积分消耗。
+上游不保证档位信息可靠——实测有的模型**接受** `reasoning_effort` 却忽略未知值。
+所以插件不猜：按需对单个模型发少量真实请求确认；结果只表示**上游当前接受该档位**，
+不承诺它改变推理行为。已声明档位的模型跳过这一步，直接用声明值。
+机制与取舍见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
-## 命令行
+<p align="center">
+  <img src="assets/reasoning-levels-declared.png" alt="推理档位控件：上游已声明档位、检测按钮禁用" width="300">
+  <br>
+  <em>已声明档位的模型：灯泡点亮、档位直接可选，检测按钮禁用。</em>
+</p>
 
-不改界面也能查状态：
+## 兼容与限制
 
-```sh
-dsh plugin --profile web exec dsh-workbuddy-bridge status          # 登录状态与剩余积分
-dsh plugin --profile web exec dsh-workbuddy-bridge status --json   # 机器可读
-dsh plugin --profile web exec dsh-workbuddy-bridge doctor          # 诊断 App 发现与凭据
-dsh plugin --profile web exec dsh-workbuddy-bridge logout          # 清理插件自留的凭据副本
-```
-
-默认操作国内版，加 `--provider workbuddy-ai` 操作国际版。`logout` 不动桌面 App 自己的登录。
-
-## 兼容与已知限制
-
-- 只支持 **DSH `0.1.7` 线**；下限以 [package.json](package.json) 的 `engines.dsh` 为准，不做跨代兼容。
-- **凭据发现按平台**：macOS 直接支持；Windows 依次探测 Local 与 Roaming AppData（实测可用）；
-  WSL 优先读挂载的 Windows 用户目录。找不到时用 `WORKBUDDY_AUTH_FILE`（国际版 `WORKBUDDY_AI_AUTH_FILE`）指定。
-- **国际版目录来自 App 界面接口**（私有实现，上游改动可能失效）；国内版走官方 CLI 同款接口。
-- 无凭据时该版模型分组不再显示 —— 插件不会展示一份选了必然报错的兜底列表。
-- 企业账号积分目前仅覆盖国内版。
+无凭据的分组不显示。宿主版本下限、平台支持、目录来源与已知缺口
+→ [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)。
 
 设计取舍 → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；发版流程 → [docs/PUBLISHING.md](docs/PUBLISHING.md)；
 维护者文档地图 → [AGENTS.md](AGENTS.md)。
 
-## 更新记录
-
-每个版本改了什么看 [GitHub Releases](https://github.com/zlZayn/dsh-workbuddy-bridge/releases)：每个 tag 一份 notes，
-由发布流程自动生成（npm 上的版本号与 tag 一一对应）。
-
-`0.1.0` 是维护者本地 `npm publish` 发的，没有对应的 tag 与 Release（当时发布流程还没用上）；`0.2.0` 起全部由发布流程产出。
-
 ## 免责声明
 
 - 本项目**仅供个人学习和研究使用**，仅驱动使用者自己的 WorkBuddy 账号在本机调用，请勿用于商业用途或超出个人合理使用的场景。
-- 使用者需遵守 WorkBuddy 的服务条款；因使用本项目产生的任何后果（包括但不限于账号被限制、额度被清空、服务中断），由使用者自行承担。
-- 本项目作者不对任何因使用或滥用本项目产生的直接或间接损失负责。
+- 使用者需遵守 WorkBuddy 的服务条款；因使用本项目产生的任何后果，由使用者自行承担。
 - 本项目与腾讯、WorkBuddy、DeepSeek 均无关联，未获其授权或认可；文中出现的名称仅用于描述兼容关系，其商标权利归各自所有。
 
 ## 致谢
@@ -157,26 +143,4 @@ dsh plugin --profile web exec dsh-workbuddy-bridge logout          # 清理插�
 
 ## 贡献
 
-先读 [AGENTS.md](AGENTS.md)（规则、常用命令、活跃坑），再 `pre-commit install` 装本地钩子；
-提 PR 前跑 `pnpm run typecheck && pnpm run build && pnpm run test`。缺陷与需求走仓库 Issues。
-
----
-
-## 本地提交钩子（pre-commit）
-
-提交前自动修复格式（Prettier）与 lint（ESLint）。本仓是三个插件仓里唯一用 pnpm 的，钩子因此走
-`pnpm exec`（与 CI 的 `pnpm install --frozen-lockfile` 同一棵树），**不联网下载**；
-typecheck、测试与 `check:release` 留在 [ci.yml](.github/workflows/ci.yml)。
-
-前提：需要 uv 与 pre-commit（pre-commit 用 `uv tool install pre-commit` 装到 `~/.local/bin`）。
-
-```bash
-uv tool install pre-commit
-pre-commit install
-```
-
-> 装完需重开终端（或重载 shell 配置），PATH 才生效。
-
-- 手动全量跑：`pre-commit run --all-files`
-- 跳过单次：`git commit --no-verify`
-- 定义：[.pre-commit-config.yaml](.pre-commit-config.yaml)
+流程与本地钩子 → [CONTRIBUTING.md](CONTRIBUTING.md)。缺陷与需求走仓库 Issues。

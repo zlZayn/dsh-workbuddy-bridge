@@ -17,6 +17,10 @@
   </p>
 
   <p>
+    Per-version changes → <a href="https://github.com/zlZayn/dsh-workbuddy-bridge/releases">Releases</a> (one-to-one with npm versions)
+  </p>
+
+  <p>
     <strong><a href="README.md">简体中文</a></strong> · <a href="README_en.md">English</a>
   </p>
 </div>
@@ -39,24 +43,30 @@ models appear directly in the DSH model picker — no separate provider to confi
   badge; installing the international version adds a "WorkBuddy AI" group the same way.</em>
 </p>
 
-## What it does
+## Capabilities
 
 - **Zero configuration** — install, enable, and the model group appears by itself.
-- **The two versions never cross** — "WorkBuddy" for the CN app, "WorkBuddy AI" for the international one;
-  models, accounts and credit stay separate, and each group follows its own app's sign-in. Sign out of one
-  and its group disappears while the other is unaffected.
+- **Two isolated versions** — "WorkBuddy" (CN) and "WorkBuddy AI" (international) each form their own group;
+  models, accounts and credit never mix, and each follows only its own app's sign-in.
 - **Reasoning levels** — models that declare levels expose them directly; the rest can be **checked manually**
-  on the plugin page (see [Why detection is manual](#why-detection-is-manual)). Unchecked models keep
-  WorkBuddy's default level.
-- **Model visibility** — tick which models appear in the picker on the card's "Models" tab; saved per
-  signed-in account. Hiding only affects pickability — chats already using a hidden model keep working.
-- **Credit and account** — the plugin page shows the signed-in account, remaining credit and per-package
-  allowances, with a manual model-list refresh.
-- **Image input** — most models accept pasted or dropped images; the few text-only models say so explicitly.
-- **Three surfaces** — Web, Desktop and TUI all work; only the TUI lacks manual detection.
+  on the plugin page. The bulb means "this model can switch levels", not "it has been detected" — a declared
+  model shows the bulb too, it just has nothing to detect.
+- **Credit in view** — each reply shows what it consumed, and remaining credit sits beside the model picker.
+  Nothing renders when a figure cannot be observed.
+- **Model visibility** — tick which models appear in the picker on the card's "Models" tab, saved per
+  signed-in account.
+- **Image input** — most models accept pasted or dropped images; text-only models say so explicitly.
+- **Three surfaces** — Web, Desktop and TUI; only the TUI lacks manual detection.
 
 <p align="center">
-  <img src="assets/plugin-page.png" alt="Plugin detail page: the configuration form and the two status cards" width="560">
+  <img src="assets/composer-row.png" alt="The composer row: remaining credit beside the reasoning-level bulb" width="560">
+  <br>
+  <em>The everyday view in the conversation window: remaining credit on the left, the reasoning-level bulb on
+  the right — both beside the model picker.</em>
+</p>
+
+<p align="center">
+  <img src="assets/plugin-page.png" alt="Plugin detail page: the configuration form and the two status cards" width="480">
   <br>
   <em>The plugin page: the configuration form on top, two cards below, each following its own app's sign-in.</em>
 </p>
@@ -64,7 +74,7 @@ models appear directly in the DSH model picker — no separate provider to confi
 ## Install
 
 One prerequisite: the **WorkBuddy desktop app** is installed and signed in (WorkBuddy AI for the
-international version) — the plugin reuses the app's sign-in state and follows account switches.
+international version) — the plugin reuses the app's sign-in state.
 
 ```sh
 dsh plugin --profile web add dsh-workbuddy-bridge
@@ -72,7 +82,7 @@ dsh web
 ```
 
 For Desktop and TUI swap `--profile web` for `desktop` / `dsh-tui` (the TUI needs the terminal plugin
-`@deepseek-harness-tui/dsh-tui` ≥ `0.10.0-beta.5`, installed with pnpm 11 — see its docs).
+`@deepseek-harness-tui/dsh-tui` ≥ `0.10.0-beta.5` — see its docs).
 
 Or from source:
 
@@ -85,83 +95,55 @@ dsh plugin --profile web add "$PWD"
 
 ## The plugin page
 
-Sidebar **Plugins** → installed → click **DSH WorkBuddy Bridge**. The configuration area sits right under the
-description, editable in place, saved immediately:
+Sidebar **Plugins** → installed → click **DSH WorkBuddy Bridge**. The configuration area sits right under
+the description and takes effect on save:
 
-- **Sign-in file paths** (CN / international) — leave blank to use the app's own location; usually unnecessary.
-- **Allow reasoning-level detection** and **use the largest declared context window** — two switches, defaults are fine.
-
-Configuration takes effect immediately — no restart needed. The live state on the cards (account, credit,
-model list) comes from the two cards below.
+- **Sign-in file paths** (CN / international) — leave blank to use the app's own location.
+- **Allow reasoning-level detection** and **use the largest declared context window** — two switches.
 
 <p align="center">
-  <img src="assets/models-tab.png" alt="Models tab: visibility, windows, rates" width="300">
-  <img src="assets/detection-tab.png" alt="Detection tab: one row per reasoning model, declared and detected" width="300">
+  <img src="assets/models-tab.png" alt="Models tab: visibility, windows, rates" width="480">
   <br>
-  <em>Expanding the "WorkBuddy (CN)" card: the Models tab (left) manages visibility and shows windows and
-  rates; the Detection tab (right) is one row per model — press Detect to confirm which reasoning levels
-  it accepts, and the results also land in the model picker.</em>
+  <em>The Models tab: tick which models appear in the picker, and read each one's window and rate.</em>
 </p>
 
 <p align="center">
-  <img src="assets/credits-tab.png" alt="Credits tab: total and per-package allowances" width="640">
+  <img src="assets/detection-tab.png" alt="Detection tab: one row per reasoning model" width="300">
+  <img src="assets/credits-tab.png" alt="Credits tab: total and per-package allowances" width="300">
   <br>
-  <em>The Credits tab: the total on one line, each package's allowance as a bar below.</em>
+  <em>Left, "Detection": one row per reasoning model — press the button to confirm which reasoning levels it
+  accepts. Right, "Credits": the total on one line, each package's allowance as a bar below.</em>
 </p>
 
 ## Why detection is manual
 
-WorkBuddy's reasoning-level information is scattered across upstream endpoints and private client UI logic,
-and the model catalog changes fast. Worse, testing showed some models **accept** `reasoning_effort` but
-silently ignore unknown values — one successful request does not prove a level actually works. So the plugin
-does not guess: you authorize detection in the configuration first, then each model is confirmed with a few
-real requests on demand. Detection may consume a small amount of credit; a result only means **the upstream
-currently accepts that level** — it does not promise any change in quality, speed, or cost.
+The upstream does not guarantee that level information is reliable — some models were observed to
+**accept** `reasoning_effort` while silently ignoring unknown values. So the plugin does not guess: it
+confirms one model at a time with a few real requests on demand, and a result only means **the upstream
+currently accepts that level** — it does not promise any change in behaviour. Models that declare their
+levels skip this step and use the declared set directly.
+Mechanism and trade-offs in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Command line
+<p align="center">
+  <img src="assets/reasoning-levels-declared.png" alt="The reasoning-level control: levels declared upstream, detect disabled" width="300">
+  <br>
+  <em>A model with declared levels: the bulb is lit, the levels are directly selectable, and detection is disabled.</em>
+</p>
 
-Check status without the UI:
+## Compatibility and limits
 
-```sh
-dsh plugin --profile web exec dsh-workbuddy-bridge status          # sign-in state and credit
-dsh plugin --profile web exec dsh-workbuddy-bridge status --json   # machine-readable
-dsh plugin --profile web exec dsh-workbuddy-bridge doctor          # diagnose app discovery and credentials
-dsh plugin --profile web exec dsh-workbuddy-bridge logout          # remove the plugin's local credential copy
-```
-
-Targets the CN version by default; add `--provider workbuddy-ai` for the international one. `logout` does not
-touch the desktop app's own sign-in.
-
-## Compatibility and known limits
-
-- Supports the **DSH `0.1.7` line** only; the floor lives in [package.json](package.json) `engines.dsh` — no
-  cross-generation compatibility.
-- **Credential discovery is per platform**: macOS supported directly; Windows probes Local then Roaming
-  AppData (tested working); WSL reads the mounted Windows user profile first. When nothing is found, point
-  `WORKBUDDY_AUTH_FILE` (international: `WORKBUDDY_AI_AUTH_FILE`) at the actual file.
-- **The international catalog comes from the app's UI endpoint** (private, may break upstream); the CN version
-  uses the same official CLI endpoint.
-- With no credentials the group does not appear — the plugin never shows a fallback list that would only error.
-- Enterprise credit covers the CN version only.
+A group without credentials does not appear. The host version floor, platform support, catalog sources and
+known gaps
+→ [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 Design notes → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); release process → [docs/PUBLISHING.md](docs/PUBLISHING.md);
 maintainer map → [AGENTS.md](AGENTS.md).
-
-## Changelog
-
-What changed in each version lives in [GitHub Releases](https://github.com/zlZayn/dsh-workbuddy-bridge/releases):
-one set of notes per tag, generated by the release workflow (npm versions and tags match one-to-one).
-
-`0.1.0` was published by the maintainer with a local `npm publish`, so it has no matching tag or Release
-(the workflow was not in use yet); from `0.2.0` on everything comes from the workflow.
 
 ## Disclaimer
 
 - This project is **for personal study and research only**; it drives your own WorkBuddy account on your own
   machine. Do not use it commercially or beyond reasonable personal use.
-- You must comply with WorkBuddy's terms of service; any consequences (account restriction, credit forfeiture,
-  service interruption) are your own responsibility.
-- The authors accept no liability for direct or indirect loss caused by use or misuse of this project.
+- You must comply with WorkBuddy's terms of service; any consequences are your own responsibility.
 - Not affiliated with, nor endorsed by, Tencent, WorkBuddy, or DeepSeek; names appear only to describe
   compatibility, and trademarks belong to their owners.
 
@@ -176,27 +158,4 @@ one set of notes per tag, generated by the release workflow (npm versions and ta
 
 ## Contributing
 
-Read [AGENTS.md](AGENTS.md) first (rules, common commands, active pitfalls), then `pre-commit install`;
-before a PR run `pnpm run typecheck && pnpm run build && pnpm run test`. Bugs and requests go to the repo Issues.
-
----
-
-## Local commit hooks (pre-commit)
-
-Formatting (Prettier) and lint (ESLint) are auto-fixed before each commit.
-Of the three plugin repos this is the only pnpm one, so the hooks run through `pnpm exec`
-(the same tree CI installs with `pnpm install --frozen-lockfile`) and **never download from the
-network**; typecheck, tests and `check:release` stay in [ci.yml](.github/workflows/ci.yml).
-
-Prerequisite: uv and pre-commit (install pre-commit with `uv tool install pre-commit` into `~/.local/bin`).
-
-```bash
-uv tool install pre-commit
-pre-commit install
-```
-
-> Restart the terminal (or reload the shell config) afterwards, so PATH takes effect.
-
-- Manual full run: `pre-commit run --all-files`
-- Skip one commit: `git commit --no-verify`
-- Definition: [.pre-commit-config.yaml](.pre-commit-config.yaml)
+Process and local hooks → [CONTRIBUTING.md](CONTRIBUTING.md). Bugs and requests go to the repo Issues.

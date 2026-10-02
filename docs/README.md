@@ -11,6 +11,8 @@
 |---|---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 活 | 结构、数据流、契约与兼容性契约、防错清单（“为什么”） |
 | [PUBLISHING.md](PUBLISHING.md) | 活 | 发版流程、版本号语义、平台契约的取真源方式 |
+| [COMPATIBILITY.md](COMPATIBILITY.md) | 活 | 宿主版本下限指针、凭据发现按平台、模型目录来源、已知缺口 |
+| [CLI.md](CLI.md) | 活 | 命令行入口的用法与适用场景（`status` / `doctor` / `logout`） |
 | [archive/](archive/) | 记录 | 已完成的一次性记录（交接文档、按日期命名的排查与实现计划）—— **只读** |
 
 ## archive/ 的读法
