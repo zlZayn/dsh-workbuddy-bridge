@@ -74,6 +74,9 @@
 - [x] **实测改动的前置**（2026-10-02 解决）：此前装的是真实目录副本，改源码 → build 不生效，还得手动同步 + 重启，
   且半同步（只换客户端半）会让控件整个不渲染。现已改为 **`link:` 形态**，`build` 完只需重启 dsh。
   形态判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「本地开发装法」；回滚备份在 profile 下的 `*.bak-link-<时间戳>`
+- [ ] **重拍门面截图**（维护者手动）：四个块与积分行的排版这一轮改过（见[决策记录](.agents/notes/2026-10-03-card-two-line-template.md)），
+  波及 `plugin-page` / `credits-tab` / `models-tab` / `detection-tab` 四张；表见 [assets/README.md](assets/README.md)
+- [ ] **发 `0.3.1`**（patch：修缺陷 + 等价重构；`package.json` 已 bump，等截图拍完走 `release.yml`）
 
 ## 活跃坑
 
