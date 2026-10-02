@@ -9,6 +9,7 @@
 
 import { createElement } from 'react'
 import { act } from 'react-test-renderer'
+import type { ReactTestInstance } from 'react-test-renderer'
 import { describe, expect, it } from 'vitest'
 import { WorkBuddyCard } from '../../src/client/WorkBuddyCard.tsx'
 import {
@@ -31,6 +32,25 @@ import {
 
 const stub = useBrowserStubs()
 const box = useTree()
+
+/**
+ * The host elements sitting between a node and an ancestor, exclusive.
+ *
+ * Composite elements (`Field`, `CreditsPanel`) are skipped on purpose: they
+ * render no box of their own, so only a host element in between can take a flex
+ * item's place in the layout.
+ */
+function hostElementsBetween(node: ReactTestInstance, ancestor: ReactTestInstance): string[] {
+  const between: string[] = []
+  for (
+    let current = node.parent;
+    current !== null && current !== ancestor;
+    current = current.parent
+  ) {
+    if (typeof current.type === 'string') between.push(current.type)
+  }
+  return between
+}
 
 /** Mount a card, optionally expanded. */
 async function mount(
@@ -350,5 +370,52 @@ describe('WorkBuddy card', () => {
     expect(buttonLabels(box.view!)).not.toContain(t('probeClear'))
     expect(byClass(panel, 'fieldAction')).toEqual([])
     expect(textOf(box.view!)).toContain(t('probeDetectedNone'))
+  })
+
+  it('gives all three tabs the same fixed-height shell, with the list as its own child', async () => {
+    /*
+     * The three tabs have to be interchangeable boxes, or switching tabs
+     * resizes the card — a jolt the eye reads as a layout bug (2026-10-02:
+     * "can it just be a fixed height when switching, instead of twitching?").
+     *
+     * Two structural facts make that true, and neither is visible in a CSS file
+     * alone:
+     *
+     * - the panel root carries `.panel`, the fixed height — so no tab is
+     *   content-sized, whatever it happens to hold;
+     * - the scroll region is that panel's **own** child, with no host element in
+     *   between. `flex: 1` on it is what fills the height left over, and a
+     *   wrapper `<div>` would become the flex item instead — which is exactly how
+     *   the credits tab ended up three times its neighbours' height.
+     *
+     * "Own child" is checked by walking up rather than by comparing against
+     * `panel.children`: that list holds the *composite* children (`Field`,
+     * `CreditsPanel`), while the scroll region is a host `div`, so the two never
+     * compare equal even when the markup is right.
+     */
+    stub.body = signedIn({
+      credits: { total: 100, accounts: [{ packageName: '个人套餐', remain: 50, size: 100 }] },
+      models: [{ id: 'hy3', name: 'HY3', contextWindow: 200_000 }],
+      visibility: { account: 'uid', hidden: [] },
+      probe: {
+        consent: true,
+        running: false,
+        models: [
+          { id: 'hy3', name: 'HY3', efforts: ['low'], source: 'declared', detectable: true },
+        ],
+      },
+    })
+    await mount(true)
+    for (const tab of [t('tabCredits'), t('tabModels'), t('tabProbe')]) {
+      if (tab !== t('tabCredits')) await clickText(box.view!, tab)
+      const panel = box.view!.root.findAll((node) => node.props.role === 'tabpanel')[0]!
+      expect(String(panel.props.className), `${tab} 没有用共用的面板壳`).toMatch(/_panel_/)
+      const lists = byClass(panel, 'list')
+      expect(lists, `${tab} 的滚动区不止一个`).toHaveLength(1)
+      expect(
+        hostElementsBetween(lists[0]!, panel),
+        `${tab} 的滚动区被宿主元素包了一层，flex 填高会失效`,
+      ).toEqual([])
+    }
   })
 })

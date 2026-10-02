@@ -350,6 +350,22 @@ describe('插件页样式跟着宿主走', () => {
       'font-variant-numeric: tabular-nums',
     )
   })
+
+  it('同一行的名字只有一档字号', () => {
+    // 宿主的 `Checkbox` 自带 `font-size: 14px`，而本页的名字档是 13px
+    // （`settings-subagent` 的列表行：13 名字 / 12 说明 / 11 元数据）。
+    // 模型行的名字有两条渲染路径 —— 有显隐状态时走 `Checkbox` 的 label，
+    // 没有时走 `.name` —— 两条必须同档，否则同一个模型会因为
+    // 「这一行有没有勾选框」而换个字号。
+    const css = read('src/client/workbuddy.module.css').replace(/\/\*[\s\S]*?\*\//g, '')
+    const size = (name: string): string | undefined =>
+      new RegExp(`\\.${name}\\s*\\{([^}]*)\\}`)
+        .exec(css)?.[1]
+        ?.match(/font-size:\s*([^;]+);/)?.[1]
+        ?.trim()
+    expect(size('name'), '没扫到 .name —— 改名了？').toBeDefined()
+    expect(size('modelCheck'), '勾选框没有拉回本页字号').toBe(size('name'))
+  })
 })
 
 describe('客户端接缝', () => {

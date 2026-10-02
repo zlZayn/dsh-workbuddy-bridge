@@ -203,7 +203,16 @@ function CreditBar({
   )
 }
 
-/** The per-package credit breakdown, under the card's own "Credits" tab. */
+/**
+ * The per-package credit breakdown, under the card's own "Credits" tab.
+ *
+ * Rendered into the **same scroll container the other two panels use**. It
+ * originally rendered straight into the panel with no container at all, so while
+ * the models and detection tabs were capped at 280px this one grew to whatever
+ * the account had — 11 packages on the maintainer's account, roughly three times
+ * the height of the other two tabs (2026-10-02). Switching tabs resized the card
+ * and only this tab had no scrollbar; now all three are one geometry.
+ */
 export function CreditsPanel({
   credits,
   t,
@@ -211,29 +220,30 @@ export function CreditsPanel({
   credits: WorkBuddyWebCredits
   t: WorkBuddyTranslate
 }): ReactNode {
+  // Skip the packages that say nothing: an exhausted non-enterprise package is
+  // noise once the total is on screen.
+  const shown = credits.accounts.filter(
+    (account) =>
+      account.packageName === 'enterprise' || account.remain > 0 || account.unlimited === true,
+  )
+  // Nothing to list means no box: an empty bordered container reads as a failure
+  // to load rather than as "this account has one package and the total above is
+  // all of it".
+  if (shown.length === 0) return null
   return (
-    <div className={css.section}>
-      {credits.accounts
-        // Skip the packages that say nothing: an exhausted non-enterprise
-        // package is noise once the total is on screen.
-        .filter(
-          (account) =>
-            account.packageName === 'enterprise' ||
-            account.remain > 0 ||
-            account.unlimited === true,
-        )
-        .map((account, index) => (
-          <CreditBar
-            key={`${account.packageName}-${String(index)}`}
-            label={
-              account.packageName === 'enterprise' ? t('packageEnterprise') : account.packageName
-            }
-            remain={account.remain}
-            size={account.size}
-            unlimited={account.unlimited}
-            t={t}
-          />
-        ))}
+    <div className={css.list}>
+      {shown.map((account, index) => (
+        <CreditBar
+          key={`${account.packageName}-${String(index)}`}
+          label={
+            account.packageName === 'enterprise' ? t('packageEnterprise') : account.packageName
+          }
+          remain={account.remain}
+          size={account.size}
+          unlimited={account.unlimited}
+          t={t}
+        />
+      ))}
     </div>
   )
 }
@@ -299,8 +309,14 @@ export function ModelsPanel({
     return b.contextWindow - a.contextWindow
   })
   const hidden = new Set(visibility?.hidden ?? [])
+  /*
+   * A fragment, not a wrapper: the tab panel owns the layout (fixed height, one
+   * scroll region), so this panel's contributions have to be its *direct*
+   * children for `flex: 1` on the list to mean anything. A wrapper `<div>` here
+   * would become the flex item instead, and the list inside it would never fill.
+   */
   return (
-    <div className={css.section}>
+    <>
       {/*
        * The catalog's provenance and its refresh, as the panel's own first field
        * row. The moment the list was read is the field's grey tier; the button
@@ -379,6 +395,11 @@ export function ModelsPanel({
                       checked={!hidden.has(model.id)}
                       disabled={disabled || toggling.has(model.id)}
                       label={model.name}
+                      /* The primitive's own type is 14px; this page's names are
+                         13px. Without this the SAME row would render at two
+                         sizes depending on whether checkboxes are shown — the
+                         `.name` branch above is 13px. */
+                      className={css.modelCheck}
                       onChange={(visible) => {
                         onToggle(model.id, visible, visibility.account)
                       }}
@@ -424,7 +445,7 @@ export function ModelsPanel({
           })}
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -492,8 +513,13 @@ export function ProbePanel({
 
   const detected = probe.models.filter((entry) => entry.probedAt !== undefined)
 
+  /*
+   * A fragment, not a wrapper: the tab panel owns the layout (fixed height, one
+   * scroll region), so the field row and the list have to be its *direct*
+   * children for `flex: 1` on the list to mean anything.
+   */
   return (
-    <div className={css.section}>
+    <>
       {/*
        * The panel's own field row, mirroring the models panel: name, the dynamic
        * count, the cost of the action, and the one control on the right edge.
@@ -578,7 +604,7 @@ export function ProbePanel({
           )
         })}
       </div>
-    </div>
+    </>
   )
 }
 

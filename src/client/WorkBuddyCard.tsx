@@ -152,15 +152,19 @@ export function WorkBuddyCard({
     >
       <div className={css.body}>
         <div className={css.section}>
-          <h4 className={css.title}>{t('accountHeading')}</h4>
           {/*
-           * One fact, not two: the expiry only means anything as a property of
-           * the session, so it rides along as the field's grey tier instead of
-           * taking a row and a rule of its own. The state and the button stay on
-           * opposite edges — see `field.tsx` for the shape's two rules.
+           * One fact, not three: the block has no heading of its own, because the
+           * heading, the field's label and its value were all naming the same
+           * thing (`账号` → `登录状态` → `已登录：阿七`). The field's label carries
+           * the block's name instead, and the state is its value.
+           *
+           * The expiry rides along as the field's grey tier rather than taking a
+           * row of its own: it only means anything as a property of the session.
+           * The state and the button stay on opposite edges — see `field.tsx` for
+           * the shape's rules.
            */}
           <Field
-            label={t('accountStateLabel')}
+            label={t('accountHeading')}
             value={accountLabel(status, t)}
             hint={
               signedIn?.expiresAt === undefined ? undefined : (
@@ -206,7 +210,7 @@ export function WorkBuddyCard({
             <PanelBoundary key={tab} label={t(TAB_LABEL_KEY[tab])} t={t}>
               {tab === 'credits' ? (
                 <div
-                  className={css.section}
+                  className={css.panel}
                   id={creditsTab.panelId}
                   role="tabpanel"
                   aria-labelledby={creditsTab.id}
@@ -258,7 +262,7 @@ export function WorkBuddyCard({
                 </div>
               ) : tab === 'models' ? (
                 <div
-                  className={css.section}
+                  className={css.panel}
                   id={modelsTab.panelId}
                   role="tabpanel"
                   aria-labelledby={modelsTab.id}
@@ -281,7 +285,7 @@ export function WorkBuddyCard({
                 </div>
               ) : (
                 <div
-                  className={css.section}
+                  className={css.panel}
                   id={probeTab.panelId}
                   role="tabpanel"
                   aria-labelledby={probeTab.id}

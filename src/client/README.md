@@ -14,6 +14,8 @@
   卡片上每一块都走它；形状的三条不变式见 [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) 的「卡片的视觉语法」，
   结构守卫是 [../../tests/browser/field.spec.ts](../../tests/browser/field.spec.ts)
 - panels.tsx —— 标签页内容：积分条与套餐明细 / 模型目录表（`ModelsPanel`）/ 档位清单（`ProbePanel`，每个推理模型一行）/ Agent assist
+- PanelBoundary.tsx —— 面板级错误边界（class 组件，React 只支持 class）。宿主的槽边界会**闩锁**：
+  一处抛错整块配置区消失、必须关开插件才回来，所以每个标签页自己包一层
 - probe-control.tsx —— 输入区推理档位控件：**灯泡 = 这个模型现在能不能切档位**（不是「探测过没有」）。
   判据只一条：`efforts.length > 0` ⇔ 灯泡点亮 ⇔ 选择器提供档位，两头同源于 `src/probe/efforts.ts`。
   上游已声明档位的模型**照常显示灯泡但禁用检测**（声明已是答案）；`non-validating` 保持可检测。
@@ -33,7 +35,8 @@
 - workbuddy.module.css —— 配置页与卡片的样式
 - coin-glyph.module.css —— 币图标自身的布局（`flex: none`）；它出现在两个页面上，所以规则跟着图标走，不留在调用方的样式表里
 - probe-control.module.css —— 控件与浮层的样式
-- credit-balance.module.css —— 积分读数与币图标的样式（图标 16px、线宽 1，与灯泡同档）
+- credit-balance.module.css —— 积分读数的行样式（28px 高、4px 间距、tertiary 墨色、等宽数字）；
+  币图标自身的规则在它自己的模块里
 - credit-label.module.css —— 每消息消耗标签的样式
 - css-modules.d.ts —— `*.module.css` 的类型声明
 

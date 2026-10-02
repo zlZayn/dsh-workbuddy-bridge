@@ -342,10 +342,19 @@
 /* ---- Credits ------------------------------------------------------------ */
 
 /* One billing package: label row, track, then the exact figure. */
+/* One package: its name and quota on one line, the quota track, then the exact
+   figure. Row geometry matches `.modelRow` and `.probeRow` — padding plus a
+   0.5px rule *between* rows — so all three tabs' lists read as the same object
+   rather than as three plugins' worth of lists. */
 .package {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 8px 0;
+}
+
+.package + .package {
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .packageLabel {
@@ -374,25 +383,70 @@
   background: var(--dsw-alias-brand-primary);
 }
 
-/* ---- Model rows --------------------------------------------------------- */
+/* ---- Lists -------------------------------------------------------------- */
 
-/* The container for a list of models.
-   Copied from the official `dsh-experimental-client-ui-voice-input` plugin's
-   configuration card, which frames each block exactly this way:
-   `.preparation { border: .5px solid border-l1; border-radius: 10px; gap: 10px;
-   margin: 12px 0; padding: 14px; font-size: 13px }`. `max-height` + `overflow`
-   come from the host's settings-subagent `.models`, for a catalog long enough
-   to need one. */
+/*
+ * A tab panel: **one fixed row on top, one scroll region under it, same height
+ * on every tab.**
+ *
+ * The height is the point. `max-height` on the list alone (the first attempt)
+ * only caps the *tallest* case, so every tab was still content-sized and
+ * switching tabs resized the card — a jolt the eye reads as a layout bug. A
+ * fixed panel height with the list taking `1fr` makes the three tabs
+ * interchangeable boxes: the scroll region absorbs whatever is left after the
+ * header, and the header's own line count is free to differ.
+ *
+ * 380px = the tallest header (a label, a value and two lines of grey detail,
+ * about 88px) + the scroll region's own reach (280px, the host's
+ * settings-subagent `.models`) + the 12px between them. So this is the height
+ * the card already had on its tallest tab — the short tabs grow to match it
+ * rather than the tall one shrinking.
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 380px;
+}
+
+/* Everything but the scroll region keeps its natural size: the header carries
+   the panel's name and its action, and those must never be squeezed to give the
+   list more room. */
+.panel > * {
+  flex: none;
+}
+
+/*
+ * The scroll region of a tab panel — **all three of them, and only one each**;
+ * it takes whatever the header left behind.
+ *
+ * `min-height: 0` is required, not decorative: a flex item defaults to
+ * `min-height: auto`, which refuses to shrink below its content, so the list
+ * would push the panel past its height instead of scrolling inside it.
+ *
+ * The frame is copied from the official `dsh-experimental-client-ui-voice-input`
+ * plugin's configuration card (`.preparation`: 0.5px border-l1, radius 10px,
+ * padding 14px).
+ *
+ * The fixed row sits **above** this, never below: it carries the panel's name
+ * and its action, and an action under a scroll region reads as belonging to
+ * whatever happens to be scrolled to.
+ */
 .list {
   display: grid;
   gap: 0;
   min-width: 0;
-  max-height: 280px;
   margin: 0;
   padding: 6px 14px;
   overflow: auto;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
+}
+
+/* The one child that fills: inside a panel it takes the remaining height. */
+.panel > .list {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* The list's own legend: what the checkboxes in it mean.
@@ -415,7 +469,11 @@
    names (the same choice `.probeRow` makes). */
 .modelRow {
   display: flex;
-  align-items: flex-start;
+  /* `center`, not `flex-start`: the right column runs to two or three lines
+     (rate, capacity, an alternative window, badges), and top-aligned left the
+     checkbox floating above the name it labels. `.probeRow` centres for the same
+     reason — one card should not align its rows two ways. */
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 0;
@@ -430,6 +488,26 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+/*
+ * The host's `Checkbox` carries its own type — `font-size: 14px`,
+ * `line-height: 20px` — which is right for a settings page whose row names are
+ * 14px, and one step too large here, where every other name in the card is 13px
+ * (`settings-subagent`'s list rows: 13 name / 12 hint / 11 metadata).
+ *
+ * Left alone, the same model reads 14px on the Models tab and 13px on the
+ * Detection tab, because that panel renders its name through `.name` instead of
+ * through the checkbox's label.
+ *
+ * Only the type is touched. The glyph stays the primitive's own native input:
+ * redrawing it would make this plugin the one place in Settings with a
+ * hand-built checkbox, and it would lose the keyboard and assistive behaviour
+ * that come with the real control.
+ */
+.modelCheck {
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .modelStack {

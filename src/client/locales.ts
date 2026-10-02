@@ -22,8 +22,8 @@ export type WorkBuddyLocaleKey =
    * interpolated into these strings — see the `.fieldValue` / `.fieldFigure`
    * rules in workbuddy.module.css for why.
    */
-  | 'accountStateLabel'
   | 'sessionExpiryLabel'
+
   // Read failures
   | 'requestFailed'
   | 'statusRefreshFailed'
@@ -63,7 +63,6 @@ export type WorkBuddyLocaleKey =
   | 'creditConsumed'
   | 'creditConsumedTitle'
   | 'creditRemainingUnlimited'
-  | 'creditRemainingUnknown'
   | 'creditBalanceTitle'
   // Model offers
   | 'freeModel'
@@ -94,7 +93,6 @@ export type WorkBuddyLocaleKey =
   | 'probeResultAt'
   | 'probeResultEmpty'
   | 'probeActionDeclared'
-  | 'probeFailed'
   // The composer control's own panel. Unlike the card, it has one action and no
   // confirmation step: the panel explains, the button acts.
   | 'probePanelLevels'
@@ -164,13 +162,9 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   signedIn: 'Signed in',
   signedInAs: 'Signed in as {nickname}',
   accountHeading: 'Account',
-  /*
-   * Static labels for the account block; the values beside them are rendered as
-   * separate elements. Two or three words each — a label that restates its
-   * value is what makes a status row read as prose.
-   */
-  accountStateLabel: 'Sign-in',
+  /* The account block's one label; its value is rendered as a separate element. */
   sessionExpiryLabel: 'Expires',
+
   requestFailed: 'Request failed',
   statusRefreshFailed: 'Refresh failed: {message} — showing the last known state',
   statusResponseInvalid: 'WorkBuddy returned an unreadable status reply',
@@ -213,7 +207,6 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
    * lives in `creditBalanceTitle` below, which is what hovering reveals.
    */
   creditRemainingUnlimited: 'Unlimited',
-  creditRemainingUnknown: 'Credit unknown',
   creditBalanceTitle: 'Remaining credit on your {product} account',
   freeModel: 'Free',
   badgeLimitedFree: 'Limited-time free',
@@ -256,7 +249,6 @@ export const en: Record<WorkBuddyLocaleKey, string> = {
   probeResultAt: 'Detected {time}',
   probeResultEmpty: 'No reasoning models are being served right now.',
   probeActionDeclared: 'Declared',
-  probeFailed: 'Detection failed: {message}',
   probeLabel: 'Reasoning levels',
   probePanelLevels: 'Supported levels',
   probePanelNoLevels: 'No level can be selected',
@@ -337,8 +329,8 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   signedIn: '已登录',
   signedInAs: '已登录：{nickname}',
   accountHeading: '账号',
-  accountStateLabel: '登录状态',
   sessionExpiryLabel: '有效期至',
+
   catalogSourceLabel: '模型列表',
   catalogSourceLive: '来自客户端实时读取',
   catalogSourceSaved: '已保存的副本',
@@ -371,7 +363,6 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   creditConsumedTitle: '本条消息消耗的积分（由 WorkBuddy 返回）',
   /* 见英文侧的说明：composer 那处只有图标 + 数字，说明文字在 title 里。 */
   creditRemainingUnlimited: '不限额',
-  creditRemainingUnknown: '积分未知',
   creditBalanceTitle: '{product} 账号剩余积分',
   freeModel: '免费',
   badgeLimitedFree: '限时免费',
@@ -400,7 +391,6 @@ export const zh: Record<WorkBuddyLocaleKey, string> = {
   probeResultAt: '检测于 {time}',
   probeResultEmpty: '当前没有提供可选档位的推理模型。',
   probeActionDeclared: '已声明',
-  probeFailed: '检测失败：{message}',
   probeLabel: '推理档位',
   probePanelLevels: '支持的档位',
   probePanelNoLevels: '无可选档位',
