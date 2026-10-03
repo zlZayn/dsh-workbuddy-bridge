@@ -15,24 +15,56 @@
  * baseline-cn, baseline-intl. Each case prints its own verdict, so the run's
  * output is the record. The 2026-09-14 pass was additionally written up in the
  * maintainer's local notes, deliberately kept out of this repository.
+ *
+ * A case whose product is not signed in on this machine is **skipped with its
+ * own verdict**, not a failure: the two products are independent installs, and
+ * requiring both is what made this script unusable off macOS. The cases that can
+ * run still run, and the exit code reflects only those.
  */
 
-import { readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import {
+  AI_VARIANT,
+  CN_VARIANT,
+  WorkBuddyCredentialStore,
   WorkBuddyUpstreamClient,
   chatUserAgent,
-  parseWorkBuddyAuth,
   prepareChatBody,
   resolveChatIdentity,
 } from '../lib/index.js'
 
-const AUTH_DIR = join(homedir(), 'Library/Application Support/CodeBuddyExtension/Data/Public/auth')
-const CN = parseWorkBuddyAuth(await readFile(join(AUTH_DIR, 'workbuddy-desktop.info'), 'utf8'))
-const INTL = parseWorkBuddyAuth(await readFile(join(AUTH_DIR, 'workbuddy-desktop-ai.info'), 'utf8'))
-if (!CN || !INTL) throw new Error('credential files unreadable')
+/*
+ * Credentials come from the store, exactly as the plugin reads them.
+ *
+ * This used to read the desktop files with `parseWorkBuddyAuth` and a hardcoded
+ * macOS path — two ways to be wrong at once (2026-10-03, found by the release
+ * checklist): the path does not exist on Windows, and the CN file there is
+ * at-rest **encrypted**, which a plaintext parser cannot read at all. Going
+ * through `WorkBuddyCredentialStore` picks up the platform's real path list and
+ * the decryption the plugin already does, so the matrix checks what ships.
+ *
+ * A product that is not signed in here yields `undefined` — its cases are skipped
+ * with their own verdict, not failed: the two products are independent installs.
+ */
+const storeFor = (variant) => {
+  const client = new WorkBuddyUpstreamClient()
+  return new WorkBuddyCredentialStore({
+    variant,
+    refresh: (credential) => client.refreshToken(credential),
+  })
+}
+const credentialFor = async (variant) => {
+  try {
+    return await storeFor(variant).current()
+  } catch {
+    return undefined
+  }
+}
+const CN = await credentialFor(CN_VARIANT)
+const INTL = await credentialFor(AI_VARIANT)
+if (CN === undefined && INTL === undefined) {
+  throw new Error('neither product is signed in on this machine: nothing to check')
+}
 
 const client = new WorkBuddyUpstreamClient()
 const cnIdentity = await resolveChatIdentity('cn')
@@ -221,11 +253,27 @@ async function baseline(id, credential, region, model, bodyJson) {
 }
 
 const wanted = process.argv.slice(2)
-const run = (name) => wanted.length === 0 || wanted.includes(name)
+/** Case ids that could not run because their product is not signed in here. */
+const skipped = []
+/**
+ * Whether a case should run: selected, and its product signed in.
+ *
+ * A skip is reported with its own verdict rather than counted as a failure — the
+ * two products are independent installs, and demanding both is what made this
+ * script unusable anywhere but a machine signed into both.
+ */
+const run = (name, credential) => {
+  if (wanted.length > 0 && !wanted.includes(name)) return false
+  if (credential !== undefined) return true
+  skipped.push(name)
+  console.log(`SKIP #${name} — that product is not signed in on this machine`)
+  return false
+}
 const cnWrap = (body) => prepareChatBody(body)
 const intlWrap = (body) => body
 
 const balance = async (c) => {
+  if (c === undefined) return 'n/a'
   try {
     return (await client.fetchCredits(c)).total
   } catch {
@@ -236,7 +284,7 @@ const cnBefore = await balance(CN)
 const intlBefore = await balance(INTL)
 console.log(`balance before: CN=${cnBefore} INTL=${intlBefore}`)
 
-if (run('cn-chat'))
+if (run('cn-chat', CN))
   await chat(
     'cn-chat',
     CN,
@@ -248,8 +296,8 @@ if (run('cn-chat'))
       ]),
     ),
   )
-if (run('cn-tool')) await toolRound('cn-tool', CN, 'cn', 'glm-5.3', cnWrap)
-if (run('intl-chat'))
+if (run('cn-tool', CN)) await toolRound('cn-tool', CN, 'cn', 'glm-5.3', cnWrap)
+if (run('intl-chat', INTL))
   await chat(
     'intl-chat',
     INTL,
@@ -261,10 +309,10 @@ if (run('intl-chat'))
       ]),
     ),
   )
-if (run('intl-tool')) await toolRound('intl-tool', INTL, 'intl', 'gpt-5.6-luna', intlWrap)
-if (run('cn-probe')) await probe('cn-probe', CN, 'glm-5.2', 'low')
-if (run('intl-probe')) await probe('intl-probe', INTL, 'gpt-5.3-codex', 'low')
-if (run('baseline-cn'))
+if (run('intl-tool', INTL)) await toolRound('intl-tool', INTL, 'intl', 'gpt-5.6-luna', intlWrap)
+if (run('cn-probe', CN)) await probe('cn-probe', CN, 'glm-5.2', 'low')
+if (run('intl-probe', INTL)) await probe('intl-probe', INTL, 'gpt-5.3-codex', 'low')
+if (run('baseline-cn', CN))
   await baseline(
     'baseline-cn',
     CN,
@@ -277,7 +325,7 @@ if (run('baseline-cn'))
       ]),
     ),
   )
-if (run('baseline-intl'))
+if (run('baseline-intl', INTL))
   await baseline(
     'baseline-intl',
     INTL,
@@ -298,6 +346,10 @@ console.log(
 if (failures.length > 0) {
   console.log(`\n=== FAILED: ${failures.join(', ')}`)
   process.exitCode = 1
+} else if (skipped.length > 0) {
+  // Skips are not failures, but they are not silence either: a run that checked
+  // only one product must say so, or the next reader takes the pass for both.
+  console.log(`\n=== passed; skipped (not signed in here): ${skipped.join(', ')}`)
 } else {
   console.log('\n=== all requested cases passed')
 }
