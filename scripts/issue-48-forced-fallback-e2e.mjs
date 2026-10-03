@@ -17,8 +17,9 @@
  */
 import { createHash } from 'node:crypto'
 import { accessSync, constants, readFileSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 
 /*
  * macOS-only, and it says so before doing anything.
@@ -148,11 +149,18 @@ if (key !== null) {
 }
 
 // 4. The same chain through the store, which is what the card and doctor read.
+//
+// The store persists the credential it resolves to `ownPath`, so that path must
+// be a throwaway: it used to be `~/.dsh/.workbuddy-e2e-check.json` — beside the
+// plugin's real credential copy, named as if it were one, and **never deleted**.
+// A live check has no business leaving a real token on disk. Now it is a private
+// temp directory, removed at the end (2026-10-03).
+const scratch = await mkdtemp(join(tmpdir(), 'wb-issue48-'))
 try {
   const store = new WorkBuddyCredentialStore({
     variant: CN_VARIANT,
     desktopPath: AUTH_FILE,
-    ownPath: join(homedir(), '.dsh', '.workbuddy-e2e-check.json'),
+    ownPath: join(scratch, 'own.json'),
     refresh: async (credential) => ({ accessToken: credential.accessToken }),
     keyProvider: new WorkBuddyAtRestKeyProvider({
       discovery: 'macos-workbuddy',
@@ -175,6 +183,8 @@ try {
   )
 } catch (error) {
   record('store.status() reports signed-in through the discovered binary', false, String(error))
+} finally {
+  await rm(scratch, { recursive: true, force: true })
 }
 
 // 5. Low-intrusion reverse assertion: with the real default present, the

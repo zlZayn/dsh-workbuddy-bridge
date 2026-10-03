@@ -12,14 +12,22 @@
 3. **文档同步**：改了对外可见行为（配置项、工具/模型面、安装命令、版本对应表）→ 同一次改动内同步 [README.md](../README.md) 与 [README_en.md](../README_en.md)（**两份必同改**）。
 4. **链接与格式**：跑一次链接校验（见 [AGENTS.md](../AGENTS.md) 的常用命令），确保 `docs/` 与子树双件没有断链。
 5. **真机验证（CI 覆盖不到的那一段）**：托管 runner 上没有 WorkBuddy 桌面 App、也没有真实登录凭据，所以下面三条只能在本机跑。
-   发版前逐条执行，输出即记录（脚本自己会打 PASS/FAIL）：
+   发版前逐条执行，输出即记录（脚本自己会打 PASS / FAIL / SKIP）：
 
    - `node scripts/live-e2e.mjs` —— 适配器 → pi-ai → shim → 真实上游的端到端，用本机登录态。依赖 `lib/` 产物，**先 build**。
-   - `node scripts/client-identity-live-matrix.mjs` —— 客户端身份真实矩阵（八个 case，各打各的判定）。同样依赖 `lib/`，先 build。
+   - `node scripts/client-identity-live-matrix.mjs` —— 客户端身份真实矩阵，各 case 各打各的判定。同样依赖 `lib/`，先 build。
    - `node scripts/issue-48-forced-fallback-e2e.mjs` —— macOS 强制 fallback 真链（真 `mdfind` / `plutil` / helper spawn）。
      **未跑之前，Release notes 不得声称 macOS 自动发现"已验证"**（判据：[archive/issue-48-electron-path-plan.md](archive/issue-48-electron-path-plan.md) §9.2-A）。
 
    这三条进不了 CI 是平台事实（见 [ci.yml](../.github/workflows/ci.yml) 的矩阵注释），所以它们只有在**这份清单里**才算数。
+
+   **`SKIP` 不是通过**，它是一句必须交代清楚的话：
+
+   - 非 macOS 上 `issue-48-forced-fallback-e2e.mjs` 打 `SKIP` 并 `exit 0`（那条链只有 macOS 有）。
+   - `client-identity-live-matrix.mjs` 对**本机未登录的产品**打 `SKIP`；两个产品是各自独立的安装，
+     只登录一个是正常状态，结尾会列出跳过了哪些 case。
+   - 判据是**跑过哪些 case**，不是退出码。发版记录里写清跳过了什么，
+     尤其别把「CN 五个 case 过了」说成「身份矩阵全过」。
 
 ## 发版
 
