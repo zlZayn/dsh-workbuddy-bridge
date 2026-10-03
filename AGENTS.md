@@ -60,27 +60,12 @@
 
 ## 待办
 
-- [x] 客户端 i18n 对齐 `dsh-ds-balance` 的扁平键 + 插值形态；文案语义 2026-09-26 全量过一遍（标签按读者任务重排同批）
-- [x] 首次发布 `0.1.0`（维护者本地 publish + Trusted Publisher 已配）；README 门面已按发布态重写（npm 徽章已加）
-- [x] 发布链落地并跑通：`release.yml` 支持推 tag 触发（带 tag/版本一致性闸）、守卫基线排除正在发的 tag、Release 步对 5xx 重试 —— `0.2.0` 全链绿
-- [x] **门面截图重拍**（2026-10-02 维护者手动完成）：换成描述名（`model-picker` / `plugin-page` / `models-tab` /
-  `detection-tab` / `credits-tab` / `composer-row` / `reasoning-levels-declared.png`），数字编号作废（`5.png` 本就空缺）。
-  新增 `composer-row.png`（币图标 + 积分 + 灯泡并排）与 `reasoning-levels-declared.png`（已声明态，从孤儿变成被引用）。
-  两份门面的引用与 alt 同批改齐，表见 [assets/README.md](assets/README.md)
-- [x] **注册与揭示之间的空窗**（[issue #2](https://github.com/zlZayn/dsh-workbuddy-bridge/issues/2)）：已按推荐方向实施 —— 启动改三相
-  「读凭据并采纳身份 → 注册 provider → 抓目录」，provider 一出现 catalog 就已揭示。守卫在
-  `tests/catalog-lifecycle.spec.ts`（采样循环必须在 `ctx.plugin` 之前起并与之并发，否则两种顺序都会绿）；
-  已反证：改回旧顺序该用例报 2 处违规。判据与替代方案见 [决策记录](.agents/notes/2026-10-02-startup-window-fix-direction.md)
-- [x] **实测改动的前置**（2026-10-02 解决）：此前装的是真实目录副本，改源码 → build 不生效，还得手动同步 + 重启，
-  且半同步（只换客户端半）会让控件整个不渲染。现已改为 **`link:` 形态**，`build` 完只需重启 dsh。
-  形态判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「本地开发装法」；回滚备份在 profile 下的 `*.bak-link-<时间戳>`
-- [ ] **重拍门面截图**（维护者手动）：四个块与积分行的排版这一轮改过（见[决策记录](.agents/notes/2026-10-03-card-two-line-template.md)），
-  波及 `plugin-page` / `credits-tab` / `models-tab` / `detection-tab` 四张；表见 [assets/README.md](assets/README.md)
-- [ ] **发 `0.3.1`**（patch：修缺陷 + 等价重构）：`package.json` 已 bump、`v0.3.1` 已打在本地，等截图拍完
-  推 `main` + tag 即走 `release.yml`。推送前逐条走 [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「发版前确认」
-  —— 其中三条真机脚本只能在本机跑（macOS 那条本机跑不了，Release notes 就别声称 macOS 已验证）
-  - **截图提交之后先把 tag 移到最终提交**（`git tag -f v0.3.1`）：workflow 从 **tag** 构建产物，
-    tag 落在截图之前，发出去的包就不是最终形态
+- [ ] **发 `0.3.1`**（patch：修缺陷 + 等价重构）：`package.json` 已 bump、三张门面图已换、
+  `v0.3.1` 已打在本地，推 `main` + tag 即走 `release.yml`。推送前逐条走
+  [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「发版前确认」—— 其中三条真机脚本只能在本机跑
+  （macOS 那条本机跑不了，Release notes 就别声称 macOS 已验证）
+  - **推之前先把 tag 移到最终提交**（`git tag -f v0.3.1`）：workflow 从 **tag** 构建产物，
+    tag 落在提交之前，发出去的包就不是最终形态
 
 ## 活跃坑
 
