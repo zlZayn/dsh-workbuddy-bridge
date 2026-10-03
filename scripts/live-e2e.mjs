@@ -39,15 +39,34 @@ invalidate()
 const liveList = await adapter.listModels('workbuddy')
 console.log('upstream catalog:', liveList.map((model) => model.id).join(', '))
 
-const resolved = await adapter.resolveModel('workbuddy', 'auto')
-console.log('resolved auto:', JSON.stringify(resolved))
+/*
+ * Pick the model from what upstream just answered, cheapest first.
+ *
+ * This used to hardcode `auto`, which was in the catalog when the script was
+ * written and is gone now (2026-10-03) — so the check failed with UNKNOWN_MODEL
+ * on a healthy chain. The catalog churns by design (see the note in
+ * src/protocol/client.ts), so a check of the chain must not also be a check that
+ * one particular model still exists. Cheapest first keeps the credit it spends
+ * as small as the catalog allows.
+ */
+const rateOf = (model) => {
+  const raw = String(model.billing?.credits ?? '').replace(/^x/iu, '')
+  const value = Number.parseFloat(raw)
+  return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY
+}
+const chosen = [...liveList].sort((a, b) => rateOf(a) - rateOf(b))[0]
+if (chosen === undefined) throw new Error('upstream returned no models to check')
+console.log('chosen model:', chosen.id, `(rate x${rateOf(chosen)})`)
+
+const resolved = await adapter.resolveModel('workbuddy', chosen.id)
+console.log('resolved:', JSON.stringify(resolved))
 
 console.log('streaming one reply …')
 let text = ''
 let usage
 for await (const chunk of adapter.stream({
   provider: 'workbuddy',
-  model: 'auto',
+  model: chosen.id,
   system: '你是简洁的中文助手。',
   messages: [
     {
