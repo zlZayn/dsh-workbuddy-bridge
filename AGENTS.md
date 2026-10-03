@@ -60,12 +60,10 @@
 
 ## 待办
 
-- [ ] **发 `0.3.1`**（patch：修缺陷 + 等价重构）：`package.json` 已 bump、三张门面图已换、
-  `v0.3.1` 已打在本地，推 `main` + tag 即走 `release.yml`。推送前逐条走
-  [docs/PUBLISHING.md](docs/PUBLISHING.md) 的「发版前确认」—— 其中三条真机脚本只能在本机跑
-  （macOS 那条本机跑不了，Release notes 就别声称 macOS 已验证）
-  - **推之前先把 tag 移到最终提交**（`git tag -f v0.3.1`）：workflow 从 **tag** 构建产物，
-    tag 落在提交之前，发出去的包就不是最终形态
+- [ ] **`v0.3.1` 的 Release notes 要人工过一眼**：workflow 用 `gh release create --generate-notes`
+  自动生成，标题是 tag。发版记录里要写清真机脚本**跑过哪些 case**、跳过了什么 ——
+  尤其别把「CN 五个 case 过了」说成「身份矩阵全过」，也别声称 macOS 自动发现已验证
+  （本机是 Windows，那条链打的是 `SKIP`，判据见 [docs/PUBLISHING.md](docs/PUBLISHING.md) 第 5 条）
 
 ## 活跃坑
 
