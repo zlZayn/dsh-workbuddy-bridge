@@ -20,9 +20,30 @@ import { accessSync, constants, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
+/*
+ * macOS-only, and it says so before doing anything.
+ *
+ * The whole point is the real `/usr/bin/mdfind` + `/usr/bin/plutil` + helper
+ * spawn chain, so on any other platform there is nothing to prove. Without this
+ * guard the script died on a *module* error instead — which reads as a broken
+ * script rather than as "this platform has no such chain" (2026-10-03, found by
+ * the release checklist).
+ *
+ * The two imports below also pointed at module names that no longer exist
+ * (`src/desktop-credential-protection.ts`, `src/auth.ts`); they are corrected to
+ * where the symbols live now.
+ */
+if (process.platform !== 'darwin') {
+  console.log(
+    'SKIP issue-48 forced-fallback E2E — it drives the real macOS discovery chain ' +
+      `(mdfind / plutil / helper spawn); this platform is ${process.platform}.`,
+  )
+  process.exit(0)
+}
+
 const { WorkBuddyAtRestKeyProvider, defaultWorkBuddyElectronPath, reasonCodeOf } =
-  await import('../src/desktop-credential-protection.ts')
-const { WorkBuddyCredentialStore } = await import('../src/auth.ts')
+  await import('../src/credential/at-rest.ts')
+const { WorkBuddyCredentialStore } = await import('../src/credential/store.ts')
 const { CN_VARIANT } = await import('../src/variants.ts')
 
 const AUTH_FILE = join(
