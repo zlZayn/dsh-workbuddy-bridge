@@ -18,13 +18,19 @@ import {
   WorkBuddyAtRestKeyProvider,
   WorkBuddyElectronPathError,
   classifyDesktopAuthDocument,
+  cnAppDiscovery,
   keyIdsOf,
   openAuthField,
   reasonCodeOf,
   unwrapDesktopAuthDocument,
 } from '../credential/at-rest.ts'
-import type { DesktopAuthClassification, DesktopAuthFormat } from '../credential/at-rest.ts'
+import type {
+  DesktopAuthClassification,
+  DesktopAuthFormat,
+  WorkBuddyElectronDiscovery,
+} from '../credential/at-rest.ts'
 import type { WorkBuddySignedOutReasonCode } from '../shared/paths.ts'
+import { CN_VARIANT } from '../variants.ts'
 import type { WorkBuddyVariant } from '../variants.ts'
 import type { WorkBuddyRefreshOutcome } from '../protocol/client.ts'
 
@@ -84,9 +90,10 @@ export interface WorkBuddyStoreOptions {
   refreshMarginMs?: number
   /**
    * Resolver for WorkBuddy 5.6's at-rest protector key, needed when the
-   * desktop file stores encrypted token fields. Defaults to the real
-   * provider, which spawns the WorkBuddy Electron binary; tests stand in a
-   * stub. Structural so a store never depends on how the key is reached.
+   * desktop file stores encrypted token fields. Defaults to the real provider
+   * with the discovery this store's variant may run — see
+   * {@link atRestDiscoveryFor}. Tests stand in a stub; the shape is structural
+   * so a store never depends on how the key is reached.
    */
   keyProvider?: Pick<WorkBuddyAtRestKeyProvider, 'protectorKeyFor' | 'helperPath'>
 }
@@ -355,6 +362,41 @@ function isENOENT(error: unknown): boolean {
 }
 
 /**
+ * Which automatic at-rest key discovery this store may run, by variant.
+ *
+ * **One home for a rule that had three.** The choice used to be made at every
+ * call site — `src/index.ts` and `src/cli/bin.ts` each spelled out
+ * `discovery: variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none'` — and the
+ * store's own default was a bare `new WorkBuddyAtRestKeyProvider()`, whose
+ * discovery is `'none'`. So a caller that did neither got a provider that could
+ * never open an encrypted credential: `scripts/live-e2e.mjs` was exactly that
+ * caller, and it failed with `electron-binary-unavailable` on every platform
+ * (2026-10-03, found by the release checklist). The store knows its variant, so
+ * the choice belongs here.
+ *
+ * Why the difference is deliberate:
+ *
+ * - Only the CN WorkBuddy install has been verified to hold the key its envelopes
+ *   name, and only its macOS/Windows layout is known, so CN may look for the app.
+ * - A Global (WorkBuddy AI) encrypted credential has never been seen live, so that
+ *   variant runs at `'none'` — no default path and no app search. A Global unlock
+ *   must not silently execute the *CN* app's Electron. An explicit
+ *   `WORKBUDDY_ELECTRON_BIN` still works for Global.
+ *
+ * **No variant** means the CN product's own default file —
+ * `defaultDesktopAuthCandidates()` is the `workbuddy-desktop.info` path, never the
+ * AI one — so it gets the same discovery CN does.
+ *
+ * A keyId mismatch is still reported as a diagnosis rather than a wrong open, and
+ * the helper only runs if an encrypted credential is actually read.
+ */
+export function atRestDiscoveryFor(
+  variant: WorkBuddyVariant | undefined,
+): WorkBuddyElectronDiscovery {
+  return variant === undefined || variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none'
+}
+
+/**
  * Read-only credential store with demand-driven refresh.
  *
  * Refresh policy: refresh only when the access token is inside the margin
@@ -381,7 +423,9 @@ export class WorkBuddyCredentialStore {
       (options.variant
         ? join(resolveDshHome(), options.variant.ownFilename)
         : workbuddyOwnAuthPath())
-    this.keyProvider = options.keyProvider ?? new WorkBuddyAtRestKeyProvider()
+    this.keyProvider =
+      options.keyProvider ??
+      new WorkBuddyAtRestKeyProvider({ discovery: atRestDiscoveryFor(options.variant) })
     this.desktopPathOverride = options.desktopPath
   }
 

@@ -8,6 +8,7 @@ import {
   WORKBUDDY_ELECTRON_BIN_ENV,
   buildAuthenticatedContextAad,
   classifyDesktopAuthDocument,
+  cnAppDiscovery,
   deriveProtectorKey,
   keyIdsOf,
   openAuthField,
@@ -15,7 +16,8 @@ import {
   sealAuthFieldForTest,
   unwrapDesktopAuthDocument,
 } from '../src/credential/at-rest.ts'
-import { WorkBuddyCredentialStore } from '../src/credential/store.ts'
+import { WorkBuddyCredentialStore, atRestDiscoveryFor } from '../src/credential/store.ts'
+import { AI_VARIANT, CN_VARIANT } from '../src/variants.ts'
 
 /**
  * Issue #39/#40: WorkBuddy 5.6 seals the desktop auth file's token fields in
@@ -330,6 +332,30 @@ describe('at-rest key provider', () => {
     await expect(provider.protectorKeyFor([KEY_ID])).rejects.toThrow(
       /not available at \/nonexistent\/workbuddy-electron/,
     )
+  })
+
+  it('picks the store default discovery by variant, and never for Global', () => {
+    /*
+     * Regression, 2026-10-03, found by the release checklist rather than by a
+     * test: `WorkBuddyCredentialStore`'s default key provider used to be a bare
+     * `new WorkBuddyAtRestKeyProvider()`, whose discovery is `'none'` — so *any*
+     * caller that did not pass its own `keyProvider` could never open an
+     * encrypted credential. The host and the CLI each worked around it at their
+     * call site; `scripts/live-e2e.mjs` did not, and failed with
+     * `electron-binary-unavailable` on every platform.
+     *
+     * The rule now has one home — `atRestDiscoveryFor` — and this pins it:
+     * CN (and a variantless store, which reads the CN product's default file)
+     * may look for the app; Global must not, because a Global unlock must never
+     * silently execute the CN app's Electron.
+     */
+    expect(atRestDiscoveryFor(CN_VARIANT)).toBe(cnAppDiscovery())
+    expect(atRestDiscoveryFor(AI_VARIANT)).toBe('none')
+    expect(atRestDiscoveryFor(undefined)).toBe(cnAppDiscovery())
+    // The provider's own no-arg default stays 'none' — that narrowing is what
+    // keeps a provider that was never told which product it serves from reaching
+    // for another product's binary (see the case above).
+    expect(new WorkBuddyAtRestKeyProvider().helperPath()).toBeUndefined()
   })
 
   it('resolves the helper path from env, then the platform default', () => {

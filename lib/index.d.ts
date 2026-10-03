@@ -941,9 +941,10 @@ interface WorkBuddyStoreOptions {
   refreshMarginMs?: number;
   /**
    * Resolver for WorkBuddy 5.6's at-rest protector key, needed when the
-   * desktop file stores encrypted token fields. Defaults to the real
-   * provider, which spawns the WorkBuddy Electron binary; tests stand in a
-   * stub. Structural so a store never depends on how the key is reached.
+   * desktop file stores encrypted token fields. Defaults to the real provider
+   * with the discovery this store's variant may run — see
+   * {@link atRestDiscoveryFor}. Tests stand in a stub; the shape is structural
+   * so a store never depends on how the key is reached.
    */
   keyProvider?: Pick<WorkBuddyAtRestKeyProvider, 'protectorKeyFor' | 'helperPath'>;
 }

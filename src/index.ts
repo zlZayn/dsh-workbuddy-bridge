@@ -21,12 +21,7 @@ import type {} from '@deepseek-ai/dsh-attachment'
 // subscriber below cannot typecheck (and a value import would pull a host
 // service into the module graph for no runtime reason).
 import type {} from '@deepseek-ai/dsh-session'
-import {
-  WorkBuddyCredentialStore,
-  type WorkBuddyCredential,
-  type WorkBuddyStoreOptions,
-} from './credential/store.ts'
-import { WorkBuddyAtRestKeyProvider, cnAppDiscovery } from './credential/at-rest.ts'
+import { WorkBuddyCredentialStore, type WorkBuddyCredential } from './credential/store.ts'
 import {
   FALLBACK_WORKBUDDY_AI_MODELS,
   FALLBACK_WORKBUDDY_MODELS,
@@ -489,7 +484,6 @@ function createVariantRuntime(
   variant: WorkBuddyVariant,
   identityOf: (variantId: string) => string | undefined,
   accountOf: (variantId: string) => string | undefined,
-  keyProvider: WorkBuddyStoreOptions['keyProvider'],
   creditIndex: WorkBuddySessionCreditIndex,
 ): VariantRuntime {
   const client = new WorkBuddyUpstreamClient()
@@ -497,7 +491,6 @@ function createVariantRuntime(
   const store = new WorkBuddyCredentialStore({
     variant,
     ...(configured === undefined ? {} : { desktopPath: configured }),
-    ...(keyProvider === undefined ? {} : { keyProvider }),
     refresh: (credential) => client.refreshToken(credential),
   })
   const fallback = fallbackFor(variant)
@@ -757,22 +750,10 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
    */
   const lastAccounts = new Map<string, string>()
 
-  // One at-rest key provider per variant. The difference is the discovery
-  // setting, and it is deliberate: only the CN WorkBuddy install has been
-  // verified to hold the key its envelopes name, and only its macOS layout is
-  // known, so CN may look for the app by bundle id. A Global (WorkBuddy AI)
-  // encrypted credential has never been seen live, so that provider runs at
-  // `discovery: 'none'` — no default path and no Spotlight, which is a
-  // deliberate narrowing from the shared provider it replaces: a Global unlock
-  // must not silently execute the *CN* app's Electron, and the provider cannot
-  // tell which variant is asking. An explicit WORKBUDDY_ELECTRON_BIN still
-  // works for Global. A keyId mismatch is still reported as a diagnosis rather
-  // than a wrong open, and the helper only runs if an encrypted credential is
-  // read.
-  const atRestKeysFor = (variant: WorkBuddyVariant): WorkBuddyAtRestKeyProvider =>
-    new WorkBuddyAtRestKeyProvider({
-      discovery: variant.id === CN_VARIANT.id ? cnAppDiscovery() : 'none',
-    })
+  // The at-rest key provider per variant is the store's own default now: the
+  // store knows its variant, so the per-product discovery rule lives with it
+  // (`atRestDiscoveryFor` in src/credential/store.ts) instead of being spelled
+  // out here and in the CLI.
   // One accounting index for the whole plugin, not one per variant: by the time
   // a cost is written here it is already keyed by a message id, and a session
   // may switch providers mid-conversation, so a per-variant index would lose
@@ -784,7 +765,6 @@ export function apply(ctx: Context, refs: ConfigRefs): void {
       variant,
       (id) => lastIdentities.get(id),
       (id) => lastAccounts.get(id),
-      atRestKeysFor(variant),
       creditIndex,
     ),
   )
